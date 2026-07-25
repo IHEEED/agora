@@ -11,7 +11,9 @@ dotenv.config();
 const app = express();
 const port = process.env.PORT || 4000;
 
-app.use(cors({ origin: 'http://localhost:3000' }));
+const allowedOrigins = ['http://localhost:3000', 'https://agora-vert-nine.vercel.app'];
+
+app.use(cors({ origin: allowedOrigins }));
 app.use(express.json());
 
 app.get('/', (_req, res) => {
