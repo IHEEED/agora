@@ -74,3 +74,26 @@ CREATE INDEX idx_votes_comment ON votes(comment_id);
 -- Примечание: karma в users обновляется кодом сервера при
 -- создании/удалении/изменении голоса, а не триггером БД —
 -- это проще для старта, при желании заменить на триггер позже.
+
+-- ============================================================
+-- Триггер: автосоздание строки в public.users при регистрации
+-- через Supabase Auth. Уже создан и проверен напрямую в Supabase
+-- SQL Editor — здесь только для документации схемы.
+-- ============================================================
+create or replace function public.handle_new_user()
+returns trigger
+language plpgsql
+security definer set search_path = public
+as $$
+begin
+  insert into public.users (id, email, username)
+  values (new.id, new.email, split_part(new.email, '@', 1));
+  return new;
+end;
+$$;
+
+drop trigger if exists on_auth_user_created on auth.users;
+
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute procedure public.handle_new_user();

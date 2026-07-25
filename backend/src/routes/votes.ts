@@ -4,6 +4,8 @@ import { requireAuth } from '../middleware/auth';
 
 const router = Router();
 
+const GENERIC_VOTE_ERROR = 'Не удалось сохранить голос, попробуйте ещё раз';
+
 async function getTargetAuthor(postId?: string, commentId?: string) {
   const table = postId ? 'posts' : 'comments';
   const id = postId ?? commentId;
@@ -56,36 +58,38 @@ router.post('/', requireAuth, async (req, res) => {
   }
 
   const { data: existing, error: existingError } = await findExistingVote(user_id, post_id, comment_id);
-  if (existingError) return res.status(500).json({ error: existingError.message });
-
-  if (existing) {
-    if (existing.value === value) {
-      return res.json(existing);
-    }
-
-    const { data: updated, error: updateError } = await supabase
-      .from('votes')
-      .update({ value })
-      .eq('id', existing.id)
-      .select()
-      .single();
-
-    if (updateError) return res.status(500).json({ error: updateError.message });
-
-    await adjustKarma(target.author_id, value - existing.value);
-    return res.json(updated);
+  if (existingError) {
+    console.error('votes: failed to look up existing vote', existingError);
+    return res.status(500).json({ error: GENERIC_VOTE_ERROR });
   }
 
-  const { data: created, error: insertError } = await supabase
+  if (existing && existing.value === value) {
+    return res.json(existing);
+  }
+
+  // upsert вместо insert — при переключении голоса (1 -> -1 или обратно)
+  // строка уже существует, INSERT упал бы на UNIQUE(user_id, post_id/comment_id).
+  // ON CONFLICT атомарно обновляет value, без гонки между SELECT выше и записью.
+  const conflictTarget = post_id ? 'user_id,post_id' : 'user_id,comment_id';
+
+  const { data: saved, error: upsertError } = await supabase
     .from('votes')
-    .insert({ user_id, post_id: post_id ?? null, comment_id: comment_id ?? null, value })
+    .upsert(
+      { user_id, post_id: post_id ?? null, comment_id: comment_id ?? null, value },
+      { onConflict: conflictTarget }
+    )
     .select()
     .single();
 
-  if (insertError) return res.status(500).json({ error: insertError.message });
+  if (upsertError) {
+    console.error('votes: failed to save vote', upsertError);
+    return res.status(500).json({ error: GENERIC_VOTE_ERROR });
+  }
 
-  await adjustKarma(target.author_id, value);
-  res.status(201).json(created);
+  const delta = existing ? value - existing.value : value;
+  await adjustKarma(target.author_id, delta);
+
+  res.status(existing ? 200 : 201).json(saved);
 });
 
 router.delete('/', requireAuth, async (req, res) => {
@@ -97,11 +101,17 @@ router.delete('/', requireAuth, async (req, res) => {
   }
 
   const { data: existing, error: existingError } = await findExistingVote(user_id, post_id, comment_id);
-  if (existingError) return res.status(500).json({ error: existingError.message });
+  if (existingError) {
+    console.error('votes: failed to look up existing vote', existingError);
+    return res.status(500).json({ error: GENERIC_VOTE_ERROR });
+  }
   if (!existing) return res.status(404).json({ error: 'vote not found' });
 
   const { error: deleteError } = await supabase.from('votes').delete().eq('id', existing.id);
-  if (deleteError) return res.status(500).json({ error: deleteError.message });
+  if (deleteError) {
+    console.error('votes: failed to delete vote', deleteError);
+    return res.status(500).json({ error: GENERIC_VOTE_ERROR });
+  }
 
   const { data: target } = await getTargetAuthor(post_id, comment_id);
   if (target) {

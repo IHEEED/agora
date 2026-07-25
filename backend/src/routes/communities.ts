@@ -7,10 +7,13 @@ const router = Router();
 router.get('/', async (_req, res) => {
   const { data, error } = await supabase
     .from('communities')
-    .select('*')
+    .select('*, creator:users(username)')
     .order('created_at', { ascending: false });
 
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) {
+    console.error('communities: request failed', error);
+    return res.status(500).json({ error: 'Не удалось выполнить запрос, попробуйте ещё раз' });
+  }
   res.json(data);
 });
 
@@ -25,10 +28,13 @@ router.post('/', requireAuth, async (req, res) => {
   const { data, error } = await supabase
     .from('communities')
     .insert({ name, description, created_by })
-    .select()
+    .select('*, creator:users(username)')
     .single();
 
-  if (error) return res.status(500).json({ error: error.message });
+  if (error) {
+    console.error('communities: request failed', error);
+    return res.status(500).json({ error: 'Не удалось выполнить запрос, попробуйте ещё раз' });
+  }
   res.status(201).json(data);
 });
 
