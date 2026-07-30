@@ -23,6 +23,8 @@ export interface Post {
   commentCount: number;
   author: Author;
   views: number;
+  /** Бэкенд пока не отдаёт это поле — карточка рисует картинку, только если оно придёт. */
+  image_url?: string | null;
 }
 
 export type PostSort = 'hot' | 'new' | 'top' | 'commented';

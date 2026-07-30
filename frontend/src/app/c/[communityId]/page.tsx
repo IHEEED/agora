@@ -1,23 +1,16 @@
 'use client';
 
-import { useCallback, useEffect, useState, SubmitEvent } from 'react';
+import { useCallback, useEffect, useMemo, useState, SubmitEvent } from 'react';
 import { useParams } from 'next/navigation';
 import { apiFetch } from '@/lib/api';
 import { useSession } from '@/lib/useSession';
-import { Post, PostSort } from '@/lib/types';
+import { Post } from '@/lib/types';
 import { PostCard } from '@/components/PostCard';
-
-const SORT_OPTIONS: { value: PostSort; label: string }[] = [
-  { value: 'hot', label: 'Горячее' },
-  { value: 'new', label: 'Новое' },
-  { value: 'top', label: 'Топ' },
-  { value: 'commented', label: 'Обсуждаемые' },
-];
+import { StoriesBar } from '@/components/StoriesBar';
 
 export default function CommunityPage() {
   const { communityId } = useParams<{ communityId: string }>();
   const { session } = useSession();
-  const [sort, setSort] = useState<PostSort>('hot');
   const [posts, setPosts] = useState<Post[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -29,15 +22,20 @@ export default function CommunityPage() {
   const [submitting, setSubmitting] = useState(false);
 
   const loadPosts = useCallback(() => {
-    apiFetch<Post[]>(`/posts/community/${communityId}?sort=${sort}`)
+    apiFetch<Post[]>(`/posts/community/${communityId}?sort=hot`)
       .then(setPosts)
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
-  }, [communityId, sort]);
+  }, [communityId]);
 
   useEffect(() => {
     loadPosts();
   }, [loadPosts]);
+
+  const storyUsernames = useMemo(
+    () => Array.from(new Set(posts.map((p) => p.author.username))),
+    [posts]
+  );
 
   async function handleCreate(e: SubmitEvent) {
     e.preventDefault();
@@ -61,75 +59,69 @@ export default function CommunityPage() {
   }
 
   return (
-    <div className="flex flex-1 flex-col items-center bg-zinc-50 dark:bg-black">
-      <main className="flex w-full max-w-2xl flex-col gap-4 py-12 px-4">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold text-black dark:text-zinc-50">Посты</h1>
-          {session && (
-            <button
-              onClick={() => setShowForm((v) => !v)}
-              className="rounded-full bg-foreground px-4 py-1.5 text-sm font-medium text-background hover:bg-[#383838] dark:hover:bg-[#ccc]"
-            >
-              {showForm ? 'Отмена' : '+ Пост'}
-            </button>
-          )}
-        </div>
+    <div className="flex flex-1 flex-col items-center bg-[var(--bg)]">
+      <main className="flex w-full max-w-2xl flex-col gap-4 py-8 px-4">
+        <StoriesBar
+          usernames={storyUsernames}
+          currentUserLetter={session?.user.email?.[0]?.toUpperCase()}
+        />
 
-        <div className="flex gap-1 rounded-full border border-black/[.08] p-1 dark:border-white/[.145] w-fit">
-          {SORT_OPTIONS.map((option) => (
-            <button
-              key={option.value}
-              onClick={() => setSort(option.value)}
-              className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                sort === option.value
-                  ? 'bg-foreground text-background'
-                  : 'text-zinc-600 hover:bg-black/[.04] dark:text-zinc-400 dark:hover:bg-[#1a1a1a]'
-              }`}
+        {session && (
+          <button
+            onClick={() => setShowForm((v) => !v)}
+            className="-mb-2 flex items-center gap-3 border-b border-[var(--border)] pb-4 text-left"
+          >
+            <span
+              className="flex h-8 w-8 flex-none items-center justify-center rounded-full text-sm font-semibold"
+              style={{ background: 'var(--surface-2)', color: 'var(--accent)' }}
             >
-              {option.label}
-            </button>
-          ))}
-        </div>
+              {session.user.email?.[0]?.toUpperCase()}
+            </span>
+            <span className="text-[15px] text-[var(--text-muted)]">
+              {showForm ? 'Отмена' : 'Что нового?'}
+            </span>
+          </button>
+        )}
 
         {showForm && (
           <form
             onSubmit={handleCreate}
-            className="flex flex-col gap-3 rounded-lg border border-black/[.08] bg-white p-4 dark:border-white/[.145] dark:bg-zinc-950"
+            className="flex flex-col gap-3 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4"
           >
             <input
               placeholder="Заголовок"
               required
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="rounded-md border border-black/[.08] px-3 py-2 text-sm text-black dark:border-white/[.145] dark:bg-zinc-900 dark:text-zinc-50"
+              className="rounded-md border border-[var(--border)] bg-[var(--bg)] px-3 py-2 text-sm text-[var(--text)]"
             />
             <textarea
               placeholder="Текст (необязательно)"
               rows={3}
               value={body}
               onChange={(e) => setBody(e.target.value)}
-              className="rounded-md border border-black/[.08] px-3 py-2 text-sm text-black dark:border-white/[.145] dark:bg-zinc-900 dark:text-zinc-50"
+              className="rounded-md border border-[var(--border)] bg-[var(--bg)] px-3 py-2 text-sm text-[var(--text)]"
             />
-            {formError && <p className="text-sm text-red-600 dark:text-red-400">{formError}</p>}
+            {formError && <p className="text-sm" style={{ color: 'var(--down)' }}>{formError}</p>}
             <button
               type="submit"
               disabled={submitting}
-              className="self-start rounded-full bg-foreground px-4 py-1.5 text-sm font-medium text-background disabled:opacity-50 dark:hover:bg-[#ccc]"
+              className="self-start rounded-full bg-[var(--accent)] px-4 py-1.5 text-sm font-medium text-[var(--accent-contrast)] disabled:opacity-50"
             >
               Создать
             </button>
           </form>
         )}
 
-        {loading && <p className="text-zinc-600 dark:text-zinc-400">Загрузка…</p>}
-        {error && <p className="text-red-600 dark:text-red-400">{error}</p>}
+        {loading && <p className="text-[var(--text-muted)]">Загрузка…</p>}
+        {error && <p style={{ color: 'var(--down)' }}>{error}</p>}
 
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col divide-y divide-[var(--border)]">
           {posts.map((post) => (
             <PostCard key={post.id} post={post} />
           ))}
           {!loading && !error && posts.length === 0 && (
-            <p className="text-zinc-600 dark:text-zinc-400">В этом сообществе пока нет постов.</p>
+            <p className="py-4 text-[var(--text-muted)]">В этом сообществе пока нет постов.</p>
           )}
         </div>
       </main>

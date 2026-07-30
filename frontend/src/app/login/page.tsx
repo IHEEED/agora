@@ -46,7 +46,7 @@ export default function LoginPage() {
         onSubmit={handleSignIn}
         className="flex w-full max-w-sm flex-col gap-4 rounded-lg border border-black/[.08] bg-white p-8 dark:border-white/[.145] dark:bg-zinc-950"
       >
-        <h1 className="text-xl font-semibold text-black dark:text-zinc-50">Вход в Agora</h1>
+        <h1 className="text-xl font-semibold text-black dark:text-zinc-50">Вход в PARAFRAZ</h1>
 
         <div className="flex flex-col gap-1">
           <label htmlFor="email" className="text-sm text-zinc-600 dark:text-zinc-400">

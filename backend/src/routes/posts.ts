@@ -156,6 +156,39 @@ router.get('/community/:communityId', optionalAuth, async (req, res) => {
   res.json(sortPosts(enriched, sort));
 });
 
+// Лента конкретного автора — используется на странице профиля.
+// Объявлена до '/:id', иначе 'user' будет принят за идентификатор поста.
+router.get('/user/:userId', optionalAuth, async (req, res) => {
+  const { userId } = req.params;
+  const sort = parsePostSort(req.query.sort);
+
+  const { data, error } = await supabase
+    .from('posts')
+    .select('*, author:users(username)')
+    .eq('author_id', userId)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('posts: request failed', error);
+    return res.status(500).json({ error: 'Не удалось выполнить запрос, попробуйте ещё раз' });
+  }
+
+  const postIds = data.map((post) => post.id);
+  const [{ scores, myVotes }, commentCounts] = await Promise.all([
+    getVoteInfoByPostId(postIds, req.user?.id),
+    getCommentCountByPostId(postIds),
+  ]);
+
+  const enriched = data.map((post) => ({
+    ...post,
+    score: scores.get(post.id) ?? 0,
+    myVote: myVotes.get(post.id) ?? null,
+    commentCount: commentCounts.get(post.id) ?? 0,
+  }));
+
+  res.json(sortPosts(enriched, sort));
+});
+
 router.get('/:id', optionalAuth, async (req, res) => {
   const { id } = req.params;
 

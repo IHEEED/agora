@@ -47,14 +47,14 @@ export default function Home() {
   }
 
   return (
-    <div className="flex flex-1 flex-col items-center bg-zinc-50 dark:bg-black">
+    <div className="flex flex-1 flex-col items-center bg-[var(--bg)]">
       <main className="flex w-full max-w-2xl flex-col gap-4 py-12 px-4">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold text-black dark:text-zinc-50">Сообщества</h1>
+          <h1 className="text-2xl font-semibold text-[var(--text)]">Сообщества</h1>
           {session && (
             <button
               onClick={() => setShowForm((v) => !v)}
-              className="rounded-full bg-foreground px-4 py-1.5 text-sm font-medium text-background hover:bg-[#383838] dark:hover:bg-[#ccc]"
+              className="rounded-full bg-[var(--accent)] px-4 py-1.5 text-sm font-medium text-[var(--accent-contrast)] transition-opacity hover:opacity-90"
             >
               {showForm ? 'Отмена' : '+ Сообщество'}
             </button>
@@ -64,54 +64,50 @@ export default function Home() {
         {showForm && (
           <form
             onSubmit={handleCreate}
-            className="flex flex-col gap-3 rounded-lg border border-black/[.08] bg-white p-4 dark:border-white/[.145] dark:bg-zinc-950"
+            className="flex flex-col gap-3 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4"
           >
             <input
               placeholder="Название"
               required
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="rounded-md border border-black/[.08] px-3 py-2 text-sm text-black dark:border-white/[.145] dark:bg-zinc-900 dark:text-zinc-50"
+              className="rounded-md border border-[var(--border)] bg-[var(--bg)] px-3 py-2 text-sm text-[var(--text)]"
             />
             <textarea
               placeholder="Описание (необязательно)"
               rows={2}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="rounded-md border border-black/[.08] px-3 py-2 text-sm text-black dark:border-white/[.145] dark:bg-zinc-900 dark:text-zinc-50"
+              className="rounded-md border border-[var(--border)] bg-[var(--bg)] px-3 py-2 text-sm text-[var(--text)]"
             />
-            {formError && <p className="text-sm text-red-600 dark:text-red-400">{formError}</p>}
+            {formError && <p className="text-sm" style={{ color: 'var(--down)' }}>{formError}</p>}
             <button
               type="submit"
               disabled={submitting}
-              className="self-start rounded-full bg-foreground px-4 py-1.5 text-sm font-medium text-background disabled:opacity-50 dark:hover:bg-[#ccc]"
+              className="self-start rounded-full bg-[var(--accent)] px-4 py-1.5 text-sm font-medium text-[var(--accent-contrast)] disabled:opacity-50"
             >
               Создать
             </button>
           </form>
         )}
 
-        {loading && <p className="text-zinc-600 dark:text-zinc-400">Загрузка…</p>}
-        {error && <p className="text-red-600 dark:text-red-400">{error}</p>}
+        {loading && <p className="text-[var(--text-muted)]">Загрузка…</p>}
+        {error && <p style={{ color: 'var(--down)' }}>{error}</p>}
 
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col divide-y divide-[var(--border)]">
           {communities.map((community) => (
-            <Link
-              key={community.id}
-              href={`/c/${community.id}`}
-              className="rounded-lg border border-black/[.08] bg-white p-4 transition-colors hover:bg-black/[.03] dark:border-white/[.145] dark:bg-zinc-950 dark:hover:bg-[#1a1a1a]"
-            >
-              <h2 className="font-medium text-black dark:text-zinc-50">{community.name}</h2>
-              <span className="text-xs text-zinc-500 dark:text-zinc-400">
+            <Link key={community.id} href={`/c/${community.id}`} className="flex flex-col gap-0.5 py-3.5">
+              <h2 className="font-medium text-[var(--text)]">{community.name}</h2>
+              <span className="font-pixel text-[11px] text-[var(--text-muted)]">
                 создано {community.creator.username}
               </span>
               {community.description && (
-                <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">{community.description}</p>
+                <p className="text-sm text-[var(--text-muted)]">{community.description}</p>
               )}
             </Link>
           ))}
           {!loading && !error && communities.length === 0 && (
-            <p className="text-zinc-600 dark:text-zinc-400">Сообществ пока нет.</p>
+            <p className="py-4 text-[var(--text-muted)]">Сообществ пока нет.</p>
           )}
         </div>
       </main>
