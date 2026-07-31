@@ -21,9 +21,21 @@ const SPARKS = Array.from({ length: SPARK_COUNT }, (_, index) => {
   };
 });
 
-function VoteArrow({ direction }: { direction: 'up' | 'down' }) {
+/**
+ * В покое стрелка — только контур. Заливается лишь та, за которую отдан голос;
+ * соседняя остаётся контурной и просто перекрашивается вместе со всем блоком.
+ */
+function VoteArrow({ direction, filled }: { direction: 'up' | 'down'; filled: boolean }) {
   return (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+    <svg
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill={filled ? 'currentColor' : 'none'}
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinejoin="round"
+    >
       <path d={ARROW_PATH} transform={direction === 'down' ? 'rotate(180 12 12)' : undefined} />
     </svg>
   );
@@ -90,7 +102,7 @@ export function PostCard({ post, linkToDetail = true }: { post: Post; linkToDeta
       ? { color: 'var(--up)', background: 'var(--up-bg)', borderColor: 'var(--up)' }
       : myVote === -1
         ? { color: 'var(--down)', background: 'var(--down-bg)', borderColor: 'var(--down)' }
-        : { color: 'var(--text-muted)', background: 'transparent', borderColor: 'var(--border)' };
+        : {};
 
   return (
     <article className="flex flex-col gap-2 py-5">
@@ -129,19 +141,16 @@ export function PostCard({ post, linkToDetail = true }: { post: Post; linkToDeta
 
       <div className="mt-1 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <div
-            className="flex items-center rounded-full border transition-colors duration-300"
-            style={voteTone}
-          >
+          <div className="control-pill flex items-center rounded-full" style={voteTone}>
             <button
               onClick={() => handleVote(1)}
               aria-label="Голосовать за"
               aria-pressed={myVote === 1}
-              className="vote-hit relative flex h-11 w-11 items-center justify-center rounded-full"
+              className="vote-hit relative flex h-10 w-10 items-center justify-center rounded-full"
             >
               <span className="arrow-clip">
                 <span className={animating === 'up' ? 'animate-vote-up' : undefined} style={{ display: 'block' }}>
-                  <VoteArrow direction="up" />
+                  <VoteArrow direction="up" filled={myVote === 1} />
                 </span>
               </span>
 
@@ -166,11 +175,11 @@ export function PostCard({ post, linkToDetail = true }: { post: Post; linkToDeta
               onClick={() => handleVote(-1)}
               aria-label="Голосовать против"
               aria-pressed={myVote === -1}
-              className="vote-hit flex h-11 w-11 items-center justify-center rounded-full"
+              className="vote-hit flex h-10 w-10 items-center justify-center rounded-full"
             >
               <span className="arrow-clip">
                 <span className={animating === 'down' ? 'animate-vote-down' : undefined} style={{ display: 'block' }}>
-                  <VoteArrow direction="down" />
+                  <VoteArrow direction="down" filled={myVote === -1} />
                 </span>
               </span>
             </button>
@@ -179,9 +188,9 @@ export function PostCard({ post, linkToDetail = true }: { post: Post; linkToDeta
           {linkToDetail && (
             <Link
               href={`/posts/${post.id}`}
-              className="flex items-center gap-1.5 rounded-full border border-[var(--border)] px-3.5 py-2.5 text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-2)]"
+              className="control-pill flex items-center gap-1.5 rounded-full px-3 py-2 hover:bg-[var(--surface-2)]"
             >
-              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M4 5.5h16v11H8.5L4 20V5.5Z" />
               </svg>
               <span className="font-num text-[15px]">{post.commentCount}</span>
@@ -194,15 +203,15 @@ export function PostCard({ post, linkToDetail = true }: { post: Post; linkToDeta
             onClick={handleRepost}
             aria-label="Репост"
             aria-pressed={reposted}
-            className="flex items-center gap-1.5 rounded-full border px-3.5 py-2.5 transition-colors duration-300"
-            style={{
-              borderColor: reposted ? 'var(--accent)' : 'var(--border)',
-              color: reposted ? 'var(--accent)' : 'var(--text-muted)',
-              background: reposted ? 'var(--accent-soft)' : 'transparent',
-            }}
+            className="control-pill flex items-center gap-1.5 rounded-full px-3 py-2"
+            style={
+              reposted
+                ? { borderColor: 'var(--accent)', color: 'var(--accent)', background: 'var(--accent-soft)' }
+                : {}
+            }
           >
             <span key={repostSpin} className={repostSpin > 0 ? 'animate-repost' : undefined} style={{ display: 'inline-flex' }}>
-              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M6 7h9a3 3 0 0 1 3 3v2" />
                 <path d="m12 5-3 2 3 2" />
                 <path d="M18 17H9a3 3 0 0 1-3-3v-2" />
@@ -215,9 +224,10 @@ export function PostCard({ post, linkToDetail = true }: { post: Post; linkToDeta
           <button
             onClick={handleShare}
             aria-label="Поделиться"
-            className="flex h-10 w-10 items-center justify-center text-[var(--text-muted)] transition-colors hover:text-[var(--text)]"
+            className="flex h-9 w-9 items-center justify-center transition-colors hover:text-[var(--text)]"
+            style={{ color: 'var(--control)' }}
           >
-            <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
               <path d="M4 12v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-6" />
               <path d="M16 6l-4-4-4 4" />
               <path d="M12 2v14" />

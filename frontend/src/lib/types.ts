@@ -42,3 +42,8 @@ export interface Comment {
   replies: Comment[];
   author: Author;
 }
+
+/** Комментарий в списке «Мои комментарии»: несёт ссылку на свой пост. */
+export interface CommentWithPost extends Comment {
+  post: { id: string; title: string } | null;
+}

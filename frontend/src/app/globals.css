@@ -12,6 +12,14 @@
   --accent-soft: rgba(91, 58, 214, 0.1);
   --accent-contrast: #ffffff;
 
+  /* Кнопки взаимодействия под постом: заметно контрастнее приглушённого
+     текста, иначе ряд действий читается тусклым. */
+  --control: #2c2833;
+  --control-border: #cbc8d6;
+
+  /* Приглушённый холст, на котором лежат белые карточки профиля. */
+  --sunken: #f0eff4;
+
   --up: #1f9d55;
   --up-bg: rgba(31, 157, 85, 0.1);
   --down: #d1453d;
@@ -37,6 +45,11 @@
   --accent: #a880ff;
   --accent-soft: rgba(168, 128, 255, 0.16);
   --accent-contrast: #0b0910;
+
+  --control: #ece9f5;
+  --control-border: rgba(240, 237, 247, 0.3);
+
+  --sunken: #08060d;
 
   --up: #3ddc84;
   --up-bg: rgba(61, 220, 132, 0.14);
@@ -64,6 +77,11 @@
     --accent: #a880ff;
     --accent-soft: rgba(168, 128, 255, 0.16);
     --accent-contrast: #0b0910;
+
+    --control: #ece9f5;
+    --control-border: rgba(240, 237, 247, 0.3);
+
+    --sunken: #08060d;
 
     --up: #3ddc84;
     --up-bg: rgba(61, 220, 132, 0.14);
@@ -144,23 +162,31 @@ body {
   z-index: 45;
 }
 
-/* Вуаль почти не выходит за нижнюю кромку, чтобы не наползать на сториз,
-   но всё равно гаснет градиентом, а не режется по линии. */
+/* Вуаль шапки — зеркало нижней зоны размытия: те же blur, стопы градиента
+   и маски, только направление сверху вниз. */
 .app-header-veil {
   position: absolute;
   inset: 0;
-  bottom: -14px;
+  /* Свес вуали. Контент страниц отступает ровно на эту величину (.below-header),
+     чтобы сториз и аватар профиля не попадали под размытие в покое. */
+  bottom: -40px;
   pointer-events: none;
-  backdrop-filter: blur(14px) saturate(150%);
-  -webkit-backdrop-filter: blur(14px) saturate(150%);
-  background: linear-gradient(to bottom, var(--header-bg) 70%, transparent 100%);
-  mask-image: linear-gradient(to bottom, #000 72%, transparent 100%);
-  -webkit-mask-image: linear-gradient(to bottom, #000 72%, transparent 100%);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  background: linear-gradient(to bottom, var(--bg) 18%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 42%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, #000 42%, transparent 100%);
 }
 
 .app-header-inner {
   position: relative;
   z-index: 1;
+}
+
+/* Отступ на величину свеса вуали: то, что стоит первым на экране
+   (сториз в ленте, обложка профиля), не оказывается под размытием. */
+.below-header {
+  padding-top: 44px;
 }
 
 /* Капля под активной вкладкой — симметричный овал, как обводка кнопки
@@ -173,9 +199,10 @@ body {
   pointer-events: none;
   border-radius: 999px;
   background: var(--nav-blob);
+  /* Короткий резкий перескок с едва заметным доводом — капля не «плывёт». */
   transition:
-    transform 0.6s cubic-bezier(0.34, 1.28, 0.5, 1),
-    width 0.6s cubic-bezier(0.34, 1.28, 0.5, 1);
+    transform 0.24s cubic-bezier(0.32, 1.4, 0.5, 1),
+    width 0.24s cubic-bezier(0.32, 1.4, 0.5, 1);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -204,6 +231,67 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .page-enter {
     animation: none;
+  }
+}
+
+/* Кнопка «i»: чётный размер — круг и глиф не размываются на дробных пикселях. */
+.influence-i {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  padding: 0;
+  line-height: 0;
+}
+
+/* Подсказка про influence-очки: плавно раскрывается, ширина ограничена
+   шириной карточки, чтобы не вылезать за её правый край на узких экранах. */
+.influence-tip {
+  width: min(224px, calc(100vw - 48px));
+  transform-origin: top right;
+  transition:
+    opacity 0.18s ease,
+    transform 0.18s cubic-bezier(0.22, 0.61, 0.36, 1),
+    visibility 0.18s;
+}
+.influence-tip[data-open='false'] {
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-4px) scale(0.96);
+}
+.influence-tip[data-open='true'] {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+}
+
+/* Капля под активным разделом профиля — та же логика, что у нижнего бара. */
+.tab-blob {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  z-index: 0;
+  pointer-events: none;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  transition:
+    transform 0.24s cubic-bezier(0.32, 1.4, 0.5, 1),
+    width 0.24s cubic-bezier(0.32, 1.4, 0.5, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tab-blob {
+    transition: none;
+  }
+}
+
+/* Обложка профиля: позже сюда встанут сменные оформления. */
+.profile-cover {
+  background: linear-gradient(135deg, #1f9d55 0%, #34c77b 55%, #7fd6a4 100%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .influence-tip {
+    transition: none;
   }
 }
 
@@ -273,6 +361,17 @@ body {
 .animate-digit-down { animation: digit-roll-down 0.4s ease-out; }
 .animate-repost { animation: repost-spin 0.55s cubic-bezier(0.34, 1.4, 0.64, 1); }
 
+/* Общая обводка кнопок взаимодействия: чуть толще обычной границы,
+   чтобы ряд действий не выглядел блёклым. */
+.control-pill {
+  border: 1.5px solid var(--control-border);
+  color: var(--control);
+  transition:
+    color 0.3s ease,
+    background-color 0.3s ease,
+    border-color 0.3s ease;
+}
+
 /* Ховер-подложка стрелки совпадает с закруглением внешнего эллипса,
    поэтому заполняет его торец целиком, а не висит кружком по центру. */
 .vote-hit {
@@ -280,7 +379,7 @@ body {
   transition: background-color 0.2s ease;
 }
 .vote-hit:hover {
-  background: color-mix(in srgb, currentColor 12%, transparent);
+  background: color-mix(in srgb, currentColor 14%, transparent);
 }
 
 .vote-spark {

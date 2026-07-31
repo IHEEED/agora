@@ -100,11 +100,13 @@ export function StoriesBar({
       onPointerMove={onPointerMove}
       onPointerUp={endDrag}
       onPointerLeave={endDrag}
-      className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 pb-1"
+      className="no-scrollbar -mx-4 flex gap-1.5 overflow-x-auto px-4 pb-1"
       style={{ touchAction: 'pan-x', cursor: 'grab', overscrollBehaviorX: 'contain' }}
     >
+      {/* Ширина ячейки равна аватару, поэтому левый край первой истории
+          совпадает с краем постов, а кружки стоят вплотную друг к другу. */}
       {currentUserLetter && (
-        <div className="flex flex-col items-center gap-1.5" style={{ flex: '0 0 27%' }}>
+        <div className="flex flex-col items-center gap-1.5" style={{ flex: `0 0 ${RING_SIZE}px` }}>
           <div className="relative">
             <div
               className="flex h-[86px] w-[86px] items-center justify-center rounded-full border-2 border-dashed text-xl font-semibold"
@@ -128,7 +130,7 @@ export function StoriesBar({
       )}
 
       {usernames.map((username) => (
-        <div key={username} className="flex flex-col items-center gap-1.5" style={{ flex: '0 0 27%' }}>
+        <div key={username} className="flex flex-col items-center gap-1.5" style={{ flex: `0 0 ${RING_SIZE}px` }}>
           <StoryRing letter={username[0]?.toUpperCase() ?? '?'} />
           <span className="w-full truncate text-center text-[11px] text-[var(--text-muted)]">
             {username}

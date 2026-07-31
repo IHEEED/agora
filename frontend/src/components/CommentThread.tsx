@@ -6,6 +6,7 @@ import { useSession } from '@/lib/useSession';
 import { useVote } from '@/lib/useVote';
 import { formatRelativeDate } from '@/lib/formatDate';
 import { pluralizeReplies } from '@/lib/pluralize';
+import { isPhoneNotVerifiedError, usePhoneGate } from '@/components/PhoneGateContext';
 import { Comment } from '@/lib/types';
 
 function countDescendants(comment: Comment): number {
@@ -62,6 +63,7 @@ export function CommentThread({
   onToggleExpand: (commentId: string) => void;
 }) {
   const { session } = useSession();
+  const { requestVerification } = usePhoneGate();
   const { score, myVote, vote, error: voteError, message } = useVote(comment.id, comment.score, comment.myVote, 'comment');
 
   const [replying, setReplying] = useState(false);
@@ -87,6 +89,11 @@ export function CommentThread({
       setReplying(false);
       onAdded();
     } catch (err) {
+      if (isPhoneNotVerifiedError(err)) {
+        setReplying(false);
+        requestVerification();
+        return;
+      }
       setReplyError(err instanceof Error ? err.message : 'Не удалось отправить ответ');
     } finally {
       setSubmitting(false);

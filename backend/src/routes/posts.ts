@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { supabase } from '../config/supabase';
-import { requireAuth, optionalAuth } from '../middleware/auth';
+import { requireAuth, requirePhoneVerified, optionalAuth } from '../middleware/auth';
 
 const router = Router();
 
@@ -82,7 +82,7 @@ async function getCommentCountByPostId(postIds: string[]) {
   return counts;
 }
 
-router.post('/', requireAuth, async (req, res) => {
+router.post('/', requireAuth, requirePhoneVerified, async (req, res) => {
   const { title, body, community_id } = req.body;
   const author_id = req.user!.id;
 

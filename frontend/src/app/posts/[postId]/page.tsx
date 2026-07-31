@@ -9,6 +9,7 @@ import { markPostViewed } from '@/lib/viewedPosts';
 import { Post, Comment, CommentSort } from '@/lib/types';
 import { PostCard } from '@/components/PostCard';
 import { CommentThread } from '@/components/CommentThread';
+import { isPhoneNotVerifiedError, usePhoneGate } from '@/components/PhoneGateContext';
 
 const COMMENT_SORT_OPTIONS: { value: CommentSort; label: string }[] = [
   { value: 'best', label: 'По рейтингу' },
@@ -18,6 +19,7 @@ const COMMENT_SORT_OPTIONS: { value: CommentSort; label: string }[] = [
 export default function PostPage() {
   const { postId } = useParams<{ postId: string }>();
   const { session } = useSession();
+  const { requestVerification } = usePhoneGate();
   const { isExpanded, toggle } = useExpandedComments(postId);
 
   const [post, setPost] = useState<Post | null>(null);
@@ -64,6 +66,10 @@ export default function PostPage() {
       setBody('');
       loadComments();
     } catch (err) {
+      if (isPhoneNotVerifiedError(err)) {
+        requestVerification();
+        return;
+      }
       setFormError(err instanceof Error ? err.message : 'Не удалось отправить комментарий');
     } finally {
       setSubmitting(false);

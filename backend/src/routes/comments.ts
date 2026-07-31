@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { supabase } from '../config/supabase';
-import { requireAuth, optionalAuth } from '../middleware/auth';
+import { requireAuth, requirePhoneVerified, optionalAuth } from '../middleware/auth';
 
 const router = Router();
 
@@ -33,7 +33,38 @@ async function getVoteInfoByCommentId(commentIds: string[], userId?: string) {
   return { scores, myVotes };
 }
 
-router.post('/', requireAuth, async (req, res) => {
+// Плоский список комментариев автора — для вкладки «Мои комментарии».
+// Объявлен до остальных путей с параметром, чтобы 'user' не был принят за id.
+router.get('/user/:userId', optionalAuth, async (req, res) => {
+  const { userId } = req.params;
+
+  const { data, error } = await supabase
+    .from('comments')
+    .select('*, author:users(username), post:posts(id, title)')
+    .eq('author_id', userId)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('comments: request failed', error);
+    return res.status(500).json({ error: 'Не удалось выполнить запрос, попробуйте ещё раз' });
+  }
+
+  const { scores, myVotes } = await getVoteInfoByCommentId(
+    data.map((comment) => comment.id),
+    req.user?.id
+  );
+
+  res.json(
+    data.map((comment) => ({
+      ...comment,
+      score: scores.get(comment.id) ?? 0,
+      myVote: myVotes.get(comment.id) ?? null,
+      replies: [],
+    }))
+  );
+});
+
+router.post('/', requireAuth, requirePhoneVerified, async (req, res) => {
   const { post_id, parent_comment_id, body } = req.body;
   const author_id = req.user!.id;
 

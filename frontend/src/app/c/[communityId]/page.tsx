@@ -7,10 +7,12 @@ import { useSession } from '@/lib/useSession';
 import { Post } from '@/lib/types';
 import { PostCard } from '@/components/PostCard';
 import { StoriesBar } from '@/components/StoriesBar';
+import { isPhoneNotVerifiedError, usePhoneGate } from '@/components/PhoneGateContext';
 
 export default function CommunityPage() {
   const { communityId } = useParams<{ communityId: string }>();
   const { session } = useSession();
+  const { requestVerification } = usePhoneGate();
   const [posts, setPosts] = useState<Post[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -52,6 +54,11 @@ export default function CommunityPage() {
       setShowForm(false);
       loadPosts();
     } catch (err) {
+      if (isPhoneNotVerifiedError(err)) {
+        setShowForm(false);
+        requestVerification();
+        return;
+      }
       setFormError(err instanceof Error ? err.message : 'Не удалось создать пост');
     } finally {
       setSubmitting(false);
@@ -60,7 +67,7 @@ export default function CommunityPage() {
 
   return (
     <div className="flex flex-1 flex-col items-center bg-[var(--bg)]">
-      <main className="flex w-full max-w-2xl flex-col gap-4 py-8 px-4">
+      <main className="below-header flex w-full max-w-2xl flex-col gap-4 px-4 pb-8">
         <StoriesBar
           usernames={storyUsernames}
           currentUserLetter={session?.user.email?.[0]?.toUpperCase()}
@@ -69,11 +76,11 @@ export default function CommunityPage() {
         {session && (
           <button
             onClick={() => setShowForm((v) => !v)}
-            className="-mb-2 flex items-center gap-3 border-b border-[var(--border)] pb-4 text-left"
+            className="mt-3 flex items-center gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3 text-left transition-colors hover:bg-[var(--surface)]"
           >
             <span
               className="flex h-8 w-8 flex-none items-center justify-center rounded-full text-sm font-semibold"
-              style={{ background: 'var(--surface-2)', color: 'var(--accent)' }}
+              style={{ background: 'var(--surface)', color: 'var(--accent)' }}
             >
               {session.user.email?.[0]?.toUpperCase()}
             </span>
