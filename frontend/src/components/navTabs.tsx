@@ -1,12 +1,12 @@
 // Общая геометрия для нижнего бара (мобильный) и боковой панели (десктоп) —
 // один набор иконок и ссылок, чтобы навигация не расходилась между версиями.
 
-export type IconProps = { active: boolean };
+export type IconProps = { active: boolean; size?: number };
 
-export function iconProps(active: boolean) {
+export function iconProps(active: boolean, size = 26) {
   return {
-    width: 26,
-    height: 26,
+    width: size,
+    height: size,
     viewBox: '0 0 24 24',
     // Заливка всегда есть, меняется её прозрачность — так переход плавный,
     // в отличие от переключения fill: none → currentColor.
@@ -50,9 +50,9 @@ export function CreateIcon({ size = 28 }: { size?: number }) {
   );
 }
 
-export function BellIcon({ active }: IconProps) {
+export function BellIcon({ active, size }: IconProps) {
   return (
-    <svg {...iconProps(active)}>
+    <svg {...iconProps(active, size)}>
       <path d="M12 3.3a5.4 5.4 0 0 0-5.4 5.4c0 4.2-1.5 5.8-2.1 6.7-.3.5 0 1.1.6 1.1h13.8c.6 0 .9-.6.6-1.1-.6-.9-2.1-2.5-2.1-6.7A5.4 5.4 0 0 0 12 3.3Z" />
       <path d="M9.8 19a2.2 2.2 0 0 0 4.4 0Z" />
     </svg>
@@ -70,10 +70,13 @@ export function ProfileIcon({ active }: IconProps) {
 
 export const TABS = [
   { href: '/', label: 'Главная', Icon: HomeIcon },
-  { href: '/search', label: 'Сообщества', Icon: CommunitiesIcon },
+  { href: '/communities', label: 'Сообщества', Icon: CommunitiesIcon },
   { href: '/notifications', label: 'Уведомления', Icon: BellIcon },
   { href: '/profile', label: 'Профиль', Icon: ProfileIcon },
 ] as const;
+
+/** Куда ведёт плюс по центру нижнего бара и в боковой панели. */
+export const CREATE_HREF = '/create';
 
 // Порядок в мобильном баре: две вкладки, кнопка создания по центру, ещё две.
 export const MOBILE_SLOTS = [TABS[0], TABS[1], null, TABS[2], TABS[3]] as const;

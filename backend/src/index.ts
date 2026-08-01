@@ -5,6 +5,7 @@ import communitiesRouter from './routes/communities';
 import postsRouter from './routes/posts';
 import commentsRouter from './routes/comments';
 import votesRouter from './routes/votes';
+import usersRouter from './routes/users';
 
 dotenv.config();
 
@@ -24,6 +25,7 @@ app.use('/communities', communitiesRouter);
 app.use('/posts', postsRouter);
 app.use('/comments', commentsRouter);
 app.use('/votes', votesRouter);
+app.use('/users', usersRouter);
 
 app.listen(port, () => {
   console.log(`Server running on http://localhost:${port}`);

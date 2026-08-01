@@ -11,6 +11,19 @@ export interface Community {
   creator: Author;
 }
 
+export interface PollOption {
+  id: string;
+  text: string;
+  votes: number;
+}
+
+/** Человек в результатах поиска — почту наружу бэкенд не отдаёт. */
+export interface UserSummary {
+  id: string;
+  username: string;
+  karma: number;
+}
+
 export interface Post {
   id: string;
   title: string;
@@ -23,8 +36,12 @@ export interface Post {
   commentCount: number;
   author: Author;
   views: number;
-  /** Бэкенд пока не отдаёт это поле — карточка рисует картинку, только если оно придёт. */
-  image_url?: string | null;
+  image_url: string | null;
+  /** Приходит только в общей ленте — там пост нужно подписать его сообществом. */
+  community?: { id: string; name: string } | null;
+  /** Пустой массив у постов без опроса. */
+  pollOptions: PollOption[];
+  myPollVote: string | null;
 }
 
 export type PostSort = 'hot' | 'new' | 'top' | 'commented';

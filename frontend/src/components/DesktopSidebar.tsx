@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { CreateIcon, TABS } from '@/components/navTabs';
+import { CREATE_HREF, CreateIcon, TABS } from '@/components/navTabs';
 
 /**
  * Замена нижнего бара на широких экранах — вертикальная панель слева,
@@ -15,7 +15,7 @@ export function DesktopSidebar() {
   return (
     <nav className="fixed inset-y-0 left-0 z-40 hidden w-20 flex-col items-center gap-2 border-r border-[var(--border)] bg-[var(--bg)] py-6 md:flex">
       <Link
-        href="/"
+        href={CREATE_HREF}
         aria-label="Создать"
         className="mb-4 flex h-12 w-12 items-center justify-center rounded-full border border-[var(--border)] text-[var(--text)] transition-colors hover:bg-[var(--surface-2)]"
       >

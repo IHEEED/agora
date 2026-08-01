@@ -6,6 +6,7 @@ import { Post } from '@/lib/types';
 import { useVote } from '@/lib/useVote';
 import { formatRelativeDate } from '@/lib/formatDate';
 import { RollingNumber } from '@/components/RollingNumber';
+import { PollBlock } from '@/components/PollBlock';
 
 const ARROW_PATH =
   'M12 4.5c.45 0 .87.2 1.15.55l5.9 7.2c.65.8.08 2-.96 2H15.2v4.3c0 .8-.65 1.45-1.45 1.45h-3.5c-.8 0-1.45-.65-1.45-1.45V14.25H5.91c-1.04 0-1.61-1.2-.96-2l5.9-7.2c.28-.35.7-.55 1.15-.55Z';
@@ -133,6 +134,10 @@ export function PostCard({ post, linkToDetail = true }: { post: Post; linkToDeta
           className="w-full rounded-2xl border border-[var(--border)] object-cover"
           style={{ maxHeight: 340 }}
         />
+      )}
+
+      {post.pollOptions?.length > 0 && (
+        <PollBlock postId={post.id} options={post.pollOptions} myVote={post.myPollVote} />
       )}
 
       {message && <p className="text-xs font-medium" style={{ color: 'var(--up)' }}>{message}</p>}

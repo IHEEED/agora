@@ -3,7 +3,6 @@ import Link from "next/link";
 import { Inter, Silkscreen } from "next/font/google";
 import { BottomNav } from "@/components/BottomNav";
 import { DesktopSidebar } from "@/components/DesktopSidebar";
-import { ThemeToggle } from "@/components/ThemeToggle";
 import { PageTransition } from "@/components/PageTransition";
 import { HeaderAction } from "@/components/HeaderAction";
 import { AppGate } from "@/components/AppGate";
@@ -25,12 +24,15 @@ export const metadata: Metadata = {
   description: "PARAFRAZ — сообщества, посты и обсуждения",
 };
 
-const THEME_INIT_SCRIPT = `
+// Тема и акцент выставляются до первой отрисовки, иначе оба успевают мигнуть.
+const APPEARANCE_INIT_SCRIPT = `
   (function () {
     try {
-      var stored = localStorage.getItem('parafraz-theme');
-      var theme = stored || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-      document.documentElement.setAttribute('data-theme', theme);
+      var root = document.documentElement;
+      var theme = localStorage.getItem('parafraz-theme')
+        || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+      root.setAttribute('data-theme', theme);
+      root.setAttribute('data-accent', localStorage.getItem('parafraz-accent') || 'indigo');
     } catch (e) {}
   })();
 `;
@@ -49,7 +51,7 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <head>
-        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+        <script dangerouslySetInnerHTML={{ __html: APPEARANCE_INIT_SCRIPT }} />
       </head>
       <body className="min-h-full bg-[var(--bg)] text-[var(--text)]">
         {/* Пока нет сессии, AppGate рендерит только экран входа — ни шапки,
@@ -59,11 +61,11 @@ export default function RootLayout({
           <div className="flex min-h-screen flex-col pb-16 md:pb-0 md:pl-20">
             <header className="app-header">
               <div className="app-header-veil" aria-hidden />
-              <div className="app-header-inner relative flex items-center justify-between px-4 py-5">
-                <ThemeToggle />
+              <div className="app-header-inner relative flex items-center justify-end px-4 py-5">
                 <Link
                   href="/"
-                  className="font-pixel absolute left-1/2 -translate-x-1/2 text-lg tracking-wide text-[var(--text)]"
+                  className="font-pixel absolute left-1/2 -translate-x-1/2 text-[22px] text-[var(--text)]"
+                  style={{ letterSpacing: '-0.02em' }}
                 >
                   PARAFRAZ
                 </Link>

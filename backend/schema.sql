@@ -28,8 +28,10 @@ CREATE TABLE posts (
     id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     title        TEXT NOT NULL,
     body         TEXT,
+    image_url    TEXT,
     author_id    UUID NOT NULL REFERENCES users(id),
     community_id UUID NOT NULL REFERENCES communities(id),
+    views        INTEGER NOT NULL DEFAULT 0,
     created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
@@ -65,11 +67,35 @@ CREATE TABLE votes (
     UNIQUE (user_id, comment_id)
 );
 
+-- Опрос внутри поста: варианты ответа и голоса за них.
+-- post_id продублирован в poll_votes намеренно — только так база сама
+-- запрещает выбрать два варианта в одном опросе.
+CREATE TABLE poll_options (
+    id       UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    post_id  UUID NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+    text     TEXT NOT NULL,
+    position SMALLINT NOT NULL
+);
+
+CREATE TABLE poll_votes (
+    id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    option_id  UUID NOT NULL REFERENCES poll_options(id) ON DELETE CASCADE,
+    post_id    UUID NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+    user_id    UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+
+    -- один пользователь — один голос в конкретном опросе
+    UNIQUE (user_id, post_id)
+);
+
 -- Индексы для быстрой выборки ленты и комментариев поста
 CREATE INDEX idx_posts_community ON posts(community_id);
 CREATE INDEX idx_comments_post ON comments(post_id);
 CREATE INDEX idx_votes_post ON votes(post_id);
 CREATE INDEX idx_votes_comment ON votes(comment_id);
+CREATE INDEX idx_poll_options_post ON poll_options(post_id);
+CREATE INDEX idx_poll_votes_post ON poll_votes(post_id);
+CREATE INDEX idx_poll_votes_option ON poll_votes(option_id);
 
 -- Примечание: karma в users обновляется кодом сервера при
 -- создании/удалении/изменении голоса, а не триггером БД —

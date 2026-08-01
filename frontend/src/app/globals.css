@@ -9,7 +9,6 @@
   --text-muted: #6b6878;
 
   --accent: #5b3ad6;
-  --accent-soft: rgba(91, 58, 214, 0.1);
   --accent-contrast: #ffffff;
 
   /* Кнопки взаимодействия под постом: заметно контрастнее приглушённого
@@ -28,10 +27,16 @@
   --nav-bg: rgba(255, 255, 255, 0.72);
   --nav-border: rgba(22, 20, 28, 0.08);
   --nav-active: #16141c;
-  --nav-blob: rgba(91, 58, 214, 0.12);
   --header-bg: rgba(255, 255, 255, 0.82);
 
   color-scheme: light;
+}
+
+/* Производные от акцента — считаются автоматически, поэтому смена
+   акцентного цвета подхватывается везде без правки остальных токенов. */
+:root {
+  --accent-soft: color-mix(in srgb, var(--accent) 12%, transparent);
+  --nav-blob: color-mix(in srgb, var(--accent) 14%, transparent);
 }
 
 :root[data-theme="dark"] {
@@ -43,7 +48,6 @@
   --text-muted: #a29cb3;
 
   --accent: #a880ff;
-  --accent-soft: rgba(168, 128, 255, 0.16);
   --accent-contrast: #0b0910;
 
   --control: #ece9f5;
@@ -59,7 +63,6 @@
   --nav-bg: rgba(21, 18, 28, 0.55);
   --nav-border: rgba(240, 237, 247, 0.1);
   --nav-active: #ffffff;
-  --nav-blob: rgba(168, 128, 255, 0.2);
   --header-bg: rgba(11, 9, 16, 0.78);
 
   color-scheme: dark;
@@ -75,7 +78,6 @@
     --text-muted: #a29cb3;
 
     --accent: #a880ff;
-    --accent-soft: rgba(168, 128, 255, 0.16);
     --accent-contrast: #0b0910;
 
     --control: #ece9f5;
@@ -91,12 +93,36 @@
     --nav-bg: rgba(21, 18, 28, 0.55);
     --nav-border: rgba(240, 237, 247, 0.1);
     --nav-active: #ffffff;
-    --nav-blob: rgba(168, 128, 255, 0.2);
     --header-bg: rgba(11, 9, 16, 0.78);
 
     color-scheme: dark;
   }
 }
+
+/* Акцентные цвета из настроек. Выбор пишется в data-accent на <html>
+   тем же инлайн-скриптом, что и тема, — чтобы цвет не мигал при загрузке.
+   Для тёмной темы берём осветлённый вариант: тот же оттенок читается
+   на тёмном фоне только будучи заметно светлее. */
+:root[data-accent='ocean'] { --accent: #2563eb; }
+:root[data-accent='emerald'] { --accent: #059669; }
+:root[data-accent='sunset'] { --accent: #ea580c; }
+:root[data-accent='rose'] { --accent: #e11d48; }
+:root[data-accent='amethyst'] { --accent: #9333ea; }
+:root[data-accent='teal'] { --accent: #0d9488; }
+:root[data-accent='amber'] { --accent: #b45309; }
+:root[data-accent='graphite'] { --accent: #475569; }
+:root[data-accent='cherry'] { --accent: #dc2626; }
+
+:root[data-theme='dark'][data-accent='indigo'] { --accent: #a880ff; }
+:root[data-theme='dark'][data-accent='ocean'] { --accent: #7ba6ff; }
+:root[data-theme='dark'][data-accent='emerald'] { --accent: #4ade9f; }
+:root[data-theme='dark'][data-accent='sunset'] { --accent: #ffa76b; }
+:root[data-theme='dark'][data-accent='rose'] { --accent: #ff7d9c; }
+:root[data-theme='dark'][data-accent='amethyst'] { --accent: #c99bff; }
+:root[data-theme='dark'][data-accent='teal'] { --accent: #5ee0d0; }
+:root[data-theme='dark'][data-accent='amber'] { --accent: #ffc457; }
+:root[data-theme='dark'][data-accent='graphite'] { --accent: #a8b6cc; }
+:root[data-theme='dark'][data-accent='cherry'] { --accent: #ff8a80; }
 
 @theme inline {
   --color-bg: var(--bg);

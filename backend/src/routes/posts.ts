@@ -82,8 +82,42 @@ async function getCommentCountByPostId(postIds: string[]) {
   return counts;
 }
 
+/**
+ * Варианты опроса вместе с числом голосов и отметкой собственного выбора.
+ * Посты без опроса получают пустой массив — фронт по нему и понимает,
+ * что опрос рисовать не нужно.
+ */
+async function getPollsByPostId(postIds: string[], userId?: string) {
+  const polls = new Map<string, { id: string; text: string; votes: number }[]>();
+  const myPollVotes = new Map<string, string>();
+  if (postIds.length === 0) return { polls, myPollVotes };
+
+  const [{ data: options }, { data: votes }] = await Promise.all([
+    supabase.from('poll_options').select('id, post_id, text, position').in('post_id', postIds),
+    supabase.from('poll_votes').select('option_id, post_id, user_id').in('post_id', postIds),
+  ]);
+
+  if (!options) return { polls, myPollVotes };
+
+  const votesByOption = new Map<string, number>();
+  votes?.forEach(({ option_id, post_id, user_id }) => {
+    votesByOption.set(option_id, (votesByOption.get(option_id) ?? 0) + 1);
+    if (userId && user_id === userId) myPollVotes.set(post_id, option_id);
+  });
+
+  [...options]
+    .sort((a, b) => a.position - b.position)
+    .forEach(({ id, post_id, text }) => {
+      const list = polls.get(post_id) ?? [];
+      list.push({ id, text, votes: votesByOption.get(id) ?? 0 });
+      polls.set(post_id, list);
+    });
+
+  return { polls, myPollVotes };
+}
+
 router.post('/', requireAuth, requirePhoneVerified, async (req, res) => {
-  const { title, body, community_id } = req.body;
+  const { title, body, community_id, image_url, poll_options } = req.body;
   const author_id = req.user!.id;
 
   if (!title || !community_id) {
@@ -92,7 +126,7 @@ router.post('/', requireAuth, requirePhoneVerified, async (req, res) => {
 
   const { data, error } = await supabase
     .from('posts')
-    .insert({ title, body, author_id, community_id })
+    .insert({ title, body, image_url: image_url || null, author_id, community_id })
     .select('*, author:users(username)')
     .single();
 
@@ -100,7 +134,47 @@ router.post('/', requireAuth, requirePhoneVerified, async (req, res) => {
     console.error('posts: request failed', error);
     return res.status(500).json({ error: 'Не удалось выполнить запрос, попробуйте ещё раз' });
   }
+
+  // Опрос необязателен: пустые строки отбрасываем, меньше двух вариантов —
+  // это уже не опрос, поэтому пост просто остаётся обычным.
+  const options: string[] = Array.isArray(poll_options)
+    ? poll_options.map((text: unknown) => String(text ?? '').trim()).filter(Boolean).slice(0, 6)
+    : [];
+
+  if (options.length >= 2) {
+    const { error: pollError } = await supabase.from('poll_options').insert(
+      options.map((text, position) => ({ post_id: data.id, text, position }))
+    );
+    if (pollError) {
+      console.error('posts: failed to save poll', pollError);
+    }
+  }
+
   res.status(201).json(data);
+});
+
+// Голос в опросе. Отдельный от апвоутов: там оценка поста, здесь выбор варианта.
+router.post('/:id/poll-vote', requireAuth, async (req, res) => {
+  const { id } = req.params;
+  const { option_id } = req.body;
+  const user_id = req.user!.id;
+
+  if (!option_id) {
+    return res.status(400).json({ error: 'option_id is required' });
+  }
+
+  // upsert по паре (user_id, post_id) — повторный выбор меняет голос,
+  // а не добавляет второй.
+  const { error } = await supabase
+    .from('poll_votes')
+    .upsert({ post_id: id, option_id, user_id }, { onConflict: 'user_id,post_id' });
+
+  if (error) {
+    console.error('posts: poll vote failed', error);
+    return res.status(500).json({ error: 'Не удалось учесть голос' });
+  }
+
+  res.status(204).send();
 });
 
 router.post('/:id/view', async (req, res) => {
@@ -125,6 +199,40 @@ router.post('/:id/view', async (req, res) => {
   res.status(204).send();
 });
 
+// Общая лента — посты из всех сообществ. Это главный экран приложения.
+router.get('/', optionalAuth, async (req, res) => {
+  const sort = parsePostSort(req.query.sort);
+
+  const { data, error } = await supabase
+    .from('posts')
+    .select('*, author:users(username), community:communities(id, name)')
+    .order('created_at', { ascending: false })
+    .limit(100);
+
+  if (error) {
+    console.error('posts: request failed', error);
+    return res.status(500).json({ error: 'Не удалось выполнить запрос, попробуйте ещё раз' });
+  }
+
+  const postIds = data.map((post) => post.id);
+  const [{ scores, myVotes }, commentCounts, { polls, myPollVotes }] = await Promise.all([
+    getVoteInfoByPostId(postIds, req.user?.id),
+    getCommentCountByPostId(postIds),
+    getPollsByPostId(postIds, req.user?.id),
+  ]);
+
+  const enriched = data.map((post) => ({
+    ...post,
+    score: scores.get(post.id) ?? 0,
+    myVote: myVotes.get(post.id) ?? null,
+    commentCount: commentCounts.get(post.id) ?? 0,
+    pollOptions: polls.get(post.id) ?? [],
+    myPollVote: myPollVotes.get(post.id) ?? null,
+  }));
+
+  res.json(sortPosts(enriched, sort));
+});
+
 router.get('/community/:communityId', optionalAuth, async (req, res) => {
   const { communityId } = req.params;
   const sort = parsePostSort(req.query.sort);
@@ -141,9 +249,10 @@ router.get('/community/:communityId', optionalAuth, async (req, res) => {
   }
 
   const postIds = data.map((post) => post.id);
-  const [{ scores, myVotes }, commentCounts] = await Promise.all([
+  const [{ scores, myVotes }, commentCounts, { polls, myPollVotes }] = await Promise.all([
     getVoteInfoByPostId(postIds, req.user?.id),
     getCommentCountByPostId(postIds),
+    getPollsByPostId(postIds, req.user?.id),
   ]);
 
   const enriched = data.map((post) => ({
@@ -151,6 +260,8 @@ router.get('/community/:communityId', optionalAuth, async (req, res) => {
     score: scores.get(post.id) ?? 0,
     myVote: myVotes.get(post.id) ?? null,
     commentCount: commentCounts.get(post.id) ?? 0,
+    pollOptions: polls.get(post.id) ?? [],
+    myPollVote: myPollVotes.get(post.id) ?? null,
   }));
 
   res.json(sortPosts(enriched, sort));
@@ -174,9 +285,10 @@ router.get('/user/:userId', optionalAuth, async (req, res) => {
   }
 
   const postIds = data.map((post) => post.id);
-  const [{ scores, myVotes }, commentCounts] = await Promise.all([
+  const [{ scores, myVotes }, commentCounts, { polls, myPollVotes }] = await Promise.all([
     getVoteInfoByPostId(postIds, req.user?.id),
     getCommentCountByPostId(postIds),
+    getPollsByPostId(postIds, req.user?.id),
   ]);
 
   const enriched = data.map((post) => ({
@@ -184,6 +296,8 @@ router.get('/user/:userId', optionalAuth, async (req, res) => {
     score: scores.get(post.id) ?? 0,
     myVote: myVotes.get(post.id) ?? null,
     commentCount: commentCounts.get(post.id) ?? 0,
+    pollOptions: polls.get(post.id) ?? [],
+    myPollVote: myPollVotes.get(post.id) ?? null,
   }));
 
   res.json(sortPosts(enriched, sort));
@@ -200,9 +314,10 @@ router.get('/:id', optionalAuth, async (req, res) => {
 
   if (error) return res.status(404).json({ error: 'post not found' });
 
-  const [{ scores, myVotes }, commentCounts] = await Promise.all([
+  const [{ scores, myVotes }, commentCounts, { polls, myPollVotes }] = await Promise.all([
     getVoteInfoByPostId([data.id], req.user?.id),
     getCommentCountByPostId([data.id]),
+    getPollsByPostId([data.id], req.user?.id),
   ]);
 
   res.json({
@@ -210,6 +325,8 @@ router.get('/:id', optionalAuth, async (req, res) => {
     score: scores.get(data.id) ?? 0,
     myVote: myVotes.get(data.id) ?? null,
     commentCount: commentCounts.get(data.id) ?? 0,
+    pollOptions: polls.get(data.id) ?? [],
+    myPollVote: myPollVotes.get(data.id) ?? null,
   });
 });
 

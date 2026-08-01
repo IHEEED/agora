@@ -3,7 +3,7 @@
 import { useLayoutEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { CreateIcon, MOBILE_SLOTS } from '@/components/navTabs';
+import { CREATE_HREF, CreateIcon, MOBILE_SLOTS } from '@/components/navTabs';
 
 export function BottomNav() {
   const pathname = usePathname();
@@ -38,11 +38,23 @@ export function BottomNav() {
     return () => observer.disconnect();
   }, [activeSlot]);
 
+  // На экране поиска бар уезжает вниз, освобождая место клавиатуре.
+  const hidden = pathname === '/search';
+
   return (
-    <nav className="pointer-events-none fixed inset-x-0 bottom-6 z-50 flex justify-center px-3 md:hidden">
+    <nav
+      className="pointer-events-none fixed inset-x-0 bottom-6 z-50 flex justify-center px-3 md:hidden"
+      style={{
+        transform: hidden ? 'translateY(140%)' : 'none',
+        opacity: hidden ? 0 : 1,
+        transition: 'transform 0.32s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.24s ease',
+      }}
+      aria-hidden={hidden}
+    >
       <div
         ref={pillRef}
-        className="liquid-glass pointer-events-auto relative flex w-full max-w-[420px] items-center justify-between rounded-full border px-2 py-2 shadow-[0_10px_30px_rgba(0,0,0,0.18)]"
+        className="liquid-glass relative flex w-full max-w-[420px] items-center justify-between rounded-full border px-2 py-2 shadow-[0_10px_30px_rgba(0,0,0,0.18)]"
+        style={{ pointerEvents: hidden ? 'none' : 'auto' }}
       >
         {blob && (
           <span
@@ -61,7 +73,7 @@ export function BottomNav() {
             return (
               <Link
                 key="create"
-                href="/"
+                href={CREATE_HREF}
                 aria-label="Создать"
                 ref={(node) => {
                   slotRefs.current[index] = node;
