@@ -52,11 +52,17 @@ export function useVote(
           method: 'DELETE',
           body: JSON.stringify({ [idField]: id }),
         });
-        showMessage('Вы убрали голос');
+        // Молча: стрелка и счётчик и так показывают, что голос снят.
       } catch (err) {
+        // «vote not found» — не ошибка для пользователя: он и хотел остаться
+        // без голоса, а на сервере его уже нет. Показывать текст бессмысленно,
+        // и откатывать состояние тоже — оно уже верное.
+        const text = err instanceof Error ? err.message : '';
+        if (/vote not found/i.test(text)) return;
+
         setMyVote(previousVote);
         setScore(previousScore);
-        setError(err instanceof Error ? err.message : 'Не удалось отменить голос');
+        setError(text || 'Не удалось отменить голос');
       }
       return;
     }

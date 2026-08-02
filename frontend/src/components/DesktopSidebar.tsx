@@ -13,7 +13,7 @@ export function DesktopSidebar() {
   const pathname = usePathname();
 
   return (
-    <nav className="fixed inset-y-0 left-0 z-40 hidden w-20 flex-col items-center gap-2 border-r border-[var(--border)] bg-[var(--bg)] py-6 md:flex">
+    <nav className="glass fixed inset-y-0 left-0 z-40 hidden w-20 flex-col items-center gap-2 border-y-0 border-l-0 py-6 md:flex">
       <Link
         href={CREATE_HREF}
         aria-label="Создать"
@@ -33,7 +33,9 @@ export function DesktopSidebar() {
               aria-current={active ? 'page' : undefined}
               className="flex h-12 w-12 items-center justify-center rounded-full transition-colors"
               style={{
-                color: active ? 'var(--nav-active)' : 'var(--text-muted)',
+                color: active
+                  ? 'var(--accent)'
+                  : 'color-mix(in srgb, var(--accent) 42%, var(--text-muted))',
                 background: active ? 'var(--accent-soft)' : 'transparent',
               }}
             >

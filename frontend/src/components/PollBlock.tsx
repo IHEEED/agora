@@ -24,28 +24,30 @@ export function PollBlock({
   const total = votes.reduce((sum, option) => sum + option.votes, 0);
 
   async function choose(optionId: string) {
-    if (chosen === optionId) return;
-
     const previous = chosen;
-    // Оптимистично: снимаем голос со старого варианта и ставим на новый.
-    setChosen(optionId);
+    // Повторный клик по своему варианту снимает голос.
+    const removing = previous === optionId;
+
+    setChosen(removing ? null : optionId);
     setVotes((prev) =>
       prev.map((option) => {
-        if (option.id === optionId) return { ...option, votes: option.votes + 1 };
+        if (!removing && option.id === optionId) return { ...option, votes: option.votes + 1 };
         if (option.id === previous) return { ...option, votes: Math.max(option.votes - 1, 0) };
         return option;
       })
     );
 
     try {
-      await apiFetch(`/posts/${postId}/poll-vote`, {
-        method: 'POST',
-        body: JSON.stringify({ option_id: optionId }),
-      });
+      await apiFetch(
+        `/posts/${postId}/poll-vote`,
+        removing
+          ? { method: 'DELETE' }
+          : { method: 'POST', body: JSON.stringify({ option_id: optionId }) }
+      );
     } catch (err) {
       setChosen(previous);
       setVotes(options);
-      setError(err instanceof Error ? err.message : 'Не удалось проголосовать');
+      setError(err instanceof Error ? err.message : 'Не удалось изменить голос');
     }
   }
 
@@ -70,7 +72,14 @@ export function PollBlock({
               <span
                 aria-hidden
                 className="absolute inset-y-0 left-0 transition-[width] duration-500"
-                style={{ width: `${share}%`, background: 'var(--accent-soft)' }}
+                style={{
+                  width: `${share}%`,
+                  // Свой процент вместо --accent-soft (12%): шкалу должно быть
+                  // видно с первого взгляда, а выбранный вариант — плотнее прочих.
+                  background: selected
+                    ? 'color-mix(in srgb, var(--accent) 34%, transparent)'
+                    : 'color-mix(in srgb, var(--accent) 20%, transparent)',
+                }}
               />
             )}
             <span className="relative flex items-center justify-between gap-3">

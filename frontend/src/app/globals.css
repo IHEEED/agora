@@ -37,65 +37,115 @@
 :root {
   --accent-soft: color-mix(in srgb, var(--accent) 12%, transparent);
   --nav-blob: color-mix(in srgb, var(--accent) 14%, transparent);
+
+  /* ── Жидкое стекло ─────────────────────────────────────────────
+     Сила размытия задана одним множителем. Он же — точка, за которую
+     систему дёргает настройка «Уменьшить прозрачность» на телефоне:
+     ниже есть @media (prefers-reduced-transparency), где множитель
+     обнуляется, и все стеклянные поверхности разом становятся
+     непрозрачными, без правки каждого компонента. */
+  --glass-strength: 1;
+  --glass-blur: calc(22px * var(--glass-strength));
+  --glass-saturate: calc(100% + 70% * var(--glass-strength));
+
+  /* Прозрачность падает вместе с силой: при нулевом размытии
+     подложка обязана стать сплошной, иначе текст ляжет на кашу. */
+  --glass-bg: color-mix(
+    in srgb,
+    var(--surface) calc(100% - 28% * var(--glass-strength)),
+    transparent
+  );
+  --glass-border: color-mix(in srgb, var(--text) 10%, transparent);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
 }
 
+/* Тёмная тема — честный чёрный и нейтральная серая шкала. Прежний набор был
+   подкрашен в фиолетовый (#0b0910), и рядом с любым акцентом, кроме сиреневого,
+   фон выглядел грязным. Оттенок теперь даёт только акцент и обои. */
 :root[data-theme="dark"] {
-  --bg: #0b0910;
-  --surface: #15121c;
-  --surface-2: #1f1a2b;
-  --border: rgba(240, 237, 247, 0.12);
-  --text: #f1eef7;
-  --text-muted: #a29cb3;
+  --bg: #000000;
+  --surface: #0e0e11;
+  --surface-2: #17171c;
+  --border: rgba(255, 255, 255, 0.12);
+  --text: #f5f5f7;
+  --text-muted: #9a9aa5;
 
   --accent: #a880ff;
-  --accent-contrast: #0b0910;
+  --accent-contrast: #000000;
 
-  --control: #ece9f5;
-  --control-border: rgba(240, 237, 247, 0.3);
+  --control: #eaeaee;
+  --control-border: rgba(255, 255, 255, 0.3);
 
-  --sunken: #08060d;
+  --sunken: #000000;
 
   --up: #3ddc84;
   --up-bg: rgba(61, 220, 132, 0.14);
   --down: #ff6b61;
   --down-bg: rgba(255, 107, 97, 0.14);
 
-  --nav-bg: rgba(21, 18, 28, 0.55);
-  --nav-border: rgba(240, 237, 247, 0.1);
+  --nav-bg: rgba(14, 14, 17, 0.55);
+  --nav-border: rgba(255, 255, 255, 0.1);
   --nav-active: #ffffff;
-  --header-bg: rgba(11, 9, 16, 0.78);
+  --header-bg: rgba(0, 0, 0, 0.78);
 
   color-scheme: dark;
 }
 
 @media (prefers-color-scheme: dark) {
+  /* Дубль тёмной палитры — страховка на миг до того, как инлайн-скрипт
+     проставит data-theme, и на случай отключённого JS. Значения обязаны
+     совпадать с блоком выше. */
   :root:not([data-theme="light"]) {
-    --bg: #0b0910;
-    --surface: #15121c;
-    --surface-2: #1f1a2b;
-    --border: rgba(240, 237, 247, 0.12);
-    --text: #f1eef7;
-    --text-muted: #a29cb3;
+    --bg: #000000;
+    --surface: #0e0e11;
+    --surface-2: #17171c;
+    --border: rgba(255, 255, 255, 0.12);
+    --text: #f5f5f7;
+    --text-muted: #9a9aa5;
 
     --accent: #a880ff;
-    --accent-contrast: #0b0910;
+    --accent-contrast: #000000;
 
-    --control: #ece9f5;
-    --control-border: rgba(240, 237, 247, 0.3);
+    --control: #eaeaee;
+    --control-border: rgba(255, 255, 255, 0.3);
 
-    --sunken: #08060d;
+    --sunken: #000000;
 
     --up: #3ddc84;
     --up-bg: rgba(61, 220, 132, 0.14);
     --down: #ff6b61;
     --down-bg: rgba(255, 107, 97, 0.14);
 
-    --nav-bg: rgba(21, 18, 28, 0.55);
-    --nav-border: rgba(240, 237, 247, 0.1);
+    --nav-bg: rgba(14, 14, 17, 0.55);
+    --nav-border: rgba(255, 255, 255, 0.1);
     --nav-active: #ffffff;
-    --header-bg: rgba(11, 9, 16, 0.78);
+    --header-bg: rgba(0, 0, 0, 0.78);
 
     color-scheme: dark;
+  }
+}
+
+/* На тёмном фоне стекло должно быть плотнее и с тёплой подсветкой сверху,
+   иначе оно выглядит грязным пятном, а не поверхностью. */
+:root[data-theme='dark'],
+:root[data-theme='dark'] .glass {
+  --glass-border: color-mix(in srgb, #ffffff 14%, transparent);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --glass-border: color-mix(in srgb, #ffffff 14%, transparent);
+    --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+  }
+}
+
+/* Системная настройка «Уменьшить прозрачность» (iOS/macOS/Windows).
+   Гасим множитель — стекло по всему приложению становится сплошным,
+   потому что все поверхности считают свои значения от него. */
+@media (prefers-reduced-transparency: reduce) {
+  :root {
+    --glass-strength: 0;
   }
 }
 
@@ -112,6 +162,16 @@
 :root[data-accent='amber'] { --accent: #b45309; }
 :root[data-accent='graphite'] { --accent: #475569; }
 :root[data-accent='cherry'] { --accent: #dc2626; }
+:root[data-accent='sky'] { --accent: #0284c7; }
+:root[data-accent='lime'] { --accent: #4d7c0f; }
+:root[data-accent='forest'] { --accent: #15803d; }
+:root[data-accent='sand'] { --accent: #a16207; }
+:root[data-accent='clay'] { --accent: #c2410c; }
+:root[data-accent='magenta'] { --accent: #c026d3; }
+:root[data-accent='violet'] { --accent: #7c3aed; }
+:root[data-accent='slate'] { --accent: #334155; }
+:root[data-accent='plum'] { --accent: #86198f; }
+:root[data-accent='ink'] { --accent: #1e293b; }
 
 :root[data-theme='dark'][data-accent='indigo'] { --accent: #a880ff; }
 :root[data-theme='dark'][data-accent='ocean'] { --accent: #7ba6ff; }
@@ -123,6 +183,16 @@
 :root[data-theme='dark'][data-accent='amber'] { --accent: #ffc457; }
 :root[data-theme='dark'][data-accent='graphite'] { --accent: #a8b6cc; }
 :root[data-theme='dark'][data-accent='cherry'] { --accent: #ff8a80; }
+:root[data-theme='dark'][data-accent='sky'] { --accent: #6fc7f5; }
+:root[data-theme='dark'][data-accent='lime'] { --accent: #b2e05c; }
+:root[data-theme='dark'][data-accent='forest'] { --accent: #5fd48a; }
+:root[data-theme='dark'][data-accent='sand'] { --accent: #ecc46a; }
+:root[data-theme='dark'][data-accent='clay'] { --accent: #ff9a70; }
+:root[data-theme='dark'][data-accent='magenta'] { --accent: #f07aff; }
+:root[data-theme='dark'][data-accent='violet'] { --accent: #b79bff; }
+:root[data-theme='dark'][data-accent='slate'] { --accent: #9fb0c9; }
+:root[data-theme='dark'][data-accent='plum'] { --accent: #e08ae8; }
+:root[data-theme='dark'][data-accent='ink'] { --accent: #8fa3bd; }
 
 @theme inline {
   --color-bg: var(--bg);
@@ -153,16 +223,356 @@ body {
   font-family: var(--font-body), Arial, Helvetica, sans-serif;
 }
 
+/* Пиксельный шрифт разборчив только на своих условиях: жирное начертание,
+   заметный трекинг и крупный кегль. При тесном трекинге соседние «лесенки»
+   сливаются, и надпись превращается в кашу — поэтому здесь 0.06em, а не 0.02em. */
 .font-pixel {
   font-family: var(--font-pixel), monospace;
-  letter-spacing: 0.02em;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  -webkit-font-smoothing: antialiased;
 }
 
+/* Базовое стекло. Всё, что должно выглядеть как поверхность поверх контента,
+   берёт этот класс — тогда системная настройка прозрачности управляет всем
+   приложением через один множитель --glass-strength.
+
+   NB: не дублировать backdrop-filter вручную через -webkit-. Lightning CSS
+   (компилятор Tailwind v4) схлопывает такую пару и оставляет в сборке только
+   префиксную запись — а Chromium её не понимает, и размытие пропадает целиком.
+   Префиксы расставляет компилятор сам, по своим таргетам. */
+.glass {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+}
+
+/* Плавающие поверхности — бар, модалки: плотнее и с тенью. */
+.glass-floating {
+  background: color-mix(
+    in srgb,
+    var(--surface) calc(100% - 36% * var(--glass-strength)),
+    transparent
+  );
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(calc(var(--glass-blur) * 1.4)) saturate(var(--glass-saturate));
+  box-shadow: var(--glass-shadow);
+}
+
+/* Стеклянный блик по верхней кромке — то, что отличает «стекло»
+   от простой полупрозрачной заливки. Гаснет вместе с силой стекла. */
+.glass-sheen {
+  position: relative;
+}
+.glass-sheen::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: var(--glass-strength);
+  /* Два слоя вместо одной белой заливки. Прежний вариант заливал белым верхние
+     42% карточки и обрывался на полпути — получалась не фаска, а засветка.
+     Дорогое стекло бликует иначе: тонкая яркая кромка ровно по краю плюс
+     почти незаметный спад под ней. */
+  background:
+    linear-gradient(to bottom, color-mix(in srgb, #ffffff 26%, transparent), transparent 1.5px),
+    linear-gradient(
+      to bottom,
+      color-mix(in srgb, #ffffff 6%, transparent),
+      color-mix(in srgb, #ffffff 2.5%, transparent) 20%,
+      transparent 62%
+    );
+}
+
+/* На тёмной теме белый читается резче — тот же процент выглядит вдвое ярче. */
+:root[data-theme='dark'] .glass-sheen::before {
+  background:
+    linear-gradient(to bottom, color-mix(in srgb, #ffffff 16%, transparent), transparent 1.5px),
+    linear-gradient(
+      to bottom,
+      color-mix(in srgb, #ffffff 3.5%, transparent),
+      color-mix(in srgb, #ffffff 1.5%, transparent) 20%,
+      transparent 62%
+    );
+}
+
+/* Старое имя оставлено, чтобы не переписывать все места разом. */
 .liquid-glass {
-  background: var(--nav-bg);
-  border-color: var(--nav-border);
-  backdrop-filter: blur(20px) saturate(160%);
-  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  /* Было 36% — бар просвечивал насквозь, и лента под ним читалась сквозь
+     иконки. Плотность стекла у плавающих панелей должна быть выше, чем у
+     карточек: они всегда лежат прямо на контенте. */
+  background: color-mix(
+    in srgb,
+    var(--surface) calc(100% - 18% * var(--glass-strength)),
+    transparent
+  );
+  border-color: var(--glass-border);
+  backdrop-filter: blur(calc(var(--glass-blur) * 1.4)) saturate(var(--glass-saturate));
+}
+
+/* Пост как отдельная стеклянная плитка. Заметно легче плавающих поверхностей:
+   их в ленте десятки подряд, и полная сила стекла превратила бы экран в туман. */
+.post-tile {
+  border-radius: 22px;
+  /* 10%: заметно плотнее прежних 26%. Сильная прозрачность пускала сквозь
+     плитку и обои, и соседние посты — текст ложился на пёстрый фон. */
+  background: color-mix(
+    in srgb,
+    var(--surface) calc(100% - 10% * var(--glass-strength)),
+    transparent
+  );
+  border: 1px solid var(--glass-border);
+  backdrop-filter: blur(calc(var(--glass-blur) * 0.55)) saturate(var(--glass-saturate));
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+  transition: box-shadow 0.25s ease, transform 0.25s ease;
+}
+
+/* Акцентное свечение за интерфейсом. Оно же — то, что размывает стекло:
+   без подложки размывать нечего и поверхности выглядят серой заливкой.
+   Верхнее пятно самое сильное — оно и подсвечивает шапку. */
+.aurora {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: var(--glass-strength);
+  background:
+    radial-gradient(70% 46% at 50% -8%, color-mix(in srgb, var(--accent) 30%, transparent), transparent 76%),
+    radial-gradient(58% 40% at 6% 2%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 74%),
+    radial-gradient(52% 38% at 94% 14%, color-mix(in srgb, var(--accent) 16%, transparent), transparent 74%),
+    radial-gradient(56% 40% at 50% 100%, color-mix(in srgb, var(--accent) 12%, transparent), transparent 74%);
+}
+
+/* ─── Обои приложения ───────────────────────────────────────────────────────
+   Мягкие градиентные пятна ниже ауроры, сразу над фоном страницы. Вариант
+   выставляет тот же инлайн-скрипт, что и тему, — иначе фон мигал бы на загрузке.
+
+   Оттенки объявлены на голом атрибуте, без :root: тот же селектор ловит и
+   образец в настройках, поэтому палитра живёт в одном месте, а не в двух. */
+[data-wallpaper='accent'] {
+  --wall-a: var(--accent);
+  --wall-b: var(--accent);
+  --wall-c: var(--accent);
+}
+[data-wallpaper='violet'] { --wall-a: #7c3aed; --wall-b: #4f46e5; --wall-c: #a855f7; }
+[data-wallpaper='ocean'] { --wall-a: #2563eb; --wall-b: #0ea5e9; --wall-c: #6366f1; }
+[data-wallpaper='emerald'] { --wall-a: #059669; --wall-b: #14b8a6; --wall-c: #65a30d; }
+[data-wallpaper='sunset'] { --wall-a: #ea580c; --wall-b: #f59e0b; --wall-c: #e11d48; }
+[data-wallpaper='rose'] { --wall-a: #e11d48; --wall-b: #db2777; --wall-c: #f97316; }
+[data-wallpaper='ink'] { --wall-a: #334155; --wall-b: #475569; --wall-c: #64748b; }
+
+/* В тёмной теме серые «Чернила» сливаются с фоном — берём осветлённый набор. */
+:root[data-theme='dark'][data-wallpaper='ink'] {
+  --wall-a: #64748b;
+  --wall-b: #94a3b8;
+  --wall-c: #475569;
+}
+
+/* Плотность пятен — единственное, что отличает темы. На светлом фоне цвет
+   набирается быстрее, поэтому там процент ниже. */
+:root {
+  --wall-strength: 22%;
+}
+:root[data-theme='dark'] {
+  --wall-strength: 30%;
+}
+
+.wallpaper {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  pointer-events: none;
+  background:
+    radial-gradient(
+      124% 82% at 10% -6%,
+      color-mix(in srgb, var(--wall-a) var(--wall-strength), transparent),
+      transparent 62%
+    ),
+    radial-gradient(
+      104% 70% at 94% 16%,
+      color-mix(in srgb, var(--wall-b) calc(var(--wall-strength) * 0.78), transparent),
+      transparent 64%
+    ),
+    radial-gradient(
+      130% 92% at 46% 108%,
+      color-mix(in srgb, var(--wall-c) calc(var(--wall-strength) * 0.62), transparent),
+      transparent 66%
+    );
+}
+
+:root[data-wallpaper]:not([data-wallpaper='none']) .wallpaper {
+  display: block;
+}
+
+/* Образец в настройках — те же три пятна, ужатые до плитки. Атрибут
+   data-wallpaper на самой кнопке подставляет её набор оттенков. */
+.wallpaper-swatch {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 1;
+  overflow: hidden;
+  border-radius: 14px;
+  background: var(--surface-2);
+  transition: transform 0.15s ease;
+}
+.wallpaper-swatch:hover {
+  transform: scale(1.04);
+}
+
+.wallpaper-swatch[data-wallpaper]:not([data-wallpaper='none']) {
+  /* В образце проценты втрое выше: на плитке 40×40 честная плотность
+     выглядела бы пустым серым квадратом. */
+  background:
+    radial-gradient(
+      124% 82% at 10% -6%,
+      color-mix(in srgb, var(--wall-a) 78%, transparent),
+      transparent 62%
+    ),
+    radial-gradient(
+      104% 70% at 94% 16%,
+      color-mix(in srgb, var(--wall-b) 62%, transparent),
+      transparent 64%
+    ),
+    radial-gradient(
+      130% 92% at 46% 108%,
+      color-mix(in srgb, var(--wall-c) 52%, transparent),
+      transparent 66%
+    ),
+    var(--surface-2);
+}
+
+/* Кольцо сториз медленно проворачивается, пока истории не просмотрены.
+   Оборот почти в полминуты: быстрее это уже мельтешит на краю зрения. */
+@keyframes story-ring-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.story-ring-spin {
+  animation: story-ring-spin 26s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .story-ring-spin {
+    animation: none;
+  }
+}
+
+/* Шторка комментариев. Плотнее обычного стекла: под ней лежит лента, и
+   полупрозрачный фон превратил бы текст в мешанину. */
+.comment-sheet {
+  background: color-mix(in srgb, var(--surface) 96%, transparent);
+  backdrop-filter: blur(calc(var(--glass-blur) * 1.4)) saturate(var(--glass-saturate));
+  border-top: 1px solid var(--glass-border);
+  box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.35);
+}
+
+/* Въезд следующего шага мастера — пара к затуханию предыдущего. */
+@keyframes step-enter {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.step-enter {
+  animation: step-enter 0.26s cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .step-enter {
+    animation: none;
+  }
+}
+
+/* ─── Пиксельные обои экрана входа ──────────────────────────────────────────
+   Внутрь приложения они не идут: там градиент. Здесь же надпись — сама тема
+   экрана, поэтому строки ещё и медленно едут слева направо. */
+.pixel-wall {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.pixel-wall-inner {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  /* Полотно больше экрана: после поворота его углы иначе оголили бы фон.
+     По высоте с запасом на широкие короткие окна — там поворот съедает больше. */
+  width: 200%;
+  height: 180%;
+  transform: translate(-50%, -50%) rotate(-20deg);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around;
+  font-family: var(--font-pixel), monospace;
+  /* Кегли внутри заданы в em: одна цифра здесь ужимает узор целиком. */
+  font-size: 16px;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  user-select: none;
+  color: color-mix(in srgb, var(--accent) var(--pixel-wall-alpha), transparent);
+}
+
+:root {
+  --pixel-wall-alpha: 9%;
+}
+:root[data-theme='dark'] {
+  --pixel-wall-alpha: 13%;
+}
+
+/* На телефоне тот же узор в тех же кеглях выглядел парой гигантских слов. */
+@media (max-width: 640px) {
+  .pixel-wall-inner {
+    font-size: 10px;
+  }
+}
+
+.pixel-wall-row {
+  display: flex;
+  /* Строго от левого края, не по центру: при центрировании сдвинутая на -50%
+     дорожка оголяла правую половину экрана, и надписи «докатывались» до края
+     уже на глазах у пользователя. */
+  justify-content: flex-start;
+}
+
+.pixel-wall-track {
+  display: flex;
+  align-items: center;
+  gap: 0.9em;
+  white-space: nowrap;
+  /* Минимум две ширины полотна: тогда каждая из двух копий сама по себе
+     перекрывает экран целиком, и в любой фазе анимации фон полон. */
+  min-width: 200%;
+  justify-content: space-around;
+  /* Сдвиг ровно на половину собственной ширины: вторая копия встаёт на место
+     первой, поэтому петля не видна. Стартуем со сдвига, чтобы ехать вправо. */
+  animation: pixel-wall-drift linear infinite;
+  will-change: transform;
+}
+
+@keyframes pixel-wall-drift {
+  from {
+    transform: translateX(-50%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+/* Движущийся фон — первое, что мешает при вестибулярных нарушениях. */
+@media (prefers-reduced-motion: reduce) {
+  .pixel-wall-track {
+    animation: none;
+  }
 }
 
 /* Статичная зона размытия под нижним баром: контент плавно «уезжает» вниз. */
@@ -173,11 +583,40 @@ body {
   height: 150px;
   z-index: 40;
   pointer-events: none;
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  background: linear-gradient(to top, var(--bg) 18%, transparent 100%);
-  mask-image: linear-gradient(to top, #000 42%, transparent 100%);
-  -webkit-mask-image: linear-gradient(to top, #000 42%, transparent 100%);
+  backdrop-filter: blur(calc(2px * var(--glass-strength)));
+  /* Полупрозрачная вуаль, а не сплошная заливка. Прежний нижний стоп был
+     непрозрачным (color-mix с var(--bg) не оставляет альфы), и на чёрной теме
+     он превращался в чёрную плашку на 150px, закрывавшую обои, — тот самый
+     «подбородок». Теперь фон просвечивает, а читаемость держит размытие. */
+  background: linear-gradient(
+    to top,
+    color-mix(in srgb, var(--bg) 60%, transparent),
+    color-mix(in srgb, var(--accent) 5%, transparent) 58%,
+    transparent 100%
+  );
+  mask-image: linear-gradient(to top, #000 55%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to top, #000 55%, transparent 100%);
+}
+
+/* Те же три ступени, что и у шапки, только снизу вверх. */
+.nav-fade::before,
+.nav-fade::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.nav-fade::before {
+  backdrop-filter: blur(calc(7px * var(--glass-strength)));
+  mask-image: linear-gradient(to top, #000 40%, transparent 78%);
+  -webkit-mask-image: linear-gradient(to top, #000 40%, transparent 78%);
+}
+
+.nav-fade::after {
+  backdrop-filter: blur(calc(16px * var(--glass-strength)));
+  mask-image: linear-gradient(to top, #000 24%, transparent 52%);
+  -webkit-mask-image: linear-gradient(to top, #000 24%, transparent 52%);
 }
 
 /* Шапка стоит на месте при прокрутке; размытие уходит вниз градиентом,
@@ -188,20 +627,51 @@ body {
   z-index: 45;
 }
 
-/* Вуаль шапки — зеркало нижней зоны размытия: те же blur, стопы градиента
-   и маски, только направление сверху вниз. */
+/* Вуаль шапки — ступенчатое размытие.
+   Одним слоем не выходит: backdrop-filter обрезается по кромке элемента
+   жёстко, и на цветном фоне видна ровная горизонтальная линия там, где
+   размытие кончается. Поэтому кладём три слоя со всё большим blur и
+   всё более коротким градиентом — переход получается плавным, как в iOS. */
 .app-header-veil {
   position: absolute;
   inset: 0;
   /* Свес вуали. Контент страниц отступает ровно на эту величину (.below-header),
      чтобы сториз и аватар профиля не попадали под размытие в покое. */
-  bottom: -40px;
+  bottom: -56px;
   pointer-events: none;
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  background: linear-gradient(to bottom, var(--bg) 18%, transparent 100%);
-  mask-image: linear-gradient(to bottom, #000 42%, transparent 100%);
-  -webkit-mask-image: linear-gradient(to bottom, #000 42%, transparent 100%);
+  /* Самый слабый слой тянется на всю высоту — он и «сшивает» края. */
+  backdrop-filter: blur(calc(2px * var(--glass-strength)));
+  /* Вуаль обязана оставаться полупрозрачной. color-mix с var(--bg) не оставляет
+     альфы: верхняя треть получалась сплошной заливкой, которая закрывала и обои,
+     и акцентное свечение. Читаемость шапки держит размытие, а не плотность. */
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--bg) 62%, transparent),
+    color-mix(in srgb, var(--accent) 7%, transparent) 62%,
+    transparent 100%
+  );
+  mask-image: linear-gradient(to bottom, #000 45%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, #000 45%, transparent 100%);
+}
+
+.app-header-veil::before,
+.app-header-veil::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.app-header-veil::before {
+  backdrop-filter: blur(calc(7px * var(--glass-strength)));
+  mask-image: linear-gradient(to bottom, #000 40%, transparent 78%);
+  -webkit-mask-image: linear-gradient(to bottom, #000 40%, transparent 78%);
+}
+
+.app-header-veil::after {
+  backdrop-filter: blur(calc(16px * var(--glass-strength)));
+  mask-image: linear-gradient(to bottom, #000 24%, transparent 52%);
+  -webkit-mask-image: linear-gradient(to bottom, #000 24%, transparent 52%);
 }
 
 .app-header-inner {
@@ -298,7 +768,14 @@ body {
   z-index: 0;
   pointer-events: none;
   border-radius: 999px;
-  background: var(--accent-soft);
+  /* Плашка, а не прозрачная заливка акцентом. Полупрозрачный вариант работал
+     только на насыщенных акцентах: на приглушённых («Чернила», «Сланец»)
+     двадцать процентов серо-синего на стекле не видно вообще. Здесь акцент
+     подмешан к поверхности, поэтому плашка читается при любом цвете. */
+  background: color-mix(in srgb, var(--accent) 22%, var(--surface));
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.14),
+    inset 0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent);
   transition:
     transform 0.24s cubic-bezier(0.32, 1.4, 0.5, 1),
     width 0.24s cubic-bezier(0.32, 1.4, 0.5, 1);
@@ -311,8 +788,35 @@ body {
 }
 
 /* Обложка профиля: позже сюда встанут сменные оформления. */
+/* Обложка профиля. Прежний вариант был зашит зелёным градиентом и жил сам по
+   себе: при любом акценте, кроме зелёного, он выглядел чужим пятном. Теперь
+   цвет берётся от акцента, а низ обложки растворяется маской — между фото и
+   данными нет ребра, они перетекают друг в друга. */
 .profile-cover {
-  background: linear-gradient(135deg, #1f9d55 0%, #34c77b 55%, #7fd6a4 100%);
+  position: relative;
+  background:
+    radial-gradient(90% 120% at 18% 0%, color-mix(in srgb, var(--accent) 95%, #ffffff), transparent 68%),
+    radial-gradient(80% 110% at 88% 8%, color-mix(in srgb, var(--accent) 62%, #000000), transparent 70%),
+    linear-gradient(140deg, var(--accent), color-mix(in srgb, var(--accent) 55%, #000000));
+  background-size: cover;
+  background-position: center;
+  /* Растворение начинается с середины: верх остаётся плотным, чтобы обложка
+     читалась, низ уходит в ноль и открывает стекло карточки. */
+  mask-image: linear-gradient(to bottom, #000 42%, rgba(0, 0, 0, 0.55) 72%, transparent 100%);
+}
+
+/* Тонкий блик по верхней кромке — та же логика, что у стеклянных плиток. */
+.profile-cover::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, #ffffff 18%, transparent),
+    transparent 30%
+  );
 }
 
 @media (prefers-reduced-motion: reduce) {

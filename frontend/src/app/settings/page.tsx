@@ -9,21 +9,26 @@ import {
   ACCENTS,
   AccentId,
   ThemePreference,
+  WALLPAPERS,
+  WallpaperId,
   applyAccent,
   applyTheme,
+  applyWallpaper,
   readAccent,
   readThemePreference,
+  readWallpaper,
 } from '@/lib/appearance';
+import { LOCALES, Locale, TranslationKey, applyLocale, useT } from '@/lib/i18n';
 
-const THEMES: ReadonlyArray<readonly [ThemePreference, string]> = [
-  ['light', 'Светлая'],
-  ['dark', 'Тёмная'],
-  ['system', 'Системная'],
+const THEMES: ReadonlyArray<readonly [ThemePreference, TranslationKey]> = [
+  ['light', 'settings.theme.light'],
+  ['dark', 'settings.theme.dark'],
+  ['system', 'settings.theme.system'],
 ];
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-2xl bg-[var(--surface)] p-5">
+    <section className="glass rounded-2xl p-5">
       <h2 className="mb-3 text-[13px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">
         {title}
       </h2>
@@ -98,15 +103,23 @@ export default function SettingsPage() {
   const { session } = useSession();
   const router = useRouter();
   const { requestVerification } = usePhoneGate();
+  const { t, locale, setLocale } = useT();
 
   // До монтирования значения неизвестны — читаем их уже в браузере,
   // иначе серверный рендер разойдётся с localStorage.
   const [theme, setTheme] = useState<ThemePreference | null>(null);
   const [accent, setAccent] = useState<AccentId | null>(null);
+  const [wallpaper, setWallpaper] = useState<WallpaperId | null>(null);
+
+  function chooseLocale(next: Locale) {
+    setLocale(next);
+    applyLocale(next);
+  }
 
   useEffect(() => {
     setTheme(readThemePreference());
     setAccent(readAccent());
+    setWallpaper(readWallpaper());
   }, []);
 
   // При «системной» теме следим за настройкой ОС и переключаемся вместе с ней.
@@ -128,10 +141,15 @@ export default function SettingsPage() {
     applyAccent(next);
   }
 
+  function chooseWallpaper(next: WallpaperId) {
+    setWallpaper(next);
+    applyWallpaper(next);
+  }
+
   const phoneVerified = Boolean(session?.user.phone_confirmed_at);
 
   return (
-    <div className="flex flex-1 flex-col items-center" style={{ background: 'var(--sunken)' }}>
+    <div className="flex flex-1 flex-col items-center">
       <main className="below-header flex w-full max-w-2xl flex-col gap-2.5 px-2.5 pb-6">
         <div className="flex items-center gap-3 px-2 py-1">
           <button
@@ -143,18 +161,18 @@ export default function SettingsPage() {
               <path d="M15 5l-7 7 7 7" />
             </svg>
           </button>
-          <h1 className="text-2xl font-semibold text-[var(--text)]">Настройки</h1>
+          <h1 className="font-pixel text-[32px] text-[var(--text)]">{t('settings.title')}</h1>
         </div>
 
-        <section className="rounded-2xl bg-[var(--surface)] p-5">
+        <section className="glass rounded-2xl p-5">
           <h2 className="mb-3 text-[13px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">
-            Оформление
+            {t('settings.appearance')}
           </h2>
 
           <div className="flex flex-col gap-2 pb-4">
-            <span className="text-[15px] text-[var(--text)]">Тема</span>
+            <span className="text-[15px] text-[var(--text)]">{t('settings.theme')}</span>
             <div className="flex gap-1 rounded-full border border-[var(--border)] p-1">
-              {THEMES.map(([value, label]) => (
+              {THEMES.map(([value, labelKey]) => (
                 <button
                   key={value}
                   onClick={() => chooseTheme(value)}
@@ -165,14 +183,14 @@ export default function SettingsPage() {
                       : { color: 'var(--text-muted)' }
                   }
                 >
-                  {label}
+                  {t(labelKey)}
                 </button>
               ))}
             </div>
           </div>
 
           <div className="border-t border-[var(--border)] pt-4">
-            <p className="mb-3 text-[15px] text-[var(--text)]">Акцентный цвет</p>
+            <p className="mb-3 text-[15px] text-[var(--text)]">{t('settings.accent')}</p>
             <div className="flex flex-wrap gap-3">
               {ACCENTS.map((option) => {
                 const selected = accent === option.id;
@@ -202,78 +220,130 @@ export default function SettingsPage() {
               })}
             </div>
           </div>
+
+          <div className="mt-4 border-t border-[var(--border)] pt-4">
+            <p className="mb-3 text-[15px] text-[var(--text)]">{t('settings.wallpaper')}</p>
+            <div className="grid grid-cols-4 gap-2.5">
+              {WALLPAPERS.map((option) => {
+                const selected = wallpaper === option.id;
+                return (
+                  <button
+                    key={option.id}
+                    onClick={() => chooseWallpaper(option.id)}
+                    title={option.label}
+                    aria-label={option.label}
+                    aria-pressed={selected}
+                    className="wallpaper-swatch"
+                    // Тот же атрибут, что и на <html>: набор оттенков образец
+                    // берёт из общего правила, а не из второй копии палитры.
+                    data-wallpaper={option.id}
+                    style={{
+                      boxShadow: selected
+                        ? '0 0 0 2px var(--surface), 0 0 0 4px var(--accent)'
+                        : '0 0 0 1px var(--border)',
+                    }}
+                  >
+                    {option.id === 'none' && (
+                      <span className="text-[12px] text-[var(--text-muted)]">
+                        {t('settings.wallpaperOff')}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="mt-4 flex flex-col gap-2 border-t border-[var(--border)] pt-4">
+            <span className="text-[15px] text-[var(--text)]">{t('settings.language')}</span>
+            <div className="flex gap-1 rounded-full border border-[var(--border)] p-1">
+              {LOCALES.map((option) => (
+                <button
+                  key={option.id}
+                  onClick={() => chooseLocale(option.id)}
+                  className="flex-1 whitespace-nowrap rounded-full px-3 py-1.5 text-[13px] font-medium transition-colors"
+                  style={
+                    locale === option.id
+                      ? { background: 'var(--accent)', color: 'var(--accent-contrast)' }
+                      : { color: 'var(--text-muted)' }
+                  }
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </div>
         </section>
 
-        <Section title="Аккаунт">
-          <Row label="Почта" hint={session?.user.email ?? ''} />
+        <Section title={t('settings.account')}>
+          <Row label={t('settings.email')} hint={session?.user.email ?? ''} />
           <Row
-            label="Телефон"
-            hint={phoneVerified ? 'Подтверждён' : 'Нужен, чтобы писать посты и комментарии'}
+            label={t('settings.phone')}
+            hint={phoneVerified ? t('settings.phoneVerified') : t('settings.phoneNeeded')}
           >
             {phoneVerified ? (
               <span className="flex-none text-[13px] font-medium" style={{ color: 'var(--up)' }}>
-                Готово
+                {t('settings.done')}
               </span>
             ) : (
               <button
                 onClick={requestVerification}
                 className="flex-none rounded-full bg-[var(--accent)] px-4 py-1.5 text-[13px] font-medium text-[var(--accent-contrast)]"
               >
-                Подтвердить
+                {t('settings.verify')}
               </button>
             )}
           </Row>
         </Section>
 
-        <Section title="Уведомления">
-          <Row label="Ответы на мои посты" hint="Когда кто-то комментирует вашу запись">
+        <Section title={t('settings.notifications')}>
+          <Row label={t('settings.notifyReplies')} hint={t('settings.notifyRepliesHint')}>
             <LocalToggle storageKey="parafraz-notify-replies" defaultOn />
           </Row>
-          <Row label="Упоминания" hint="Когда вас отмечают через @">
+          <Row label={t('settings.notifyMentions')} hint={t('settings.notifyMentionsHint')}>
             <LocalToggle storageKey="parafraz-notify-mentions" defaultOn />
           </Row>
-          <Row label="Реакции" hint="Когда за вашу запись голосуют">
+          <Row label={t('settings.notifyVotes')} hint={t('settings.notifyVotesHint')}>
             <LocalToggle storageKey="parafraz-notify-votes" />
           </Row>
         </Section>
 
-        <Section title="Приватность">
-          <Row label="Закрытый профиль" hint="Записи видны только подписчикам">
+        <Section title={t('settings.privacy')}>
+          <Row label={t('settings.privateProfile')} hint={t('settings.privateProfileHint')}>
             <LocalToggle storageKey="parafraz-private-profile" />
           </Row>
-          <Row label="Показывать influence-очки" hint="Другие видят ваш счёт в профиле">
+          <Row label={t('settings.showInfluence')} hint={t('settings.showInfluenceHint')}>
             <LocalToggle storageKey="parafraz-show-influence" defaultOn />
           </Row>
         </Section>
 
-        <Section title="Контент">
-          <Row label="Материалы 18+" hint="Показывать записи с пометкой для взрослых">
+        <Section title={t('settings.content')}>
+          <Row label={t('settings.nsfw')} hint={t('settings.nsfwHint')}>
             <LocalToggle storageKey="parafraz-nsfw" />
           </Row>
-          <Row label="Автовоспроизведение" hint="Видео запускается само при прокрутке">
+          <Row label={t('settings.autoplay')} hint={t('settings.autoplayHint')}>
             <LocalToggle storageKey="parafraz-autoplay" defaultOn />
           </Row>
         </Section>
 
-        <Section title="О приложении">
-          <Row label="Версия" hint="PARAFRAZ, сборка для разработки" />
-          <Row label="Правила сообщества" hint="Скоро" />
-          <Row label="Поддержка" hint="Скоро" />
+        <Section title={t('settings.about')}>
+          <Row label={t('settings.version')} hint={t('settings.versionHint')} />
+          <Row label={t('settings.rules')} hint={t('common.soon')} />
+          <Row label={t('settings.support')} hint={t('common.soon')} />
         </Section>
 
-        <section className="rounded-2xl bg-[var(--surface)] p-5">
+        <section className="glass rounded-2xl p-5">
           <button
             onClick={() => supabase.auth.signOut()}
             className="w-full rounded-full border border-[var(--border)] py-2.5 text-[15px] font-medium transition-colors hover:bg-[var(--surface-2)]"
             style={{ color: 'var(--down)' }}
           >
-            Выйти из аккаунта
+            {t('settings.signOut')}
           </button>
         </section>
 
         <p className="px-3 pb-2 text-center text-[12px] leading-relaxed text-[var(--text-muted)]">
-          Переключатели уведомлений, приватности и контента пока сохраняются
-          только на этом устройстве — серверной части у них ещё нет.
+          {t('settings.localOnly')}
         </p>
       </main>
     </div>

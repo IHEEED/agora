@@ -1,37 +1,25 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { crunchyRingPath } from '@/lib/crunchyRing';
+import { SegmentRing, segmentsFor } from '@/components/SegmentRing';
+import { useT } from '@/lib/i18n';
 
 const RING_SIZE = 86;
-const RING_PATH = crunchyRingPath(RING_SIZE);
 
-function StoryRing({ letter }: { letter: string }) {
+function StoryRing({
+  letter,
+  segments,
+  viewed = false,
+}: {
+  letter: string;
+  segments: number;
+  viewed?: boolean;
+}) {
   return (
     <div className="relative" style={{ width: RING_SIZE, height: RING_SIZE }}>
-      <svg
-        className="absolute inset-0"
-        width={RING_SIZE}
-        height={RING_SIZE}
-        viewBox={`0 0 ${RING_SIZE} ${RING_SIZE}`}
-        aria-hidden
-      >
-        <defs>
-          <linearGradient id="crunchy-ring" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor="#5b3ad6" />
-            <stop offset="100%" stopColor="#a880ff" />
-          </linearGradient>
-        </defs>
-        <path
-          d={RING_PATH}
-          fill="none"
-          stroke="url(#crunchy-ring)"
-          strokeWidth="3"
-          strokeLinejoin="miter"
-        />
-      </svg>
+      <SegmentRing size={RING_SIZE} segments={segments} viewed={viewed} strokeWidth={3.4} gap={7} />
       <div
-        className="absolute inset-[6px] flex items-center justify-center rounded-full text-xl font-semibold"
+        className="absolute inset-[7px] flex items-center justify-center rounded-full text-xl font-semibold"
         style={{ background: 'var(--surface-2)', color: 'var(--accent)' }}
       >
         {letter}
@@ -47,6 +35,7 @@ export function StoriesBar({
   usernames: string[];
   currentUserLetter?: string;
 }) {
+  const { t } = useT();
   const trackRef = useRef<HTMLDivElement>(null);
   const drag = useRef({ active: false, startX: 0, startScroll: 0, lastX: 0, velocity: 0 });
   const inertia = useRef<number | null>(null);
@@ -124,14 +113,17 @@ export function StoriesBar({
             </span>
           </div>
           <span className="w-full truncate text-center text-[11px] text-[var(--text-muted)]">
-            Ваша история
+            {t('feed.yourStory')}
           </span>
         </div>
       )}
 
       {usernames.map((username) => (
         <div key={username} className="flex flex-col items-center gap-1.5" style={{ flex: `0 0 ${RING_SIZE}px` }}>
-          <StoryRing letter={username[0]?.toUpperCase() ?? '?'} />
+          <StoryRing
+            letter={username[0]?.toUpperCase() ?? '?'}
+            segments={segmentsFor(username)}
+          />
           <span className="w-full truncate text-center text-[11px] text-[var(--text-muted)]">
             {username}
           </span>

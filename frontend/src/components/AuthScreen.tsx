@@ -2,6 +2,7 @@
 
 import { useState, SubmitEvent } from 'react';
 import { supabase } from '@/lib/supabase';
+import { PixelWall } from '@/components/PixelWall';
 
 type Mode = 'signin' | 'signup';
 
@@ -41,8 +42,12 @@ export function AuthScreen() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center gap-10 bg-[var(--bg)] px-6 py-12">
-      <div className="flex flex-col items-center gap-4 text-center">
+    // relative + isolate: пиксельный фон лежит внутри этого экрана и не должен
+    // ни вылезать за него, ни всплывать над карточкой формы.
+    <div className="relative isolate flex min-h-screen flex-col items-center justify-center gap-10 overflow-hidden bg-[var(--bg)] px-6 py-12">
+      <PixelWall />
+
+      <div className="relative z-10 flex flex-col items-center gap-4 text-center">
         {/* Пиксельный логотип — тот же рваный ореол, что у аватаров в ленте. */}
         <div className="relative flex h-20 w-20 items-center justify-center">
           <svg width="80" height="80" viewBox="0 0 80 80" aria-hidden>
@@ -63,13 +68,13 @@ export function AuthScreen() {
           <span className="font-pixel absolute text-[26px] font-bold text-[var(--accent)]">P</span>
         </div>
 
-        <h1 className="font-pixel text-2xl tracking-wide text-[var(--text)]">PARAFRAZ</h1>
+        <h1 className="font-pixel text-[34px] text-[var(--text)]">PARAFRAZ</h1>
         <p className="max-w-xs text-[15px] leading-relaxed text-[var(--text-muted)]">
           Место, где хорошие мысли всплывают наверх сами
         </p>
       </div>
 
-      <div className="w-full max-w-sm rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6">
+      <div className="relative z-10 w-full max-w-sm rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6">
         <div className="mb-5 flex gap-1 rounded-full border border-[var(--border)] p-1">
           {(
             [

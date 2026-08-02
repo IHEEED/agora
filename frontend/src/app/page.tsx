@@ -7,9 +7,11 @@ import { useSession } from '@/lib/useSession';
 import { Post } from '@/lib/types';
 import { PostCard } from '@/components/PostCard';
 import { StoriesBar } from '@/components/StoriesBar';
+import { useT } from '@/lib/i18n';
 
 export default function FeedPage() {
   const { session } = useSession();
+  const { t } = useT();
   const [posts, setPosts] = useState<Post[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -28,7 +30,7 @@ export default function FeedPage() {
   );
 
   return (
-    <div className="flex flex-1 flex-col items-center bg-[var(--bg)]">
+    <div className="flex flex-1 flex-col items-center">
       <main className="below-header flex w-full max-w-2xl flex-col gap-4 px-4 pb-8">
         <StoriesBar
           usernames={storyUsernames}
@@ -45,24 +47,24 @@ export default function FeedPage() {
           >
             {session?.user.email?.[0]?.toUpperCase()}
           </span>
-          <span className="text-[15px] text-[var(--text-muted)]">Что нового?</span>
+          <span className="text-[15px] text-[var(--text-muted)]">{t('feed.whatsNew')}</span>
         </Link>
 
-        {loading && <p className="text-[var(--text-muted)]">Загрузка…</p>}
+        {loading && <p className="text-[var(--text-muted)]">{t('common.loading')}</p>}
         {error && <p style={{ color: 'var(--down)' }}>{error}</p>}
 
-        <div className="flex flex-col divide-y divide-[var(--border)]">
+        <div className="flex flex-col gap-3">
           {posts.map((post) => (
             <PostCard key={post.id} post={post} />
           ))}
           {!loading && !error && posts.length === 0 && (
             <div className="flex flex-col items-center gap-3 py-16 text-center">
-              <p className="text-[var(--text-muted)]">В ленте пока пусто.</p>
+              <p className="text-[var(--text-muted)]">{t('feed.empty')}</p>
               <Link
                 href="/communities"
                 className="rounded-full bg-[var(--accent)] px-5 py-2.5 text-sm font-medium text-[var(--accent-contrast)]"
               >
-                Найти сообщества
+                {t('feed.findCommunities')}
               </Link>
             </div>
           )}

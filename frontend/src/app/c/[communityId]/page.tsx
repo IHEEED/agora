@@ -66,7 +66,7 @@ export default function CommunityPage() {
   }
 
   return (
-    <div className="flex flex-1 flex-col items-center bg-[var(--bg)]">
+    <div className="flex flex-1 flex-col items-center">
       <main className="below-header flex w-full max-w-2xl flex-col gap-4 px-4 pb-8">
         <StoriesBar
           usernames={storyUsernames}
@@ -123,7 +123,7 @@ export default function CommunityPage() {
         {loading && <p className="text-[var(--text-muted)]">Загрузка…</p>}
         {error && <p style={{ color: 'var(--down)' }}>{error}</p>}
 
-        <div className="flex flex-col divide-y divide-[var(--border)]">
+        <div className="flex flex-col gap-3">
           {posts.map((post) => (
             <PostCard key={post.id} post={post} />
           ))}

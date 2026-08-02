@@ -7,18 +7,20 @@ import { apiFetch } from '@/lib/api';
 import { Community, Post, UserSummary } from '@/lib/types';
 import { formatRelativeDate } from '@/lib/formatDate';
 import { CommunityAvatar } from '@/components/CommunityAvatar';
+import { TranslationKey, useT } from '@/lib/i18n';
 
 type Scope = 'all' | 'people' | 'posts' | 'communities';
 
-const SCOPES: ReadonlyArray<readonly [Scope, string]> = [
-  ['all', 'Всё'],
-  ['people', 'Люди'],
-  ['posts', 'Посты'],
-  ['communities', 'Сообщества'],
+const SCOPES: ReadonlyArray<readonly [Scope, TranslationKey]> = [
+  ['all', 'search.all'],
+  ['people', 'search.people'],
+  ['posts', 'search.posts'],
+  ['communities', 'search.communities'],
 ];
 
 export default function SearchPage() {
   const router = useRouter();
+  const { t } = useT();
   const inputRef = useRef<HTMLInputElement>(null);
 
   const [communities, setCommunities] = useState<Community[]>([]);
@@ -79,7 +81,7 @@ export default function SearchPage() {
   const nothingFound = normalized && !showPeople && !showCommunities && !showPosts;
 
   return (
-    <div className="flex flex-1 flex-col items-center bg-[var(--bg)]">
+    <div className="flex flex-1 flex-col items-center">
       <main className="below-header flex w-full max-w-2xl flex-col gap-4 px-4 pb-8">
         <div className="flex items-center gap-2">
           <div className="relative flex-1">
@@ -93,7 +95,7 @@ export default function SearchPage() {
               ref={inputRef}
               type="search"
               enterKeyHint="search"
-              placeholder="Посты, люди, сообщества…"
+              placeholder={t('search.placeholder')}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               className="w-full rounded-full border border-[var(--border)] bg-[var(--surface-2)] py-2.5 pl-11 pr-4 text-[15px] text-[var(--text)] outline-none focus:border-[var(--accent)]"
@@ -103,7 +105,7 @@ export default function SearchPage() {
           {/* Закрытие поиска — справа от строки, в такой же круглой обойме. */}
           <button
             onClick={() => router.back()}
-            aria-label="Закрыть поиск"
+            aria-label={t('search.close')}
             className="flex h-11 w-11 flex-none items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface-2)] text-[var(--text)] transition-colors hover:bg-[var(--surface)]"
           >
             <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -112,38 +114,38 @@ export default function SearchPage() {
           </button>
         </div>
 
-        <div className="flex justify-center">
-          <div className="flex gap-1 rounded-full border border-[var(--border)] p-1">
-            {SCOPES.map(([value, label]) => (
-              <button
-                key={value}
-                onClick={() => setScope(value)}
-                className="whitespace-nowrap rounded-full px-3.5 py-1.5 text-[13px] font-medium transition-colors"
-                style={
-                  scope === value
-                    ? { background: 'var(--accent)', color: 'var(--accent-contrast)' }
-                    : { color: 'var(--text-muted)' }
-                }
-              >
-                {label}
-              </button>
-            ))}
-          </div>
+        {/* Во всю ширину, а не по центру: узкая обойма стояла в отрыве и от
+            поля поиска, и от крестика — их края теперь совпадают. */}
+        <div className="flex w-full gap-1 rounded-full border border-[var(--border)] p-1">
+          {SCOPES.map(([value, labelKey]) => (
+            <button
+              key={value}
+              onClick={() => setScope(value)}
+              className="flex-1 whitespace-nowrap rounded-full px-2 py-1.5 text-center text-[13px] font-medium transition-colors"
+              style={
+                scope === value
+                  ? { background: 'var(--accent)', color: 'var(--accent-contrast)' }
+                  : { color: 'var(--text-muted)' }
+              }
+            >
+              {t(labelKey)}
+            </button>
+          ))}
         </div>
 
-        {loading && <p className="text-[var(--text-muted)]">Загрузка…</p>}
+        {loading && <p className="text-[var(--text-muted)]">{t('common.loading')}</p>}
         {error && <p style={{ color: 'var(--down)' }}>{error}</p>}
 
         {!normalized && !loading && (
           <p className="py-10 text-center text-[var(--text-muted)]">
-            Начните вводить запрос — поиск идёт по людям, заголовкам, текстам и сообществам.
+            {t('search.hint')}
           </p>
         )}
 
         {showPeople && (
           <section className="flex flex-col">
             <h2 className="py-2 text-[13px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">
-              Люди
+              {t('search.people')}
             </h2>
             <div className="flex flex-col divide-y divide-[var(--border)]">
               {foundPeople.map((person) => (
@@ -169,7 +171,7 @@ export default function SearchPage() {
         {showCommunities && (
           <section className="flex flex-col">
             <h2 className="py-2 text-[13px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">
-              Сообщества
+              {t('search.communities')}
             </h2>
             <div className="flex flex-col divide-y divide-[var(--border)]">
               {foundCommunities.map((community) => (
@@ -192,7 +194,7 @@ export default function SearchPage() {
         {showPosts && (
           <section className="flex flex-col">
             <h2 className="py-2 text-[13px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">
-              Посты
+              {t('search.posts')}
             </h2>
             <div className="flex flex-col divide-y divide-[var(--border)]">
               {foundPosts.map((post) => (

@@ -1,12 +1,15 @@
 'use client';
 
 import { useEffect, useRef, useState, SubmitEvent } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { apiFetch } from '@/lib/api';
 import { supabase } from '@/lib/supabase';
 import { useSession } from '@/lib/useSession';
 import { Community, Post } from '@/lib/types';
 import { isPhoneNotVerifiedError, usePhoneGate } from '@/components/PhoneGateContext';
+import { CommunityAvatar } from '@/components/CommunityAvatar';
+import { useT } from '@/lib/i18n';
 
 /** Бакет в Supabase Storage, куда складываются картинки постов. */
 const MEDIA_BUCKET = 'post-media';
@@ -34,9 +37,35 @@ export default function CreatePostPage() {
   const router = useRouter();
   const { session } = useSession();
   const { requestVerification } = usePhoneGate();
+  const { t } = useT();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
 
+  // Два шага: сначала выбор сообщества, потом сам текст.
+  const [step, setStep] = useState<'community' | 'compose'>('community');
+  const [communityQuery, setCommunityQuery] = useState('');
+  // id выбранной карточки на время ухода экрана — она подсвечивается,
+  // пока остальные гаснут, поэтому нажатие не выглядит проглоченным.
+  const [leavingTo, setLeavingTo] = useState<string | null>(null);
+  const stepTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (stepTimeout.current) clearTimeout(stepTimeout.current);
+    };
+  }, []);
+
+  function pickCommunity(id: string) {
+    if (leavingTo) return;
+    setLeavingTo(id);
+    // Экран выбора успевает погаснуть до подмены — без паузы шаги менялись
+    // встык, одним кадром, и переход выглядел рубленым.
+    stepTimeout.current = setTimeout(() => {
+      setCommunityId(id);
+      setStep('compose');
+      setLeavingTo(null);
+    }, 190);
+  }
   const [communities, setCommunities] = useState<Community[]>([]);
   const [communityId, setCommunityId] = useState('');
   const [title, setTitle] = useState('');
@@ -54,10 +83,7 @@ export default function CreatePostPage() {
 
   useEffect(() => {
     apiFetch<Community[]>('/communities')
-      .then((loaded) => {
-        setCommunities(loaded);
-        if (loaded.length > 0) setCommunityId(loaded[0].id);
-      })
+      .then(setCommunities)
       .catch((err) => setError(err.message));
   }, []);
 
@@ -132,58 +158,149 @@ export default function CreatePostPage() {
   }
 
   const canSubmit = title.trim() && communityId && !submitting && !uploading;
+  const chosenCommunity = communities.find((c) => c.id === communityId);
+
+  // Шаг 1 — куда публиковать. Отдельным экраном, как в Reddit: выбор сообщества
+  // задаёт контекст всему посту, и решать его на бегу в выпадашке неудобно.
+  if (step === 'community') {
+    const normalized = communityQuery.trim().toLowerCase();
+    const visible = normalized
+      ? communities.filter(
+          (c) =>
+            c.name.toLowerCase().includes(normalized) ||
+            c.description?.toLowerCase().includes(normalized)
+        )
+      : communities;
+
+    return (
+      <div className="flex flex-1 flex-col items-center">
+        <main
+          className="below-header flex w-full max-w-2xl flex-col gap-4 px-4 pb-8"
+          style={{
+            opacity: leavingTo ? 0 : 1,
+            transform: leavingTo ? 'translateY(-10px) scale(0.985)' : 'none',
+            transition: 'opacity 0.19s ease, transform 0.19s cubic-bezier(0.32, 0.72, 0, 1)',
+          }}
+        >
+          <div className="flex flex-col gap-1">
+            <h1 className="font-pixel text-[30px] text-[var(--text)]">{t('create.pickCommunity')}</h1>
+            <p className="text-[14px] text-[var(--text-muted)]">
+              {t('create.pickHint')}
+            </p>
+          </div>
+
+          {/* Поиск выше списка: сообществ со временем станет много, и листать
+              их до нужного ради одного поста — самый частый путь. */}
+          {communities.length > 0 && (
+            <div className="relative">
+              {/* z-10: поле ниже стеклянное, его backdrop-filter размывает
+                  всё, что нарисовано под ним, включая эту лупу. */}
+              <span className="pointer-events-none absolute left-4 top-1/2 z-10 -translate-y-1/2 text-[var(--text-muted)]">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="11" cy="11" r="6.5" />
+                  <path d="m20 20-4.3-4.3" />
+                </svg>
+              </span>
+              <input
+                type="search"
+                enterKeyHint="search"
+                placeholder={t('communities.search')}
+                value={communityQuery}
+                onChange={(e) => setCommunityQuery(e.target.value)}
+                className="glass w-full rounded-full py-2.5 pl-10 pr-4 text-[15px] text-[var(--text)] outline-none transition-colors focus:border-[var(--accent)]"
+              />
+            </div>
+          )}
+
+          {error && <p style={{ color: 'var(--down)' }}>{error}</p>}
+
+          {communities.length === 0 ? (
+            <div className="glass flex flex-col items-center gap-3 rounded-2xl p-6 text-center">
+              <p className="text-[14px] text-[var(--text-muted)]">
+                Сначала нужно создать сообщество — пост всегда публикуется в одном из них.
+              </p>
+              <Link
+                href="/communities"
+                className="rounded-full bg-[var(--accent)] px-5 py-2.5 text-[14px] font-medium text-[var(--accent-contrast)]"
+              >
+                К сообществам
+              </Link>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2.5">
+              {visible.map((community) => {
+                const chosen = leavingTo === community.id;
+                return (
+                  <button
+                    key={community.id}
+                    onClick={() => pickCommunity(community.id)}
+                    className="glass glass-sheen flex items-center gap-3.5 rounded-2xl p-4 text-left"
+                    style={{
+                      // Выбранная карточка на миг подаётся вперёд и загорается
+                      // акцентом, остальные просто уходят вместе с экраном.
+                      transform: chosen ? 'scale(1.015)' : 'none',
+                      borderColor: chosen ? 'var(--accent)' : undefined,
+                      boxShadow: chosen ? '0 0 0 1px var(--accent)' : undefined,
+                      transition: 'transform 0.19s cubic-bezier(0.32, 1.3, 0.5, 1), box-shadow 0.19s ease',
+                    }}
+                  >
+                    <CommunityAvatar name={community.name} size={48} />
+                    <div className="relative flex min-w-0 flex-col gap-0.5">
+                      <span className="truncate font-medium text-[var(--text)]">{community.name}</span>
+                      {community.description && (
+                        <span className="line-clamp-2 text-[13px] text-[var(--text-muted)]">
+                          {community.description}
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+
+              {visible.length === 0 && (
+                <p className="glass rounded-2xl p-6 text-center text-[var(--text-muted)]">
+                  {t('communities.nothing')}
+                </p>
+              )}
+            </div>
+          )}
+        </main>
+      </div>
+    );
+  }
 
   return (
-    <div className="flex flex-1 flex-col items-center bg-[var(--bg)]">
+    <div className="flex flex-1 flex-col items-center">
+      {/* step-enter: второй шаг въезжает снизу, подхватывая уход первого —
+          иначе подмена экрана происходит за один кадр и выглядит рубленой. */}
       <form
         onSubmit={handleSubmit}
-        className="below-header flex w-full max-w-2xl flex-col gap-4 px-4 pb-8"
+        className="step-enter below-header flex w-full max-w-2xl flex-col gap-4 px-4 pb-8"
       >
         <div className="flex items-center justify-between gap-3">
           <button
             type="button"
-            onClick={() => router.back()}
-            className="rounded-full px-3 py-1.5 text-[15px] text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-2)]"
+            onClick={() => setStep('community')}
+            className="flex items-center gap-2 rounded-full px-2 py-1.5 text-[15px] text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-2)]"
           >
-            Отмена
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M15 5l-7 7 7 7" />
+            </svg>
+            {chosenCommunity?.name ?? 'Назад'}
           </button>
-          <h1 className="whitespace-nowrap text-[17px] font-semibold text-[var(--text)]">
-            Новый пост
-          </h1>
           <button
             type="submit"
             disabled={!canSubmit}
             className="rounded-full bg-[var(--accent)] px-5 py-1.5 text-[15px] font-medium text-[var(--accent-contrast)] transition-opacity disabled:opacity-40"
           >
-            {submitting ? 'Публикуем…' : 'Опубликовать'}
+            {submitting ? t('create.publishing') : t('create.publish')}
           </button>
         </div>
-
-        {communities.length === 0 ? (
-          <p className="rounded-2xl border border-[var(--border)] bg-[var(--surface-2)] p-4 text-[14px] text-[var(--text-muted)]">
-            Сначала нужно создать сообщество — пост всегда публикуется в одном из них.
-          </p>
-        ) : (
-          <label className="flex flex-col gap-1.5">
-            <span className="text-[13px] text-[var(--text-muted)]">Сообщество</span>
-            <select
-              value={communityId}
-              onChange={(e) => setCommunityId(e.target.value)}
-              className="rounded-full border border-[var(--border)] bg-[var(--surface-2)] px-4 py-2.5 text-[15px] text-[var(--text)] outline-none focus:border-[var(--accent)]"
-            >
-              {communities.map((community) => (
-                <option key={community.id} value={community.id}>
-                  {community.name}
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
 
         <input
           autoFocus
           required
-          placeholder="Заголовок"
+          placeholder={t('create.titlePlaceholder')}
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           className="rounded-2xl border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3 text-[17px] font-medium text-[var(--text)] outline-none focus:border-[var(--accent)]"
@@ -191,7 +308,7 @@ export default function CreatePostPage() {
 
         <textarea
           rows={7}
-          placeholder="Расскажите подробнее…"
+          placeholder={t('create.bodyPlaceholder')}
           value={body}
           onChange={(e) => setBody(e.target.value)}
           className="resize-none rounded-2xl border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3 text-[15px] leading-relaxed text-[var(--text)] outline-none focus:border-[var(--accent)]"
@@ -227,13 +344,13 @@ export default function CreatePostPage() {
         {pollOptions && (
           <div className="flex flex-col gap-2 rounded-2xl border border-[var(--border)] p-4">
             <div className="flex items-center justify-between">
-              <span className="text-[14px] font-medium text-[var(--text)]">Опрос</span>
+              <span className="text-[14px] font-medium text-[var(--text)]">{t('create.poll')}</span>
               <button
                 type="button"
                 onClick={() => setPollOptions(null)}
                 className="text-[13px] text-[var(--text-muted)] hover:underline"
               >
-                Убрать
+                {t('create.pollRemove')}
               </button>
             </div>
 
@@ -241,7 +358,7 @@ export default function CreatePostPage() {
               <div key={index} className="flex items-center gap-2">
                 <input
                   value={option}
-                  placeholder={`Вариант ${index + 1}`}
+                  placeholder={`${t('create.pollOption')} ${index + 1}`}
                   onChange={(e) =>
                     setPollOptions((prev) =>
                       prev!.map((value, i) => (i === index ? e.target.value : value))
@@ -271,7 +388,7 @@ export default function CreatePostPage() {
                 className="self-start text-[13px] font-medium"
                 style={{ color: 'var(--accent)' }}
               >
-                + Добавить вариант
+                {t('create.pollAdd')}
               </button>
             )}
           </div>
@@ -289,7 +406,7 @@ export default function CreatePostPage() {
           />
           <label
             htmlFor="post-media"
-            aria-label="Добавить изображение"
+            aria-label={t('create.image')}
             title="Изображение"
             className="flex h-12 w-12 cursor-pointer items-center justify-center rounded-full border border-[var(--border)] text-[var(--text)] transition-colors hover:bg-[var(--surface-2)]"
           >
@@ -312,7 +429,7 @@ export default function CreatePostPage() {
           />
           <label
             htmlFor="post-camera"
-            aria-label="Снять на камеру"
+            aria-label={t('create.camera')}
             title="Камера"
             className="flex h-12 w-12 cursor-pointer items-center justify-center rounded-full border border-[var(--border)] text-[var(--text)] transition-colors hover:bg-[var(--surface-2)]"
           >
@@ -325,7 +442,7 @@ export default function CreatePostPage() {
           <button
             type="button"
             onClick={() => setPollOptions((prev) => (prev ? null : ['', '']))}
-            aria-label="Добавить опрос"
+            aria-label={t('create.poll')}
             aria-pressed={Boolean(pollOptions)}
             title="Опрос"
             className="flex h-12 w-12 items-center justify-center rounded-full border transition-colors"

@@ -14,9 +14,13 @@ export function iconProps(active: boolean, size = 26) {
     fillOpacity: active ? 1 : 0,
     fillRule: 'evenodd' as const,
     stroke: 'currentColor' as const,
-    strokeWidth: 1.8,
+    // 2.1 вместо 1.8: контур в 1.8 при отрисовке 24-й вьюпорт-сетки в 26px
+    // попадал между пикселями и размазывался в серую дымку.
+    strokeWidth: 2.1,
     strokeLinecap: 'round' as const,
     strokeLinejoin: 'round' as const,
+    // Без сглаживания краёв по субпикселям контуры остаются чёткими.
+    shapeRendering: 'geometricPrecision' as const,
     style: { transition: 'fill-opacity 0.15s ease' },
   };
 }
@@ -43,7 +47,7 @@ export function CommunitiesIcon({ active }: IconProps) {
 
 export function CreateIcon({ size = 28 }: { size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" shapeRendering="geometricPrecision">
       <rect x="3.5" y="3.5" width="17" height="17" rx="5.5" />
       <path d="M12 8v8M8 12h8" />
     </svg>

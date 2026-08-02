@@ -177,6 +177,24 @@ router.post('/:id/poll-vote', requireAuth, async (req, res) => {
   res.status(204).send();
 });
 
+// Снятие голоса в опросе — повторный клик по своему варианту.
+router.delete('/:id/poll-vote', requireAuth, async (req, res) => {
+  const { id } = req.params;
+
+  const { error } = await supabase
+    .from('poll_votes')
+    .delete()
+    .eq('post_id', id)
+    .eq('user_id', req.user!.id);
+
+  if (error) {
+    console.error('posts: poll vote removal failed', error);
+    return res.status(500).json({ error: 'Не удалось убрать голос' });
+  }
+
+  res.status(204).send();
+});
+
 router.post('/:id/view', async (req, res) => {
   const { id } = req.params;
 

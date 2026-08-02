@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import Link from 'next/link';
 import { Post } from '@/lib/types';
+import { CommentSheet } from '@/components/CommentSheet';
 import { useVote } from '@/lib/useVote';
 import { formatRelativeDate } from '@/lib/formatDate';
 import { RollingNumber } from '@/components/RollingNumber';
@@ -50,6 +50,10 @@ export function PostCard({ post, linkToDetail = true }: { post: Post; linkToDeta
   const [animating, setAnimating] = useState<'up' | 'down' | null>(null);
   const [sparkKey, setSparkKey] = useState(0);
   const [repostSpin, setRepostSpin] = useState(0);
+  const [commentsOpen, setCommentsOpen] = useState(false);
+  // Счётчик живёт локально: отправленный из шторки комментарий должен
+  // сразу отразиться на кнопке, не дожидаясь перезагрузки ленты.
+  const [commentCount, setCommentCount] = useState(post.commentCount);
   const voteTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -75,10 +79,12 @@ export function PostCard({ post, linkToDetail = true }: { post: Post; linkToDeta
   }
 
   function handleRepost() {
-    setReposted((was) => {
-      setRepostCount((count) => (was ? count - 1 : count + 1));
-      return !was;
-    });
+    // Считаем от текущего значения, а не изнутри апдейтера setReposted:
+    // React прогоняет апдейтеры дважды (StrictMode в разработке), и вложенный
+    // setRepostCount срабатывал два раза — счётчик прыгал через один.
+    const next = !reposted;
+    setReposted(next);
+    setRepostCount((count) => (next ? count + 1 : count - 1));
     setRepostSpin((k) => k + 1);
   }
 
@@ -106,8 +112,8 @@ export function PostCard({ post, linkToDetail = true }: { post: Post; linkToDeta
         : {};
 
   return (
-    <article className="flex flex-col gap-2 py-5">
-      <div className="flex items-center gap-2 text-[14px]">
+    <article className="post-tile glass-sheen flex flex-col gap-2 p-4">
+      <div className="relative flex items-center gap-2 text-[14px]">
         <span
           className="flex h-7 w-7 flex-none items-center justify-center rounded-full text-[12px] font-semibold"
           style={{ background: 'var(--surface-2)', color: 'var(--accent)' }}
@@ -119,11 +125,11 @@ export function PostCard({ post, linkToDetail = true }: { post: Post; linkToDeta
       </div>
 
       {linkToDetail ? (
-        <h2 className="text-[16px] font-medium leading-snug text-[var(--text)]">{post.title}</h2>
+        <h2 className="relative text-[16px] font-medium leading-snug text-[var(--text)]">{post.title}</h2>
       ) : (
-        <h1 className="text-[16px] font-medium leading-snug text-[var(--text)]">{post.title}</h1>
+        <h1 className="relative text-[16px] font-medium leading-snug text-[var(--text)]">{post.title}</h1>
       )}
-      {post.body && <p className="text-[14.5px] leading-relaxed text-[var(--text-muted)]">{post.body}</p>}
+      {post.body && <p className="relative text-[14.5px] leading-relaxed text-[var(--text-muted)]">{post.body}</p>}
 
       {post.image_url && (
         // eslint-disable-next-line @next/next/no-img-element -- источник картинок произвольный, next/image требует настройки доменов
@@ -131,7 +137,7 @@ export function PostCard({ post, linkToDetail = true }: { post: Post; linkToDeta
           src={post.image_url}
           alt=""
           loading="lazy"
-          className="w-full rounded-2xl border border-[var(--border)] object-cover"
+          className="relative w-full rounded-2xl border border-[var(--border)] object-cover"
           style={{ maxHeight: 340 }}
         />
       )}
@@ -144,7 +150,7 @@ export function PostCard({ post, linkToDetail = true }: { post: Post; linkToDeta
       {error && <p className="text-xs font-medium" style={{ color: 'var(--down)' }}>{error}</p>}
       {shareMessage && <p className="text-xs font-medium text-[var(--text-muted)]">{shareMessage}</p>}
 
-      <div className="mt-1 flex items-center justify-between gap-2">
+      <div className="relative mt-1 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <div className="control-pill flex items-center rounded-full" style={voteTone}>
             <button
@@ -191,15 +197,19 @@ export function PostCard({ post, linkToDetail = true }: { post: Post; linkToDeta
           </div>
 
           {linkToDetail && (
-            <Link
-              href={`/posts/${post.id}`}
+            // Комментарии открываются шторкой поверх ленты, а не отдельной
+            // страницей: так не теряется место, до которого дочитали.
+            <button
+              onClick={() => setCommentsOpen(true)}
+              aria-label="Комментарии"
+              aria-expanded={commentsOpen}
               className="control-pill flex items-center gap-1.5 rounded-full px-3 py-2 hover:bg-[var(--surface-2)]"
             >
               <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M4 5.5h16v11H8.5L4 20V5.5Z" />
               </svg>
-              <span className="font-num text-[15px]">{post.commentCount}</span>
-            </Link>
+              <span className="font-num text-[15px]">{commentCount}</span>
+            </button>
           )}
         </div>
 
@@ -240,6 +250,15 @@ export function PostCard({ post, linkToDetail = true }: { post: Post; linkToDeta
           </button>
         </div>
       </div>
+
+      {linkToDetail && (
+        <CommentSheet
+          postId={post.id}
+          open={commentsOpen}
+          onClose={() => setCommentsOpen(false)}
+          onCountChange={setCommentCount}
+        />
+      )}
     </article>
   );
 }
