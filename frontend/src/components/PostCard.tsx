@@ -1,10 +1,14 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import { Post } from '@/lib/types';
 import { CommentSheet } from '@/components/CommentSheet';
+import { ShareSheet } from '@/components/ShareSheet';
+import { FollowButton } from '@/components/FollowButton';
+import { DefaultAvatar } from '@/components/DefaultAvatar';
 import { useVote } from '@/lib/useVote';
-import { formatRelativeDate } from '@/lib/formatDate';
+import { formatCompactAge } from '@/lib/formatDate';
 import { RollingNumber } from '@/components/RollingNumber';
 import { PollBlock } from '@/components/PollBlock';
 
@@ -42,11 +46,19 @@ function VoteArrow({ direction, filled }: { direction: 'up' | 'down'; filled: bo
   );
 }
 
-export function PostCard({ post, linkToDetail = true }: { post: Post; linkToDetail?: boolean }) {
+export function PostCard({
+  post,
+  linkToDetail = true,
+  /** Автор, на которого можно подписаться прямо из ленты. */
+  canFollow = false,
+}: {
+  post: Post;
+  linkToDetail?: boolean;
+  canFollow?: boolean;
+}) {
   const { score, myVote, vote, error, message } = useVote(post.id, post.score, post.myVote);
   const [reposted, setReposted] = useState(false);
   const [repostCount, setRepostCount] = useState(0);
-  const [shareMessage, setShareMessage] = useState<string | null>(null);
   const [animating, setAnimating] = useState<'up' | 'down' | null>(null);
   const [sparkKey, setSparkKey] = useState(0);
   const [repostSpin, setRepostSpin] = useState(0);
@@ -54,6 +66,7 @@ export function PostCard({ post, linkToDetail = true }: { post: Post; linkToDeta
   // Счётчик живёт локально: отправленный из шторки комментарий должен
   // сразу отразиться на кнопке, не дожидаясь перезагрузки ленты.
   const [commentCount, setCommentCount] = useState(post.commentCount);
+  const [shareOpen, setShareOpen] = useState(false);
   const voteTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -88,20 +101,6 @@ export function PostCard({ post, linkToDetail = true }: { post: Post; linkToDeta
     setRepostSpin((k) => k + 1);
   }
 
-  async function handleShare() {
-    const url = `${window.location.origin}/posts/${post.id}`;
-    try {
-      if (navigator.share) {
-        await navigator.share({ title: post.title, url });
-      } else {
-        await navigator.clipboard.writeText(url);
-        setShareMessage('Ссылка скопирована');
-        setTimeout(() => setShareMessage(null), 2000);
-      }
-    } catch {
-      // пользователь отменил шеринг — ничего не делаем
-    }
-  }
 
   // Проголосовавший блок целиком окрашивается в цвет реакции.
   const voteTone =
@@ -112,24 +111,69 @@ export function PostCard({ post, linkToDetail = true }: { post: Post; linkToDeta
         : {};
 
   return (
-    <article className="post-tile glass-sheen flex flex-col gap-2 p-4">
+    // Ни рамки, ни фона: пост отделяется от соседа полоской, которую рисует
+    // список. Горизонтальных полей тоже нет — текст идёт во всю ширину колонки.
+    <article className="flex flex-col gap-2 py-4">
       <div className="relative flex items-center gap-2 text-[14px]">
-        <span
-          className="flex h-7 w-7 flex-none items-center justify-center rounded-full text-[12px] font-semibold"
-          style={{ background: 'var(--surface-2)', color: 'var(--accent)' }}
-        >
-          {post.author.username[0]?.toUpperCase()}
-        </span>
-        <span className="font-semibold text-[var(--text)]">{post.author.username}</span>
-        <span className="text-[var(--text-muted)]">· {formatRelativeDate(post.created_at)}</span>
+        <DefaultAvatar name={post.author.username} size={30} />
+
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1.5 gap-y-0.5">
+          {/* Ник ведёт в профиль автора — самый ожидаемый жест в любой ленте. */}
+          <Link
+            href={post.author.id ? `/u/${post.author.id}` : '#'}
+            className="font-semibold text-[var(--text)] hover:underline"
+          >
+            {post.author.username}
+          </Link>
+
+          {/* Возраст сразу за ником, а не у правого края: там он читался
+              отдельной колонкой и отрывался от того, к чему относится. */}
+          <span className="text-[13px] text-[var(--text-muted)]">
+            {formatCompactAge(post.created_at)}
+          </span>
+
+          {/* Пост от имени сообщества: стрелка и название акцентом. Без флага
+              подпись остаётся обычной, хотя сообщество у записи есть всегда. */}
+          {post.post_as_community && post.community && (
+            <>
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="var(--text-muted)"
+                strokeWidth="2.2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden
+              >
+                <path d="m9 6 6 6-6 6" />
+              </svg>
+              <Link
+                href={`/c/${post.community.id}`}
+                className="truncate font-semibold hover:underline"
+                style={{ color: 'var(--accent)' }}
+              >
+                {post.community.name}
+              </Link>
+            </>
+          )}
+
+        </div>
+
+        {canFollow && post.author.id && (
+          <FollowButton userId={post.author.id} className="text-[12.5px]" />
+        )}
       </div>
 
-      {linkToDetail ? (
-        <h2 className="relative text-[16px] font-medium leading-snug text-[var(--text)]">{post.title}</h2>
-      ) : (
-        <h1 className="relative text-[16px] font-medium leading-snug text-[var(--text)]">{post.title}</h1>
-      )}
-      {post.body && <p className="relative text-[14.5px] leading-relaxed text-[var(--text-muted)]">{post.body}</p>}
+      {/* Заголовок и текст одним потоком, одним кеглем и одной яркостью:
+          деление на «крупное тёмное» и «мелкое тусклое» навязывало структуру,
+          которой в мыслях обычно нет. Нужен заголовок — человек сам отобьёт
+          первую строку переносом. whitespace-pre-line эти переносы сохраняет. */}
+      <div className="relative flex flex-col gap-1.5 text-[15px] leading-relaxed text-[var(--text)]">
+        <p className="whitespace-pre-line">{post.title}</p>
+        {post.body && <p className="whitespace-pre-line">{post.body}</p>}
+      </div>
 
       {post.image_url && (
         // eslint-disable-next-line @next/next/no-img-element -- источник картинок произвольный, next/image требует настройки доменов
@@ -148,7 +192,6 @@ export function PostCard({ post, linkToDetail = true }: { post: Post; linkToDeta
 
       {message && <p className="text-xs font-medium" style={{ color: 'var(--up)' }}>{message}</p>}
       {error && <p className="text-xs font-medium" style={{ color: 'var(--down)' }}>{error}</p>}
-      {shareMessage && <p className="text-xs font-medium text-[var(--text-muted)]">{shareMessage}</p>}
 
       <div className="relative mt-1 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
@@ -237,7 +280,7 @@ export function PostCard({ post, linkToDetail = true }: { post: Post; linkToDeta
           </button>
 
           <button
-            onClick={handleShare}
+            onClick={() => setShareOpen(true)}
             aria-label="Поделиться"
             className="flex h-9 w-9 items-center justify-center transition-colors hover:text-[var(--text)]"
             style={{ color: 'var(--control)' }}
@@ -259,6 +302,13 @@ export function PostCard({ post, linkToDetail = true }: { post: Post; linkToDeta
           onCountChange={setCommentCount}
         />
       )}
+
+      <ShareSheet
+        open={shareOpen}
+        onClose={() => setShareOpen(false)}
+        url={typeof window === 'undefined' ? '' : `${window.location.origin}/posts/${post.id}`}
+        text={post.title}
+      />
     </article>
   );
 }

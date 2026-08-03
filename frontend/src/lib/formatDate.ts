@@ -15,6 +15,40 @@ function currentLocale(): 'ru' | 'en' | 'es' {
   return typeof window === 'undefined' ? 'ru' : readLocale();
 }
 
+/** Единицы для сжатой формы: минуты, часы, дни, недели. */
+const COMPACT_UNITS = {
+  ru: { m: 'мин.', h: 'ч.', d: 'д.', w: 'нед.', now: 'сейчас' },
+  en: { m: 'm', h: 'h', d: 'd', w: 'w', now: 'now' },
+  es: { m: 'min', h: 'h', d: 'd', w: 'sem', now: 'ahora' },
+} as const;
+
+/**
+ * Сжатая метка возраста поста: «14 ч.», «3 д.». Стоит справа в строке автора,
+ * где на полную фразу вроде «около 14 часов назад» просто нет ширины — она
+ * вытесняла имя и превращала строку в две.
+ */
+export function formatCompactAge(dateString: string): string {
+  const date = new Date(dateString);
+  const now = new Date();
+  const units = COMPACT_UNITS[currentLocale()];
+
+  const minutes = Math.floor((now.getTime() - date.getTime()) / 60000);
+  if (minutes < 1) return units.now;
+  if (minutes < 60) return `${minutes} ${units.m}`;
+
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} ${units.h}`;
+
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days} ${units.d}`;
+
+  const weeks = Math.floor(days / 7);
+  if (weeks < 5) return `${weeks} ${units.w}`;
+
+  // Больше месяца — дата понятнее любого счётчика недель.
+  return format(date, 'd MMM', { locale: DATE_LOCALES[currentLocale()] });
+}
+
 export function formatRelativeDate(dateString: string): string {
   const date = new Date(dateString);
   const now = new Date();

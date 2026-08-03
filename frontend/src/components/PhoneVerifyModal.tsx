@@ -2,6 +2,7 @@
 
 import { useState, SubmitEvent } from 'react';
 import { supabase } from '@/lib/supabase';
+import { BottomSheet } from '@/components/BottomSheet';
 
 type Step = 'phone' | 'code';
 
@@ -87,20 +88,16 @@ export function PhoneVerifyModal({
     onVerified();
   }
 
-  if (!open) return null;
-
+  // Шторкой снизу, как комментарии и создание поста: всплывающее по центру
+  // окно было единственным местом со «старой» механикой появления.
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-sm rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-[17px] font-semibold text-[var(--text)]">Подтвердите телефон</h2>
-          <button onClick={handleClose} aria-label="Закрыть" className="text-[var(--text-muted)]">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
-              <path d="M6 6l12 12M18 6 6 18" />
-            </svg>
-          </button>
-        </div>
-
+    <BottomSheet
+      open={open}
+      onClose={handleClose}
+      title="Подтвердите телефон"
+      height="64vh"
+    >
+      <div className="py-3">
         <p className="mb-4 text-[14px] leading-relaxed text-[var(--text-muted)]">
           Публикация постов и комментариев доступна только после подтверждения номера —
           это защита от спама и накрутки голосов.
@@ -159,6 +156,6 @@ export function PhoneVerifyModal({
           </form>
         )}
       </div>
-    </div>
+    </BottomSheet>
   );
 }

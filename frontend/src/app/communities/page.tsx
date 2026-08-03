@@ -1,34 +1,39 @@
 'use client';
 
 import { useEffect, useMemo, useState, SubmitEvent } from 'react';
+import { invalidate, useApiData } from '@/lib/useApiData';
 import Link from 'next/link';
 import { apiFetch } from '@/lib/api';
 import { useSession } from '@/lib/useSession';
 import { Community } from '@/lib/types';
 import { CommunityAvatar } from '@/components/CommunityAvatar';
 import { setNavHidden } from '@/lib/navVisibility';
+import { BottomSheet } from '@/components/BottomSheet';
+import { ScreenTitle } from '@/components/ScreenTitle';
 import { useT } from '@/lib/i18n';
 
 export default function CommunitiesPage() {
   const { session } = useSession();
   const { t } = useT();
-  const [communities, setCommunities] = useState<Community[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { data, error, loading } = useApiData<Community[]>('/communities');
+  // Локальная копия нужна ради только что созданного сообщества: оно должно
+  // появиться в списке сразу, не дожидаясь перезапроса.
+  const [created, setCreated] = useState<Community[]>([]);
+  const communities = useMemo(() => [...created, ...(data ?? [])], [created, data]);
   const [query, setQuery] = useState('');
 
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  // Тема, правила и режим доступа колонок в базе пока не имеют — на бэкенд
+  // они не уходят. Поля стоят здесь, чтобы форма была полной сразу, а не
+  // переделывалась после миграции.
+  const [topic, setTopic] = useState('');
+  const [rules, setRules] = useState('');
+  const [access, setAccess] = useState<'open' | 'closed'>('open');
+  const [whoPosts, setWhoPosts] = useState<'all' | 'picked'>('all');
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-
-  useEffect(() => {
-    apiFetch<Community[]>('/communities')
-      .then(setCommunities)
-      .catch((err) => setError(err.message))
-      .finally(() => setLoading(false));
-  }, []);
 
   // Уход со страницы с открытой клавиатурой не должен оставить бар спрятанным.
   useEffect(() => () => setNavHidden(false), []);
@@ -53,7 +58,10 @@ export default function CommunitiesPage() {
         method: 'POST',
         body: JSON.stringify({ name, description }),
       });
-      setCommunities((prev) => [community, ...prev]);
+      setCreated((prev) => [community, ...prev]);
+      // Сбрасываем кеш списка, иначе при следующем заходе новое сообщество
+      // пропадёт: отрисуется закешированный ответ без него.
+      invalidate('/communities');
       setName('');
       setDescription('');
       setShowForm(false);
@@ -68,7 +76,7 @@ export default function CommunitiesPage() {
     <div className="flex flex-1 flex-col items-center">
       <main className="below-header flex w-full max-w-2xl flex-col gap-2.5 px-2.5 pb-8">
         <div className="flex items-center justify-between px-2">
-          <h1 className="font-pixel text-[32px] text-[var(--text)]">{t('communities.title')}</h1>
+          <ScreenTitle>{t('communities.title')}</ScreenTitle>
           {session && (
             <button
               onClick={() => setShowForm((v) => !v)}
@@ -105,35 +113,131 @@ export default function CommunitiesPage() {
           />
         </div>
 
-        {showForm && (
-          <form
-            onSubmit={handleCreate}
-            className="glass flex flex-col gap-3 rounded-2xl p-4"
-          >
-            <input
-              placeholder={t('communities.name')}
-              required
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="rounded-md border border-[var(--border)] bg-[var(--bg)] px-3 py-2 text-sm text-[var(--text)]"
-            />
-            <textarea
-              placeholder={t('communities.description')}
-              rows={2}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className="rounded-md border border-[var(--border)] bg-[var(--bg)] px-3 py-2 text-sm text-[var(--text)]"
-            />
-            {formError && <p className="text-sm" style={{ color: 'var(--down)' }}>{formError}</p>}
+        {/* Создание — шторкой снизу, тем же жестом, что и комментарии.
+            Раскрывающаяся посреди списка форма сдвигала сообщества вниз, и
+            после отправки взгляд терял место, где он был. */}
+        <BottomSheet
+          open={showForm}
+          onClose={() => setShowForm(false)}
+          title={t('communities.submit')}
+          height="86vh"
+          footer={
             <button
               type="submit"
-              disabled={submitting}
-              className="self-start rounded-full bg-[var(--accent)] px-4 py-1.5 text-sm font-medium text-[var(--accent-contrast)] disabled:opacity-50"
+              form="create-community"
+              disabled={submitting || !name.trim()}
+              className="rounded-full bg-[var(--accent)] py-3 text-[15px] font-medium text-[var(--accent-contrast)] transition-opacity disabled:opacity-40"
             >
               {t('communities.submit')}
             </button>
+          }
+        >
+          <form id="create-community" onSubmit={handleCreate} className="flex flex-col gap-4 py-3">
+            {/* Аватар сообщества считается из названия — показываем сразу,
+                чтобы было видно, как оно будет выглядеть в списке. */}
+            <div className="flex items-center gap-3">
+              <CommunityAvatar name={name || '?'} size={56} />
+              <input
+                placeholder={t('communities.name')}
+                required
+                maxLength={40}
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="min-w-0 flex-1 rounded-2xl border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3 text-[15px] text-[var(--text)] outline-none focus:border-[var(--accent)]"
+              />
+            </div>
+
+            <label className="flex flex-col gap-1.5">
+              <span className="text-[13px] text-[var(--text-muted)]">{t('communities.description')}</span>
+              <textarea
+                rows={3}
+                maxLength={200}
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                className="resize-none rounded-2xl border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3 text-[15px] leading-relaxed text-[var(--text)] outline-none focus:border-[var(--accent)]"
+              />
+            </label>
+
+            <label className="flex flex-col gap-1.5">
+              <span className="text-[13px] text-[var(--text-muted)]">{t('communities.topic')}</span>
+              <input
+                value={topic}
+                onChange={(e) => setTopic(e.target.value)}
+                placeholder={t('communities.topicHint')}
+                className="rounded-2xl border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3 text-[15px] text-[var(--text)] outline-none focus:border-[var(--accent)]"
+              />
+            </label>
+
+            <label className="flex flex-col gap-1.5">
+              <span className="text-[13px] text-[var(--text-muted)]">{t('communities.rules')}</span>
+              <textarea
+                rows={3}
+                value={rules}
+                onChange={(e) => setRules(e.target.value)}
+                placeholder={t('communities.rulesHint')}
+                className="resize-none rounded-2xl border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3 text-[15px] leading-relaxed text-[var(--text)] outline-none focus:border-[var(--accent)]"
+              />
+            </label>
+
+            <div className="flex flex-col gap-2">
+              <span className="text-[13px] text-[var(--text-muted)]">{t('communities.whoPosts')}</span>
+              <div className="flex gap-1 rounded-full border border-[var(--border)] p-1">
+                {(
+                  [
+                    ['all', t('communities.whoPostsAll')],
+                    ['picked', t('communities.whoPostsPicked')],
+                  ] as const
+                ).map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setWhoPosts(value)}
+                    className="flex-1 rounded-full px-3 py-1.5 text-[13.5px] font-medium transition-colors"
+                    style={
+                      whoPosts === value
+                        ? { background: 'var(--accent)', color: 'var(--accent-contrast)' }
+                        : { color: 'var(--text-muted)' }
+                    }
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <span className="text-[13px] text-[var(--text-muted)]">{t('communities.access')}</span>
+              <div className="flex gap-1 rounded-full border border-[var(--border)] p-1">
+                {(
+                  [
+                    ['open', t('communities.accessOpen')],
+                    ['closed', t('communities.accessClosed')],
+                  ] as const
+                ).map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setAccess(value)}
+                    className="flex-1 rounded-full px-3 py-1.5 text-[13.5px] font-medium transition-colors"
+                    style={
+                      access === value
+                        ? { background: 'var(--accent)', color: 'var(--accent-contrast)' }
+                        : { color: 'var(--text-muted)' }
+                    }
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <p className="text-[12.5px] leading-relaxed text-[var(--text-muted)]">
+              {t('communities.extraLocalOnly')}
+            </p>
+
+            {formError && <p className="text-sm" style={{ color: 'var(--down)' }}>{formError}</p>}
           </form>
-        )}
+        </BottomSheet>
 
         {loading && <p className="px-2 text-[var(--text-muted)]">{t('common.loading')}</p>}
         {error && <p className="px-2" style={{ color: 'var(--down)' }}>{error}</p>}
@@ -144,13 +248,21 @@ export default function CommunitiesPage() {
           <Link
             key={community.id}
             href={`/c/${community.id}`}
-            className="glass glass-sheen flex items-center gap-3.5 rounded-2xl p-4 transition-transform active:scale-[0.99]"
+            className="glass glass-sheen relative flex min-h-[104px] items-center overflow-hidden rounded-2xl transition-transform active:scale-[0.99]"
           >
-            <CommunityAvatar name={community.name} size={48} />
-            <div className="relative flex min-w-0 flex-col gap-0.5">
-              <h2 className="truncate font-medium text-[var(--text)]">{community.name}</h2>
+            {/* Аватар во всю высоту карточки у правого края и растворяется
+                маской к середине: получается не иконка рядом с текстом, а фон,
+                из которого текст выходит. */}
+            <span className="community-card-art" aria-hidden>
+              <CommunityAvatar name={community.name} size={220} />
+            </span>
+
+            <div className="relative z-10 flex min-w-0 flex-1 flex-col gap-1 p-4 pr-[45%]">
+              <h2 className="truncate text-[16px] font-semibold text-[var(--text)]">
+                {community.name}
+              </h2>
               {community.description && (
-                <p className="line-clamp-2 text-[13.5px] text-[var(--text-muted)]">
+                <p className="line-clamp-2 text-[13.5px] leading-snug text-[var(--text-muted)]">
                   {community.description}
                 </p>
               )}

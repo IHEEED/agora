@@ -123,7 +123,7 @@ export default function CommunityPage() {
         {loading && <p className="text-[var(--text-muted)]">Загрузка…</p>}
         {error && <p style={{ color: 'var(--down)' }}>{error}</p>}
 
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col divide-y divide-[var(--border)]">
           {posts.map((post) => (
             <PostCard key={post.id} post={post} />
           ))}

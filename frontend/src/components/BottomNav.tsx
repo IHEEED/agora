@@ -87,17 +87,11 @@ export function BottomNav() {
 
   return (
     <>
-      {/* Полоса размытия существует ради бара — гаснет вместе с ним, иначе
-          низ экрана оставался бы подтёртым над пустотой. */}
-      <div
-        className="nav-fade md:hidden"
-        aria-hidden
-        style={{
-          opacity: hidden ? 0 : 1,
-          transition: 'opacity 0.16s ease',
-        }}
-      />
-
+      {/* Отдельной полосы размытия под баром больше нет. Она была подложкой,
+          которую бар втягивал своим backdrop-filter, — отсюда градиент темноты
+          прямо на панели. На iOS таб-бар тоже единственная стеклянная
+          поверхность внизу: под ним ничего не подмешивается, контент просто
+          уезжает под него. */}
       <nav
         className="pointer-events-none fixed inset-x-0 bottom-6 z-50 flex justify-center px-3 md:hidden"
         style={{

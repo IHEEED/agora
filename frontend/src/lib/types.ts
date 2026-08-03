@@ -1,4 +1,6 @@
 export interface Author {
+  /** Нужен, чтобы в ленте показать кнопку «Подписаться» на автора. */
+  id?: string;
   username: string;
 }
 
@@ -22,6 +24,8 @@ export interface UserSummary {
   id: string;
   username: string;
   karma: number;
+  /** Подставляет бэкенд по текущей сессии; без неё всегда false. */
+  isFollowing?: boolean;
 }
 
 export interface Post {
@@ -37,8 +41,13 @@ export interface Post {
   author: Author;
   views: number;
   image_url: string | null;
-  /** Приходит только в общей ленте — там пост нужно подписать его сообществом. */
   community?: { id: string; name: string } | null;
+  /**
+   * true — пост подписан сообществом: ник автора, стрелка, название сообщества
+   * акцентным цветом. false — только ник. За принадлежность отвечает
+   * community_id, он есть всегда; это поле только про подпись.
+   */
+  post_as_community?: boolean;
   /** Пустой массив у постов без опроса. */
   pollOptions: PollOption[];
   myPollVote: string | null;

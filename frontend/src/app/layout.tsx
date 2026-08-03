@@ -72,7 +72,13 @@ export default function RootLayout({
           <div className="flex min-h-screen flex-col pb-16 md:pb-0 md:pl-20">
             <header className="app-header">
               <div className="app-header-veil" aria-hidden />
-              <div className="app-header-inner relative flex items-center justify-end px-4 py-5">
+              {/* Верхний отступ учитывает вырез телефона: env(safe-area-inset-top)
+                  на устройствах с монобровью отдаёт её высоту, на остальных — ноль,
+                  поэтому одна и та же строчка работает и там, и там. */}
+              <div
+                className="app-header-inner relative flex items-center justify-end px-4 pb-4"
+                style={{ paddingTop: 'calc(14px + env(safe-area-inset-top))' }}
+              >
                 {/* Трекинг не переопределяем: отрицательный сплющивал пиксельные
                     буквы в сплошную полосу. Кегль крупнее по той же причине. */}
                 <Link

@@ -18,6 +18,7 @@ import {
   readThemePreference,
   readWallpaper,
 } from '@/lib/appearance';
+import { ScreenTitle } from '@/components/ScreenTitle';
 import { LOCALES, Locale, TranslationKey, applyLocale, useT } from '@/lib/i18n';
 
 const THEMES: ReadonlyArray<readonly [ThemePreference, TranslationKey]> = [
@@ -161,7 +162,7 @@ export default function SettingsPage() {
               <path d="M15 5l-7 7 7 7" />
             </svg>
           </button>
-          <h1 className="font-pixel text-[32px] text-[var(--text)]">{t('settings.title')}</h1>
+          <ScreenTitle>{t('settings.title')}</ScreenTitle>
         </div>
 
         <section className="glass rounded-2xl p-5">

@@ -1,18 +1,24 @@
 'use client';
 
-import { useEffect, useRef, useState, SubmitEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, SubmitEvent } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { apiFetch } from '@/lib/api';
+import { invalidate, useApiData } from '@/lib/useApiData';
+import { BottomSheet } from '@/components/BottomSheet';
 import { supabase } from '@/lib/supabase';
 import { useSession } from '@/lib/useSession';
 import { Community, Post } from '@/lib/types';
 import { isPhoneNotVerifiedError, usePhoneGate } from '@/components/PhoneGateContext';
 import { CommunityAvatar } from '@/components/CommunityAvatar';
+import { DefaultAvatar } from '@/components/DefaultAvatar';
 import { useT } from '@/lib/i18n';
 
 /** Бакет в Supabase Storage, куда складываются картинки постов. */
 const MEDIA_BUCKET = 'post-media';
+
+/** Метка выбора «от своего имени» — идентификатором сообщества быть не может. */
+const PERSONAL = '__personal__';
 
 /**
  * Storage отвечает короткими техническими фразами — переводим их в то,
@@ -44,6 +50,15 @@ export default function CreatePostPage() {
   // Два шага: сначала выбор сообщества, потом сам текст.
   const [step, setStep] = useState<'community' | 'compose'>('community');
   const [communityQuery, setCommunityQuery] = useState('');
+  const [asCommunity, setAsCommunity] = useState(false);
+
+  // Открываем шторку через кадр после монтирования: если выставить open сразу,
+  // разметка приедет на место в том же кадре и анимации нечего проигрывать.
+  const [sheetOpen, setSheetOpen] = useState(false);
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => setSheetOpen(true));
+    return () => cancelAnimationFrame(frame);
+  }, []);
   // id выбранной карточки на время ухода экрана — она подсвечивается,
   // пока остальные гаснут, поэтому нажатие не выглядит проглоченным.
   const [leavingTo, setLeavingTo] = useState<string | null>(null);
@@ -55,18 +70,20 @@ export default function CreatePostPage() {
     };
   }, []);
 
-  function pickCommunity(id: string) {
+  function pickCommunity(id: string | null) {
     if (leavingTo) return;
-    setLeavingTo(id);
+    // Личный пост помечаем отдельным значением: null означал бы «ничего
+    // не выбрано», и подсветка карточки не сработала бы.
+    setLeavingTo(id ?? PERSONAL);
     // Экран выбора успевает погаснуть до подмены — без паузы шаги менялись
     // встык, одним кадром, и переход выглядел рубленым.
     stepTimeout.current = setTimeout(() => {
-      setCommunityId(id);
+      setCommunityId(id ?? '');
+      setAsCommunity(false);
       setStep('compose');
       setLeavingTo(null);
     }, 190);
   }
-  const [communities, setCommunities] = useState<Community[]>([]);
   const [communityId, setCommunityId] = useState('');
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
@@ -81,11 +98,10 @@ export default function CreatePostPage() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => {
-    apiFetch<Community[]>('/communities')
-      .then(setCommunities)
-      .catch((err) => setError(err.message));
-  }, []);
+  // Из общего кеша: список сообществ почти всегда уже загружен соседним
+  // экраном, и выбор открывается сразу.
+  const communitiesResult = useApiData<Community[]>('/communities');
+  const communities = useMemo(() => communitiesResult.data ?? [], [communitiesResult.data]);
 
   // Локальный превью-URL живёт до размонтирования — иначе утечёт объект.
   useEffect(() => {
@@ -140,11 +156,15 @@ export default function CreatePostPage() {
         body: JSON.stringify({
           title,
           body,
-          community_id: communityId,
+          // Пустая строка означает личный пост — на бэкенд уходит null.
+          community_id: communityId || null,
           image_url: imageUrl,
           poll_options: pollOptions?.map((option) => option.trim()).filter(Boolean) ?? [],
+          post_as_community: asCommunity,
         }),
       });
+      // Лента закеширована — без сброса свежий пост в ней не появится.
+      invalidate('/posts');
       router.push(`/posts/${post.id}`);
     } catch (err) {
       if (isPhoneNotVerifiedError(err)) {
@@ -157,11 +177,28 @@ export default function CreatePostPage() {
     }
   }
 
-  const canSubmit = title.trim() && communityId && !submitting && !uploading;
+  // Сообщество больше не обязательно: без него пост личный.
+  const canSubmit = title.trim() && !submitting && !uploading;
   const chosenCommunity = communities.find((c) => c.id === communityId);
 
   // Шаг 1 — куда публиковать. Отдельным экраном, как в Reddit: выбор сообщества
   // задаёт контекст всему посту, и решать его на бегу в выпадашке неудобно.
+  // Экран создания живёт отдельным маршрутом (на него можно прийти по ссылке),
+  // но выглядит и ведёт себя как шторка: выезжает снизу, тянется вниз пальцем,
+  // закрывается по затемнению. Открываем через кадр после монтирования —
+  // иначе анимации нечего проигрывать, разметка сразу приедет на место.
+  const sheet = (title: string, children: React.ReactNode, footer?: React.ReactNode) => (
+    <BottomSheet
+      open={sheetOpen}
+      onClose={() => router.back()}
+      title={title}
+      height="90vh"
+      footer={footer}
+    >
+      {children}
+    </BottomSheet>
+  );
+
   if (step === 'community') {
     const normalized = communityQuery.trim().toLowerCase();
     const visible = normalized
@@ -172,22 +209,56 @@ export default function CreatePostPage() {
         )
       : communities;
 
-    return (
-      <div className="flex flex-1 flex-col items-center">
-        <main
-          className="below-header flex w-full max-w-2xl flex-col gap-4 px-4 pb-8"
-          style={{
-            opacity: leavingTo ? 0 : 1,
-            transform: leavingTo ? 'translateY(-10px) scale(0.985)' : 'none',
-            transition: 'opacity 0.19s ease, transform 0.19s cubic-bezier(0.32, 0.72, 0, 1)',
-          }}
-        >
-          <div className="flex flex-col gap-1">
-            <h1 className="font-pixel text-[30px] text-[var(--text)]">{t('create.pickCommunity')}</h1>
-            <p className="text-[14px] text-[var(--text-muted)]">
-              {t('create.pickHint')}
-            </p>
+    return sheet(
+      t('create.pickCommunity'),
+      <div
+        className="flex flex-col gap-4 py-3"
+        style={{
+          opacity: leavingTo ? 0 : 1,
+          transform: leavingTo ? 'translateY(-10px) scale(0.985)' : 'none',
+          transition: 'opacity 0.19s ease, transform 0.19s cubic-bezier(0.32, 0.72, 0, 1)',
+        }}
+      >
+          <p className="text-[14px] text-[var(--text-muted)]">
+            {t('create.pickHint')}
+          </p>
+
+          {/* Первым — «от своего имени»: пост не обязан жить в сообществе,
+              и личная запись должна быть таким же полноправным выбором,
+              а не тем, что находишь, пролистав весь список. */}
+          <button
+            onClick={() => pickCommunity(null)}
+            className="glass glass-sheen flex items-center gap-3.5 rounded-2xl p-4 text-left"
+            style={{
+              transform: leavingTo === PERSONAL ? 'scale(1.015)' : 'none',
+              boxShadow: leavingTo === PERSONAL ? '0 0 0 1px var(--accent)' : undefined,
+              transition: 'transform 0.19s cubic-bezier(0.32, 1.3, 0.5, 1), box-shadow 0.19s ease',
+            }}
+          >
+            <DefaultAvatar name={(session?.user.email ?? '?').split('@')[0]} size={48} />
+            <div className="relative flex min-w-0 flex-col gap-0.5">
+              <span className="truncate font-medium text-[var(--text)]">
+                {t('create.personal')}
+              </span>
+              <span className="line-clamp-2 text-[13px] text-[var(--text-muted)]">
+                {t('create.personalHint')}
+              </span>
+            </div>
+          </button>
+
+          <div className="flex items-center gap-3 pt-1">
+            <span className="h-px flex-1" style={{ background: 'var(--border)' }} />
+            <span className="text-[12.5px] text-[var(--text-muted)]">
+              {t('create.orInCommunity')}
+            </span>
+            <span className="h-px flex-1" style={{ background: 'var(--border)' }} />
           </div>
+
+          {/* Частое заблуждение: люди думают, что писать в сообщество можно
+              только будучи его администратором. Говорим прямо. */}
+          <p className="text-[12.5px] leading-relaxed text-[var(--text-muted)]">
+            {t('create.communityHint')}
+          </p>
 
           {/* Поиск выше списка: сообществ со временем станет много, и листать
               их до нужного ради одного поста — самый частый путь. */}
@@ -264,38 +335,54 @@ export default function CreatePostPage() {
               )}
             </div>
           )}
-        </main>
       </div>
     );
   }
 
-  return (
-    <div className="flex flex-1 flex-col items-center">
-      {/* step-enter: второй шаг въезжает снизу, подхватывая уход первого —
-          иначе подмена экрана происходит за один кадр и выглядит рубленой. */}
-      <form
-        onSubmit={handleSubmit}
-        className="step-enter below-header flex w-full max-w-2xl flex-col gap-4 px-4 pb-8"
-      >
-        <div className="flex items-center justify-between gap-3">
-          <button
-            type="button"
-            onClick={() => setStep('community')}
-            className="flex items-center gap-2 rounded-full px-2 py-1.5 text-[15px] text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-2)]"
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M15 5l-7 7 7 7" />
-            </svg>
-            {chosenCommunity?.name ?? 'Назад'}
-          </button>
-          <button
-            type="submit"
-            disabled={!canSubmit}
-            className="rounded-full bg-[var(--accent)] px-5 py-1.5 text-[15px] font-medium text-[var(--accent-contrast)] transition-opacity disabled:opacity-40"
-          >
-            {submitting ? t('create.publishing') : t('create.publish')}
-          </button>
-        </div>
+  return sheet(
+    t('create.title'),
+    <form
+      id="create-post"
+      onSubmit={handleSubmit}
+      className="step-enter flex flex-col gap-4 py-3"
+    >
+        <button
+          type="button"
+          onClick={() => setStep('community')}
+          className="flex w-fit items-center gap-2 rounded-full px-2 py-1.5 text-[15px] text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-2)]"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M15 5l-7 7 7 7" />
+          </svg>
+          {chosenCommunity?.name ?? t('create.personal')}
+        </button>
+
+        {/* Выбор подписи есть только у постов в сообществе: у личного подписывать
+            нечем. Поэтому при пустом communityId переключатель не рисуется. */}
+        {chosenCommunity && (
+          <div className="flex gap-1 rounded-full border border-[var(--border)] p-1">
+            {(
+              [
+                [false, t('create.asMe')],
+                [true, t('create.asCommunity')],
+              ] as const
+            ).map(([value, label]) => (
+              <button
+                key={String(value)}
+                type="button"
+                onClick={() => setAsCommunity(value)}
+                className="flex-1 truncate rounded-full px-3 py-1.5 text-[13.5px] font-medium transition-colors"
+                style={
+                  asCommunity === value
+                    ? { background: 'var(--accent)', color: 'var(--accent-contrast)' }
+                    : { color: 'var(--text-muted)' }
+                }
+              >
+                {value ? `${label} ${chosenCommunity.name}`.trim() : label}
+              </button>
+            ))}
+          </div>
+        )}
 
         <input
           autoFocus
@@ -461,7 +548,14 @@ export default function CreatePostPage() {
         </div>
 
         {error && <p className="text-[14px]" style={{ color: 'var(--down)' }}>{error}</p>}
-      </form>
-    </div>
+    </form>,
+    <button
+      type="submit"
+      form="create-post"
+      disabled={!canSubmit}
+      className="rounded-full bg-[var(--accent)] py-3 text-[15px] font-medium text-[var(--accent-contrast)] transition-opacity disabled:opacity-40"
+    >
+      {submitting ? t('create.publishing') : t('create.publish')}
+    </button>
   );
 }

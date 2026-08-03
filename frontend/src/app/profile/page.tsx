@@ -1,22 +1,35 @@
 'use client';
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import Link from 'next/link';
 import { useSession } from '@/lib/useSession';
-import { apiFetch } from '@/lib/api';
+import { useApiData } from '@/lib/useApiData';
 import { CommentWithPost, Post } from '@/lib/types';
 import { PostCard } from '@/components/PostCard';
 import { ProfileAvatar } from '@/components/ProfileAvatar';
 import { InfluenceInfo } from '@/components/InfluenceInfo';
+import { SuggestedPeople } from '@/components/SuggestedPeople';
+import {
+  PROFILE_BIO_KEY,
+  PROFILE_CHANGED_EVENT,
+  PROFILE_AVATAR_KEY,
+  PROFILE_AVATAR_ZOOM_KEY,
+  PROFILE_COVER_KEY,
+  PROFILE_USERNAME_KEY,
+  PROFILE_NAME_KEY,
+  ProfileEditSheet,
+  readProfileField,
+} from '@/components/ProfileEditSheet';
 import { usePhoneGate } from '@/components/PhoneGateContext';
-import { formatRelativeDate } from '@/lib/formatDate';
+import { formatCompactAge } from '@/lib/formatDate';
+import { CommentVote } from '@/components/CommentVote';
 import { TranslationKey, useT } from '@/lib/i18n';
 
 type Tab = 'posts' | 'comments' | 'reposts';
 
 // Ни отображаемого имени, ни описания в таблице users пока нет — держим их
 // здесь как образец, пока не появятся поля на бэкенде.
-const DISPLAY_NAME = 'Кирилл';
+const DISPLAY_NAME = 'Бодрин Фёдор';
 const BIO = 'иногда достаточно лишь пары фраз';
 
 const TABS: ReadonlyArray<readonly [Tab, TranslationKey]> = [
@@ -46,10 +59,76 @@ export default function ProfilePage() {
   const { requestVerification } = usePhoneGate();
   const { t } = useT();
   const [tab, setTab] = useState<Tab>('posts');
-  const [posts, setPosts] = useState<Post[]>([]);
-  const [comments, setComments] = useState<CommentWithPost[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);
+
+  // Обложка — пока только на устройстве: поля под неё в базе нет, бакета тоже.
+  const coverInputRef = useRef<HTMLInputElement>(null);
+  const [cover, setCover] = useState<string | null>(null);
+  const storedCover = useSyncExternalStore(
+    () => () => {},
+    () => window.localStorage.getItem(PROFILE_COVER_KEY),
+    () => null
+  );
+  const coverImage = cover ?? storedCover;
+
+  function pickCover(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // data-URL, а не objectURL: последний живёт только до перезагрузки, и
+    // обложка «сбрасывалась» именно поэтому. Бакета под неё пока нет.
+    const reader = new FileReader();
+    reader.onload = () => {
+      const value = String(reader.result);
+      window.localStorage.setItem(PROFILE_COVER_KEY, value);
+      setCover(value);
+    };
+    reader.readAsDataURL(file);
+  }
+
+  // Значения профиля живут на устройстве, пока в базе нет полей под них.
+  // Подписываемся на событие сохранения через useSyncExternalStore: у сервера
+  // и браузера разные снимки, поэтому разметка не расходится при гидратации.
+  const displayName = useSyncExternalStore(
+    (notify) => {
+      window.addEventListener(PROFILE_CHANGED_EVENT, notify);
+      return () => window.removeEventListener(PROFILE_CHANGED_EVENT, notify);
+    },
+    () => readProfileField(PROFILE_NAME_KEY, DISPLAY_NAME),
+    () => DISPLAY_NAME
+  );
+  const bio = useSyncExternalStore(
+    (notify) => {
+      window.addEventListener(PROFILE_CHANGED_EVENT, notify);
+      return () => window.removeEventListener(PROFILE_CHANGED_EVENT, notify);
+    },
+    () => readProfileField(PROFILE_BIO_KEY, BIO),
+    () => BIO
+  );
+  const savedAvatar = useSyncExternalStore(
+    (notify) => {
+      window.addEventListener(PROFILE_CHANGED_EVENT, notify);
+      return () => window.removeEventListener(PROFILE_CHANGED_EVENT, notify);
+    },
+    () => readProfileField(PROFILE_AVATAR_KEY),
+    () => ''
+  );
+  const savedAvatarZoom = useSyncExternalStore(
+    (notify) => {
+      window.addEventListener(PROFILE_CHANGED_EVENT, notify);
+      return () => window.removeEventListener(PROFILE_CHANGED_EVENT, notify);
+    },
+    () => readProfileField(PROFILE_AVATAR_ZOOM_KEY, '1'),
+    () => '1'
+  );
+  const savedHandle = useSyncExternalStore(
+    (notify) => {
+      window.addEventListener(PROFILE_CHANGED_EVENT, notify);
+      return () => window.removeEventListener(PROFILE_CHANGED_EVENT, notify);
+    },
+    () => readProfileField(PROFILE_USERNAME_KEY),
+    () => ''
+  );
 
   const tabsRef = useRef<HTMLDivElement>(null);
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
@@ -57,23 +136,15 @@ export default function ProfilePage() {
 
   const userId = session?.user.id;
 
-  useEffect(() => {
-    if (!userId) {
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    Promise.all([
-      apiFetch<Post[]>(`/posts/user/${userId}?sort=new`),
-      apiFetch<CommentWithPost[]>(`/comments/user/${userId}`),
-    ])
-      .then(([userPosts, userComments]) => {
-        setPosts(userPosts);
-        setComments(userComments);
-      })
-      .catch((err) => setError(err.message))
-      .finally(() => setLoading(false));
-  }, [userId]);
+  // Из общего кеша: возврат в профиль рисует его мгновенно, свежие данные
+  // подтягиваются фоном.
+  const postsResult = useApiData<Post[]>(userId ? `/posts/user/${userId}?sort=new` : null);
+  const commentsResult = useApiData<CommentWithPost[]>(userId ? `/comments/user/${userId}` : null);
+
+  const posts = useMemo(() => postsResult.data ?? [], [postsResult.data]);
+  const comments = useMemo(() => commentsResult.data ?? [], [commentsResult.data]);
+  const loading = postsResult.loading || commentsResult.loading;
+  const error = postsResult.error ?? commentsResult.error;
 
   const influence = useMemo(() => posts.reduce((sum, post) => sum + post.score, 0), [posts]);
 
@@ -111,7 +182,9 @@ export default function ProfilePage() {
   }
 
   // Юзернейм выводим из почты: отдельного поля под него в профиле ещё нет.
-  const handle = (session?.user.email ?? '').split('@')[0];
+  // Юзернейм выводим из почты, но сохранённый в настройках имеет приоритет.
+  const emailHandle = (session?.user.email ?? '').split('@')[0];
+  const handle = savedHandle || emailHandle;
   const phoneVerified = Boolean(session.user.phone_confirmed_at);
 
   return (
@@ -132,7 +205,51 @@ export default function ProfilePage() {
           {/* Обложка выше прежнего и без нижней границы: она растворяется
               маской в карточку, поэтому «половин» больше нет. Отрицательный
               отступ снизу подтягивает данные в зону растворения. */}
-          <div className="profile-cover -mb-9 h-[168px] rounded-t-2xl" />
+          {/* Пока своего фона нет, обложка сама предлагает его поставить.
+              Поля под картинку в таблице users ещё не существует, поэтому
+              кнопка ведёт в никуда — но место под неё уже занято и видно. */}
+          {/* Скрытый file input с accept="image/*": нажатие открывает системную
+              галерею сразу, без промежуточного экрана. */}
+          <input
+            ref={coverInputRef}
+            type="file"
+            accept="image/*"
+            onChange={pickCover}
+            className="hidden"
+          />
+          <button
+            type="button"
+            onClick={() => coverInputRef.current?.click()}
+            className="profile-cover -mb-9 flex h-[168px] w-full items-start justify-end rounded-t-2xl p-3"
+            style={
+              coverImage
+                ? {
+                    backgroundImage: `url(${coverImage})`,
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center',
+                  }
+                : undefined
+            }
+          >
+            <span
+              className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12.5px] font-medium backdrop-blur-md"
+              style={{
+                background: 'color-mix(in srgb, #000000 32%, transparent)',
+                color: '#ffffff',
+              }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 6v12M6 12h12" />
+              </svg>
+              {t('profile.addCover')}
+            </span>
+          </button>
+
+          {coverImage && (
+            <p className="px-4 pt-2 text-[12.5px] leading-snug text-[var(--text-muted)] sm:px-5">
+              {t('profile.addCoverSoon')}
+            </p>
+          )}
 
           {/* Высота не фиксирована: имя и описание бывают в несколько строк,
               при жёстких 140px они вылезали за нижнюю кромку карточки. */}
@@ -143,7 +260,12 @@ export default function ProfilePage() {
                 className="relative z-10 flex-none rounded-full"
                 style={{ background: 'var(--surface)', padding: 3 }}
               >
-                <ProfileAvatar letter={handle[0]?.toUpperCase() ?? '?'} size={88} />
+                <ProfileAvatar
+                  name={handle}
+                  size={88}
+                  photo={savedAvatar || null}
+                  photoZoom={Number(savedAvatarZoom) || 1}
+                />
               </div>
               <div className="flex min-w-0 flex-1 items-start gap-1 pb-1">
                 <Stat value={posts.length} label={t('profile.stat.posts')} />
@@ -153,14 +275,24 @@ export default function ProfilePage() {
             </div>
 
             <div className="flex flex-col gap-0.5">
-              <h1 className="text-[17px] font-semibold leading-tight text-[var(--text)]">{DISPLAY_NAME}</h1>
+              <h1 className="text-[17px] font-semibold leading-tight text-[var(--text)]">{displayName}</h1>
               <span className="text-[13px] font-medium" style={{ color: 'var(--accent)' }}>
                 @{handle}
               </span>
-              <p className="mt-1 text-[14px] leading-snug text-[var(--text)]">{BIO}</p>
+              {bio && <p className="mt-1 text-[14px] leading-snug text-[var(--text)]">{bio}</p>}
             </div>
+
+            <button
+              onClick={() => setEditing(true)}
+              className="w-full rounded-full border py-2 text-[14px] font-medium transition-colors"
+              style={{ borderColor: 'var(--glass-border)', color: 'var(--text)' }}
+            >
+              {t('profile.edit')}
+            </button>
           </div>
         </section>
+
+        <SuggestedPeople storageKey="parafraz-suggest-profile" className="px-1.5" />
 
         {/* Блок 2 — что вы написали */}
         <section className="glass rounded-2xl px-4 pb-2">
@@ -203,7 +335,7 @@ export default function ProfilePage() {
           {/* pt-4: посты жались прямо к линии под вкладками и читались её
               продолжением, а не отдельным списком. */}
           {!loading && !error && tab === 'posts' && (
-            <div className="flex flex-col gap-3 pt-4">
+            <div className="flex flex-col divide-y divide-[var(--border)] pt-2">
               {posts.map((post) => (
                 <PostCard key={post.id} post={post} />
               ))}
@@ -244,9 +376,16 @@ export default function ProfilePage() {
                     </Link>
                   )}
                   <p className="text-[14.5px] leading-relaxed text-[var(--text)]">{comment.body}</p>
-                  <span className="text-[12px] text-[var(--text-muted)]">
-                    {formatRelativeDate(comment.created_at)} · <span className="font-num">{comment.score}</span> голосов
-                  </span>
+                  <div className="mt-1 flex items-center gap-2">
+                    <CommentVote
+                      commentId={comment.id}
+                      score={comment.score}
+                      myVote={comment.myVote}
+                    />
+                    <span className="text-[12px] text-[var(--text-muted)]">
+                      {formatCompactAge(comment.created_at)}
+                    </span>
+                  </div>
                 </article>
               ))}
               {comments.length === 0 && (
@@ -264,6 +403,14 @@ export default function ProfilePage() {
           )}
         </section>
       </main>
+
+      <ProfileEditSheet
+        open={editing}
+        onClose={() => setEditing(false)}
+        defaultName={DISPLAY_NAME}
+        defaultBio={BIO}
+        defaultUsername={emailHandle}
+      />
     </div>
   );
 }

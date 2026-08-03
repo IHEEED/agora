@@ -1,27 +1,25 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import Link from 'next/link';
-import { apiFetch } from '@/lib/api';
+import { useApiData } from '@/lib/useApiData';
 import { useSession } from '@/lib/useSession';
 import { Post } from '@/lib/types';
 import { PostCard } from '@/components/PostCard';
 import { StoriesBar } from '@/components/StoriesBar';
+import { DefaultAvatar } from '@/components/DefaultAvatar';
+import { SuggestedPeople } from '@/components/SuggestedPeople';
 import { useT } from '@/lib/i18n';
 
 export default function FeedPage() {
   const { session } = useSession();
   const { t } = useT();
-  const [posts, setPosts] = useState<Post[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    apiFetch<Post[]>('/posts?sort=hot')
-      .then(setPosts)
-      .catch((err) => setError(err.message))
-      .finally(() => setLoading(false));
-  }, []);
+  // Данные берём из кеша: возврат в ленту рисует её мгновенно, а свежий
+  // запрос уходит фоном. Раньше каждый заход начинался с пустого экрана.
+  const { data, error, loading } = useApiData<Post[]>('/posts?sort=hot');
+  // Через useMemo, а не через ?? прямо в теле: иначе каждый рендер создаёт
+  // новый пустой массив и пересчитывает список историй ниже без причины.
+  const posts = useMemo(() => data ?? [], [data]);
 
   // Истории собираем из авторов ленты — своего механизма у них пока нет.
   const storyUsernames = useMemo(
@@ -41,21 +39,26 @@ export default function FeedPage() {
           href="/create"
           className="mt-3 flex items-center gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3 text-left transition-colors hover:bg-[var(--surface)]"
         >
-          <span
-            className="flex h-8 w-8 flex-none items-center justify-center rounded-full text-sm font-semibold"
-            style={{ background: 'var(--surface)', color: 'var(--accent)' }}
-          >
-            {session?.user.email?.[0]?.toUpperCase()}
-          </span>
+          <DefaultAvatar name={(session?.user.email ?? '?').split('@')[0]} size={32} />
           <span className="text-[15px] text-[var(--text-muted)]">{t('feed.whatsNew')}</span>
         </Link>
 
         {loading && <p className="text-[var(--text-muted)]">{t('common.loading')}</p>}
         {error && <p style={{ color: 'var(--down)' }}>{error}</p>}
 
-        <div className="flex flex-col gap-3">
+        {/* Лента — сплошной список, разделённый полосками, а не набор плиток.
+            Отдельные карточки дробили экран на прямоугольники и съедали ширину
+            под поля; полоска отделяет ровно настолько, насколько нужно. */}
+        <SuggestedPeople storageKey="parafraz-suggest-feed" />
+
+        <div className="flex flex-col divide-y divide-[var(--border)]">
           {posts.map((post) => (
-            <PostCard key={post.id} post={post} />
+            <PostCard
+              key={post.id}
+              post={post}
+              // Подписаться можно на кого угодно, кроме себя.
+              canFollow={post.author.id !== session?.user.id}
+            />
           ))}
           {!loading && !error && posts.length === 0 && (
             <div className="flex flex-col items-center gap-3 py-16 text-center">

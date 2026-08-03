@@ -2,27 +2,25 @@
 
 import { useEffect, useRef } from 'react';
 import { SegmentRing, segmentsFor } from '@/components/SegmentRing';
+import { DefaultAvatar } from '@/components/DefaultAvatar';
 import { useT } from '@/lib/i18n';
 
 const RING_SIZE = 86;
 
 function StoryRing({
-  letter,
+  name,
   segments,
   viewed = false,
 }: {
-  letter: string;
+  name: string;
   segments: number;
   viewed?: boolean;
 }) {
   return (
     <div className="relative" style={{ width: RING_SIZE, height: RING_SIZE }}>
       <SegmentRing size={RING_SIZE} segments={segments} viewed={viewed} strokeWidth={3.4} gap={7} />
-      <div
-        className="absolute inset-[7px] flex items-center justify-center rounded-full text-xl font-semibold"
-        style={{ background: 'var(--surface-2)', color: 'var(--accent)' }}
-      >
-        {letter}
+      <div className="absolute inset-[7px] overflow-hidden rounded-full">
+        <DefaultAvatar name={name} size={RING_SIZE - 14} />
       </div>
     </div>
   );
@@ -97,11 +95,13 @@ export function StoriesBar({
       {currentUserLetter && (
         <div className="flex flex-col items-center gap-1.5" style={{ flex: `0 0 ${RING_SIZE}px` }}>
           <div className="relative">
+            {/* Пунктир вместо дуг: своей истории ещё нет, показывать нечего —
+                и кружок читается как «место под неё», а не как непросмотренное. */}
             <div
-              className="flex h-[86px] w-[86px] items-center justify-center rounded-full border-2 border-dashed text-xl font-semibold"
-              style={{ borderColor: 'var(--border)', background: 'var(--surface)', color: 'var(--accent)' }}
+              className="flex h-[86px] w-[86px] items-center justify-center overflow-hidden rounded-full border-2 border-dashed"
+              style={{ borderColor: 'var(--border)' }}
             >
-              {currentUserLetter}
+              <DefaultAvatar name={currentUserLetter} size={78} />
             </div>
             <span
               className="absolute bottom-0.5 right-0.5 flex h-7 w-7 items-center justify-center rounded-full border-2"
@@ -120,10 +120,7 @@ export function StoriesBar({
 
       {usernames.map((username) => (
         <div key={username} className="flex flex-col items-center gap-1.5" style={{ flex: `0 0 ${RING_SIZE}px` }}>
-          <StoryRing
-            letter={username[0]?.toUpperCase() ?? '?'}
-            segments={segmentsFor(username)}
-          />
+          <StoryRing name={username} segments={segmentsFor(username)} />
           <span className="w-full truncate text-center text-[11px] text-[var(--text-muted)]">
             {username}
           </span>

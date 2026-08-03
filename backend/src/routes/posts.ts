@@ -117,17 +117,33 @@ async function getPollsByPostId(postIds: string[], userId?: string) {
 }
 
 router.post('/', requireAuth, requirePhoneVerified, async (req, res) => {
-  const { title, body, community_id, image_url, poll_options } = req.body;
+  const { title, body, community_id, image_url, poll_options, post_as_community } = req.body;
   const author_id = req.user!.id;
 
-  if (!title || !community_id) {
-    return res.status(400).json({ error: 'title and community_id are required' });
+  if (!title) {
+    return res.status(400).json({ error: 'title is required' });
+  }
+
+  // community_id теперь необязателен: без него пост личный, от имени автора.
+  // Подписать сообществом пост, который в нём не лежит, нельзя.
+  const community = community_id || null;
+  if (!community && post_as_community) {
+    return res.status(400).json({ error: 'Личный пост нельзя подписать сообществом' });
   }
 
   const { data, error } = await supabase
     .from('posts')
-    .insert({ title, body, image_url: image_url || null, author_id, community_id })
-    .select('*, author:users(username)')
+    .insert({
+      title,
+      body,
+      image_url: image_url || null,
+      author_id,
+      community_id: community,
+      // Флаг отвечает только за подпись поста, не за принадлежность:
+      // сообщество у записи есть в любом случае.
+      post_as_community: Boolean(post_as_community),
+    })
+    .select('*, author:users(id, username), community:communities(id, name)')
     .single();
 
   if (error) {
@@ -223,7 +239,7 @@ router.get('/', optionalAuth, async (req, res) => {
 
   const { data, error } = await supabase
     .from('posts')
-    .select('*, author:users(username), community:communities(id, name)')
+    .select('*, author:users(id, username), community:communities(id, name)')
     .order('created_at', { ascending: false })
     .limit(100);
 
@@ -257,7 +273,7 @@ router.get('/community/:communityId', optionalAuth, async (req, res) => {
 
   const { data, error } = await supabase
     .from('posts')
-    .select('*, author:users(username)')
+    .select('*, author:users(id, username), community:communities(id, name)')
     .eq('community_id', communityId)
     .order('created_at', { ascending: false });
 
@@ -293,7 +309,7 @@ router.get('/user/:userId', optionalAuth, async (req, res) => {
 
   const { data, error } = await supabase
     .from('posts')
-    .select('*, author:users(username)')
+    .select('*, author:users(id, username), community:communities(id, name)')
     .eq('author_id', userId)
     .order('created_at', { ascending: false });
 
@@ -326,7 +342,7 @@ router.get('/:id', optionalAuth, async (req, res) => {
 
   const { data, error } = await supabase
     .from('posts')
-    .select('*, author:users(username)')
+    .select('*, author:users(id, username), community:communities(id, name)')
     .eq('id', id)
     .single();
 
