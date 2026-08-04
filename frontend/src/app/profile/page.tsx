@@ -9,11 +9,12 @@ import { PostCard } from '@/components/PostCard';
 import { ProfileAvatar } from '@/components/ProfileAvatar';
 import { InfluenceInfo } from '@/components/InfluenceInfo';
 import { SuggestedPeople } from '@/components/SuggestedPeople';
+import { DEFAULT_FIT, Fit, ImageFitter } from '@/components/ImageFitter';
 import {
   PROFILE_BIO_KEY,
   PROFILE_CHANGED_EVENT,
   PROFILE_AVATAR_KEY,
-  PROFILE_AVATAR_ZOOM_KEY,
+  PROFILE_AVATAR_FIT_KEY,
   PROFILE_COVER_FIT_KEY,
   PROFILE_COVER_KEY,
   PROFILE_USERNAME_KEY,
@@ -38,38 +39,6 @@ const TABS: ReadonlyArray<readonly [Tab, TranslationKey]> = [
   ['comments', 'profile.comments'],
   ['reposts', 'profile.reposts'],
 ];
-
-/** Ползунок подгонки изображения: масштаб или сдвиг по одной оси. */
-function FitSlider({
-  label,
-  value,
-  min,
-  max,
-  step,
-  onChange,
-}: {
-  label: string;
-  value: number;
-  min: number;
-  max: number;
-  step: number;
-  onChange: (value: number) => void;
-}) {
-  return (
-    <label className="flex items-center gap-3">
-      <span className="w-16 flex-none text-[12px] text-[var(--text-muted)]">{label}</span>
-      <input
-        type="range"
-        min={min}
-        max={max}
-        step={step}
-        value={value}
-        onChange={(e) => onChange(Number(e.target.value))}
-        className="flex-1 accent-[var(--accent)]"
-      />
-    </label>
-  );
-}
 
 function Stat({ value, label, info }: { value: number; label: string; info?: React.ReactNode }) {
   return (
@@ -106,18 +75,16 @@ export default function ProfilePage() {
 
   // Кадрирование обложки. Держим одной строкой в localStorage, чтобы не плодить
   // три ключа под то, что всегда меняется вместе.
-  const [coverFit, setCoverFit] = useState<{ zoom: number; x: number; y: number }>(() => {
-    if (typeof window === 'undefined') return { zoom: 1, x: 50, y: 50 };
+  const [coverFit, setCoverFit] = useState<Fit>(() => {
+    if (typeof window === 'undefined') return DEFAULT_FIT;
     try {
-      return { zoom: 1, x: 50, y: 50, ...JSON.parse(window.localStorage.getItem(PROFILE_COVER_FIT_KEY) ?? '{}') };
+      return { ...DEFAULT_FIT, ...JSON.parse(window.localStorage.getItem(PROFILE_COVER_FIT_KEY) ?? '{}') };
     } catch {
-      return { zoom: 1, x: 50, y: 50 };
+      return DEFAULT_FIT;
     }
   });
-  const { zoom: coverZoom, x: coverX, y: coverY } = coverFit;
 
-  function saveCoverFit(patch: Partial<{ zoom: number; x: number; y: number }>) {
-    const next = { ...coverFit, ...patch };
+  function saveCoverFit(next: Fit) {
     setCoverFit(next);
     window.localStorage.setItem(PROFILE_COVER_FIT_KEY, JSON.stringify(next));
   }
@@ -164,14 +131,22 @@ export default function ProfilePage() {
     () => readProfileField(PROFILE_AVATAR_KEY),
     () => ''
   );
-  const savedAvatarZoom = useSyncExternalStore(
+  const savedAvatarFitRaw = useSyncExternalStore(
     (notify) => {
       window.addEventListener(PROFILE_CHANGED_EVENT, notify);
       return () => window.removeEventListener(PROFILE_CHANGED_EVENT, notify);
     },
-    () => readProfileField(PROFILE_AVATAR_ZOOM_KEY, '1'),
-    () => '1'
+    () => readProfileField(PROFILE_AVATAR_FIT_KEY, '{}'),
+    () => '{}'
   );
+
+  const savedAvatarFit = useMemo<Fit>(() => {
+    try {
+      return { ...DEFAULT_FIT, ...JSON.parse(savedAvatarFitRaw) };
+    } catch {
+      return DEFAULT_FIT;
+    }
+  }, [savedAvatarFitRaw]);
   const savedHandle = useSyncExternalStore(
     (notify) => {
       window.addEventListener(PROFILE_CHANGED_EVENT, notify);
@@ -271,65 +246,52 @@ export default function ProfilePage() {
             onChange={pickCover}
             className="hidden"
           />
-          <button
-            type="button"
-            onClick={() => coverInputRef.current?.click()}
-            className="profile-cover -mb-9 flex h-[168px] w-full items-start justify-end rounded-t-2xl p-3"
-            style={
-              coverImage
-                ? {
-                    backgroundImage: `url(${coverImage})`,
-                    // Масштаб и сдвиг задаёт человек ползунками ниже: кадр
-                    // из галереи почти никогда не совпадает с полосой 168px.
-                    backgroundSize: `${coverZoom * 100}%`,
-                    backgroundPosition: `${coverX}% ${coverY}%`,
-                  }
-                : undefined
-            }
-          >
-            <span
-              className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12.5px] font-medium backdrop-blur-md"
-              style={{
-                background: 'color-mix(in srgb, #000000 32%, transparent)',
-                color: '#ffffff',
-              }}
+          {/* Обложку двигают пальцем прямо в кадре, а не ползунками: три
+              ползунка занимали половину карточки и заставляли думать в
+              координатах вместо простого «подвинуть, куда надо». */}
+          {coverImage ? (
+            <ImageFitter
+              src={coverImage}
+              fit={coverFit}
+              onChange={saveCoverFit}
+              className="profile-cover -mb-9 flex h-[168px] w-full items-start justify-end rounded-t-2xl p-3"
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 6v12M6 12h12" />
-              </svg>
-              {t('profile.addCover')}
-            </span>
-          </button>
-
-          {/* Подгонка обложки. Появляется только когда картинка выбрана —
-              до этого настраивать нечего. */}
-          {coverImage && (
-            <div className="relative z-10 flex flex-col gap-1.5 px-4 pt-3 sm:px-5">
-              <FitSlider
-                label={t('profile.editZoom')}
-                value={coverZoom}
-                min={1}
-                max={3}
-                step={0.05}
-                onChange={(v) => saveCoverFit({ zoom: v })}
-              />
-              <FitSlider
-                label={t('profile.fitX')}
-                value={coverX}
-                min={0}
-                max={100}
-                step={1}
-                onChange={(v) => saveCoverFit({ x: v })}
-              />
-              <FitSlider
-                label={t('profile.fitY')}
-                value={coverY}
-                min={0}
-                max={100}
-                step={1}
-                onChange={(v) => saveCoverFit({ y: v })}
-              />
-            </div>
+              <button
+                type="button"
+                onClick={() => coverInputRef.current?.click()}
+                onPointerDown={(e) => e.stopPropagation()}
+                className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12.5px] font-medium backdrop-blur-md"
+                style={{
+                  background: 'color-mix(in srgb, #000000 42%, transparent)',
+                  color: '#ffffff',
+                }}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M3 8.5a2 2 0 0 1 2-2h2l1.4-2h7.2L17 6.5h2a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" />
+                  <circle cx="12" cy="12.5" r="3.4" />
+                </svg>
+                {t('profile.changeCover')}
+              </button>
+            </ImageFitter>
+          ) : (
+            <button
+              type="button"
+              onClick={() => coverInputRef.current?.click()}
+              className="profile-cover -mb-9 flex h-[168px] w-full items-start justify-end rounded-t-2xl p-3"
+            >
+              <span
+                className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12.5px] font-medium backdrop-blur-md"
+                style={{
+                  background: 'color-mix(in srgb, #000000 32%, transparent)',
+                  color: '#ffffff',
+                }}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 6v12M6 12h12" />
+                </svg>
+                {t('profile.addCover')}
+              </span>
+            </button>
           )}
 
 
@@ -346,7 +308,7 @@ export default function ProfilePage() {
                   name={handle}
                   size={88}
                   photo={savedAvatar || null}
-                  photoZoom={Number(savedAvatarZoom) || 1}
+                  photoFit={savedAvatarFit}
                 />
               </div>
               <div className="flex min-w-0 flex-1 items-start gap-1 pb-1">

@@ -12,9 +12,11 @@ import {
   WALLPAPERS,
   WallpaperId,
   applyAccent,
+  applyPlainBackground,
   applyTheme,
   applyWallpaper,
   readAccent,
+  readPlainBackground,
   readThemePreference,
   readWallpaper,
 } from '@/lib/appearance';
@@ -111,6 +113,7 @@ export default function SettingsPage() {
   const [theme, setTheme] = useState<ThemePreference | null>(null);
   const [accent, setAccent] = useState<AccentId | null>(null);
   const [wallpaper, setWallpaper] = useState<WallpaperId | null>(null);
+  const [plainBg, setPlainBg] = useState(false);
 
   function chooseLocale(next: Locale) {
     setLocale(next);
@@ -121,6 +124,7 @@ export default function SettingsPage() {
     setTheme(readThemePreference());
     setAccent(readAccent());
     setWallpaper(readWallpaper());
+    setPlainBg(readPlainBackground());
   }, []);
 
   // При «системной» теме следим за настройкой ОС и переключаемся вместе с ней.
@@ -145,6 +149,11 @@ export default function SettingsPage() {
   function chooseWallpaper(next: WallpaperId) {
     setWallpaper(next);
     applyWallpaper(next);
+  }
+
+  function choosePlainBg(next: boolean) {
+    setPlainBg(next);
+    applyPlainBackground(next);
   }
 
   const phoneVerified = Boolean(session?.user.phone_confirmed_at);
@@ -253,6 +262,36 @@ export default function SettingsPage() {
                 );
               })}
             </div>
+          </div>
+
+          {/* Отдельно от обоев: «Без обоев» гасит только их, а цветные пятна
+              ауроры лежат своим слоем и остаются. */}
+          <div className="mt-4 flex items-center justify-between gap-4 border-t border-[var(--border)] pt-4">
+            <div className="flex min-w-0 flex-col">
+              <span className="text-[15px] text-[var(--text)]">{t('settings.plainBg')}</span>
+              <span className="text-[12.5px] leading-snug text-[var(--text-muted)]">
+                {t('settings.plainBgHint')}
+              </span>
+            </div>
+            <button
+              onClick={() => choosePlainBg(!plainBg)}
+              role="switch"
+              aria-checked={plainBg}
+              className="relative h-7 w-[52px] flex-none rounded-full border transition-colors"
+              style={{
+                borderColor: plainBg ? 'var(--accent)' : 'var(--border)',
+                background: plainBg ? 'var(--accent-soft)' : 'var(--surface-2)',
+              }}
+            >
+              <span
+                className="absolute left-0 top-1/2 h-[22px] w-[22px] rounded-full transition-transform duration-300"
+                style={{
+                  transform: `translate(${plainBg ? 27 : 2}px, -50%)`,
+                  background: plainBg ? 'var(--accent)' : 'var(--surface)',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                }}
+              />
+            </button>
           </div>
 
           <div className="mt-4 flex flex-col gap-2 border-t border-[var(--border)] pt-4">

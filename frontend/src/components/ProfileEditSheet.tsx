@@ -3,6 +3,7 @@
 import { useRef, useState } from 'react';
 import { BottomSheet } from '@/components/BottomSheet';
 import { DefaultAvatar } from '@/components/DefaultAvatar';
+import { DEFAULT_FIT, Fit, ImageFitter } from '@/components/ImageFitter';
 import { useT } from '@/lib/i18n';
 
 /**
@@ -17,7 +18,7 @@ export const PROFILE_NAME_KEY = 'parafraz-profile-name';
 export const PROFILE_BIO_KEY = 'parafraz-profile-bio';
 export const PROFILE_USERNAME_KEY = 'parafraz-profile-username';
 export const PROFILE_AVATAR_KEY = 'parafraz-profile-avatar';
-export const PROFILE_AVATAR_ZOOM_KEY = 'parafraz-profile-avatar-zoom';
+export const PROFILE_AVATAR_FIT_KEY = 'parafraz-profile-avatar-fit';
 export const PROFILE_COVER_KEY = 'parafraz-profile-cover';
 export const PROFILE_COVER_FIT_KEY = 'parafraz-profile-cover-fit';
 
@@ -47,7 +48,7 @@ export function ProfileEditSheet({
   const [bio, setBio] = useState('');
   const [username, setUsername] = useState('');
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
-  const [zoom, setZoom] = useState(1);
+  const [avatarFit, setAvatarFit] = useState<Fit>(DEFAULT_FIT);
   const avatarInputRef = useRef<HTMLInputElement>(null);
 
   function pickAvatar(event: React.ChangeEvent<HTMLInputElement>) {
@@ -75,7 +76,11 @@ export function ProfileEditSheet({
       setBio(readProfileField(PROFILE_BIO_KEY, defaultBio));
       setUsername(readProfileField(PROFILE_USERNAME_KEY, defaultUsername));
       setAvatarPreview(readProfileField(PROFILE_AVATAR_KEY) || null);
-      setZoom(Number(readProfileField(PROFILE_AVATAR_ZOOM_KEY, '1')) || 1);
+      try {
+        setAvatarFit({ ...DEFAULT_FIT, ...JSON.parse(readProfileField(PROFILE_AVATAR_FIT_KEY, '{}')) });
+      } catch {
+        setAvatarFit(DEFAULT_FIT);
+      }
     }
   }
 
@@ -85,7 +90,7 @@ export function ProfileEditSheet({
     window.localStorage.setItem(PROFILE_USERNAME_KEY, username.trim());
     if (avatarPreview) {
       window.localStorage.setItem(PROFILE_AVATAR_KEY, avatarPreview);
-      window.localStorage.setItem(PROFILE_AVATAR_ZOOM_KEY, String(zoom));
+      window.localStorage.setItem(PROFILE_AVATAR_FIT_KEY, JSON.stringify(avatarFit));
     }
     window.dispatchEvent(new CustomEvent(PROFILE_CHANGED_EVENT));
     onClose();
@@ -116,18 +121,15 @@ export function ProfileEditSheet({
             aria-label={t('profile.editAvatar')}
           >
             {avatarPreview ? (
-              // Кадрирование делаем масштабом внутри круглой рамки: полноценный
-              // редактор с перетаскиванием здесь избыточен, а «слишком мелко /
-              // слишком крупно» — единственная реальная претензия к автокропу.
-              <span className="block h-24 w-24 overflow-hidden rounded-full">
-                {/* eslint-disable-next-line @next/next/no-img-element -- data-URL выбранного файла */}
-                <img
-                  src={avatarPreview}
-                  alt=""
-                  className="h-full w-full object-cover"
-                  style={{ transform: `scale(${zoom})`, transformOrigin: 'center' }}
-                />
-              </span>
+              // Кадрируем перетаскиванием прямо в круге: ползунки заставляли
+              // подбирать координаты вместо того, чтобы просто подвинуть лицо
+              // в центр. Колесо и щипок меняют масштаб.
+              <ImageFitter
+                src={avatarPreview}
+                fit={avatarFit}
+                onChange={setAvatarFit}
+                className="block h-24 w-24 overflow-hidden rounded-full"
+              />
             ) : (
               <DefaultAvatar name={defaultName} size={96} />
             )}
@@ -153,18 +155,7 @@ export function ProfileEditSheet({
           </span>
 
           {avatarPreview && (
-            <label className="flex w-full max-w-[220px] items-center gap-3">
-              <span className="text-[12px] text-[var(--text-muted)]">{t('profile.editZoom')}</span>
-              <input
-                type="range"
-                min={1}
-                max={2.5}
-                step={0.05}
-                value={zoom}
-                onChange={(e) => setZoom(Number(e.target.value))}
-                className="flex-1 accent-[var(--accent)]"
-              />
-            </label>
+            <span className="text-[12px] text-[var(--text-muted)]">{t('profile.dragHint')}</span>
           )}
         </div>
 

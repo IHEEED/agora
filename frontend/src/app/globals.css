@@ -385,6 +385,7 @@ body {
   z-index: -1;
   pointer-events: none;
   opacity: var(--glass-strength);
+  transition: opacity 0.5s cubic-bezier(0.32, 0.72, 0, 1);
   background:
     radial-gradient(70% 46% at 50% -8%, color-mix(in srgb, var(--accent) 30%, transparent), transparent 76%),
     radial-gradient(58% 40% at 6% 2%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 74%),
@@ -452,6 +453,13 @@ body {
 
 :root[data-wallpaper]:not([data-wallpaper='none']) .wallpaper {
   display: block;
+}
+
+/* «Чистый фон» — отдельная настройка. Вариант «Без обоев» гасит только сами
+   обои, а цветные пятна ауроры остаются: они лежат отдельным слоем и нужны
+   стеклу, чтобы было что размывать. Кому эти пятна мешают, гасит и их. */
+:root[data-plain-bg='1'] .aurora {
+  opacity: 0;
 }
 
 /* Образец в настройках — те же три пятна, ужатые до плитки. Атрибут
@@ -531,11 +539,11 @@ body {
   0% {
     background: transparent;
   }
-  15% {
-    background: color-mix(in srgb, var(--text) 12%, transparent);
+  12% {
+    background: color-mix(in srgb, var(--text) 16%, transparent);
   }
-  70% {
-    background: color-mix(in srgb, var(--text) 12%, transparent);
+  72% {
+    background: color-mix(in srgb, var(--text) 16%, transparent);
   }
   100% {
     background: transparent;
@@ -545,7 +553,10 @@ body {
 .comment-highlight {
   margin: -8px -10px;
   padding: 8px 10px;
-  animation: comment-highlight 1.6s ease-out both;
+  /* Задержка обязательна: плавная прокрутка до комментария идёт около
+     полсекунды, и без неё подсветка успевала отыграть, пока экран ещё ехал —
+     до нужного места добираешься уже к погасшему фону. */
+  animation: comment-highlight 1.8s ease-out 0.55s both;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1035,10 +1046,14 @@ body {
   animation: spark-fly 0.42s ease-out forwards;
 }
 
-/* Цифры счётчиков — обычный текстовый шрифт, не пиксельный. */
+/* Цифры счётчиков. Раньше здесь стоял Calibri — чужая гарнитура рядом с Inter,
+   и цифра выбивалась из строки формой и весом. Берём тот же шрифт, что у всего
+   текста, а моноширинность цифр даёт tabular-nums: счётчик не дёргается при
+   смене разряда. */
 .font-num {
-  font-family: Calibri, "Segoe UI", Candara, sans-serif;
+  font-family: inherit;
   font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
 }
 
 @media (prefers-reduced-motion: reduce) {

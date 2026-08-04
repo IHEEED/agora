@@ -2,6 +2,7 @@
 
 import { SegmentRing, segmentsFor } from '@/components/SegmentRing';
 import { DefaultAvatar } from '@/components/DefaultAvatar';
+import { DEFAULT_FIT, Fit } from '@/components/ImageFitter';
 
 /**
  * Аватар в том же кольце из дуг, что и кружки сториз в ленте, только крупнее.
@@ -14,7 +15,7 @@ export function ProfileAvatar({
   muted = false,
   segments,
   photo,
-  photoZoom = 1,
+  photoFit,
 }: {
   name: string;
   size?: number;
@@ -23,7 +24,8 @@ export function ProfileAvatar({
   segments?: number;
   /** Загруженное фото. Без него рисуется генерируемая аватарка. */
   photo?: string | null;
-  photoZoom?: number;
+  /** Кадрирование, подобранное перетаскиванием в настройках профиля. */
+  photoFit?: Fit;
 }) {
   const inset = size * 0.083;
 
@@ -38,12 +40,16 @@ export function ProfileAvatar({
       />
       <div className="absolute overflow-hidden rounded-full" style={{ inset }}>
         {photo ? (
-          // eslint-disable-next-line @next/next/no-img-element -- data-URL из настроек профиля
-          <img
-            src={photo}
-            alt=""
-            className="h-full w-full object-cover"
-            style={{ transform: `scale(${photoZoom})` }}
+          // Показываем ровно тот кадр, что подобрали перетаскиванием:
+          // те же background-size и background-position, что в редакторе.
+          <span
+            className="block h-full w-full"
+            style={{
+              backgroundImage: `url(${photo})`,
+              backgroundSize: `${(photoFit ?? DEFAULT_FIT).zoom * 100}%`,
+              backgroundPosition: `${(photoFit ?? DEFAULT_FIT).x}% ${(photoFit ?? DEFAULT_FIT).y}%`,
+              backgroundRepeat: 'no-repeat',
+            }}
           />
         ) : (
           <DefaultAvatar name={name} size={size - inset * 2} />

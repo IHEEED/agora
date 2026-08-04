@@ -142,9 +142,10 @@ export function PostCard({
               onClick={() => setCommentsOpen(true)}
               aria-label="Комментарии"
               aria-expanded={commentsOpen}
-              className="control-pill flex items-center gap-1.5 rounded-full px-3 py-2 hover:bg-[var(--surface-2)]"
+              className="flex items-center gap-1.5 rounded-full px-2 py-2"
+              style={{ color: 'var(--control)' }}
             >
-              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M4 5.5h16v11H8.5L4 20V5.5Z" />
               </svg>
               <span className="font-num text-[15px]">{commentCount}</span>
@@ -157,15 +158,12 @@ export function PostCard({
             onClick={handleRepost}
             aria-label="Репост"
             aria-pressed={reposted}
-            className="control-pill flex items-center gap-1.5 rounded-full px-3 py-2"
-            style={
-              reposted
-                ? { borderColor: 'var(--accent)', color: 'var(--accent)', background: 'var(--accent-soft)' }
-                : {}
-            }
+            className="flex items-center gap-1.5 rounded-full px-2 py-2"
+            // Только цвет иконки, без заливки и обводки — как у стрелок.
+            style={{ color: reposted ? 'var(--accent)' : 'var(--control)' }}
           >
             <span key={repostSpin} className={repostSpin > 0 ? 'animate-repost' : undefined} style={{ display: 'inline-flex' }}>
-              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M6 7h9a3 3 0 0 1 3 3v2" />
                 <path d="m12 5-3 2 3 2" />
                 <path d="M18 17H9a3 3 0 0 1-3-3v-2" />

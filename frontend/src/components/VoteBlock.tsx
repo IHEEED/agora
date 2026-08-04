@@ -91,24 +91,25 @@ export function VoteBlock({
     vote.vote(value);
   }
 
-  // Проголосовавший блок целиком окрашивается в цвет реакции.
-  const tone =
-    vote.myVote === 1
-      ? { color: 'var(--up)', background: 'var(--up-bg)', borderColor: 'var(--up)' }
-      : vote.myVote === -1
-        ? { color: 'var(--down)', background: 'var(--down-bg)', borderColor: 'var(--down)' }
-        : {};
+  // Цветом отвечает только сама стрелка. Заливка и обводка всего блока
+  // превращали реакцию в подсвеченную плашку и перетягивали внимание с текста
+  // поста на ряд кнопок под ним.
+  const upColor = vote.myVote === 1 ? 'var(--up)' : 'var(--control)';
+  const downColor = vote.myVote === -1 ? 'var(--down)' : 'var(--control)';
 
+  // Размер иконки одинаковый везде: рядом стоят комментарий, репост и
+  // «поделиться», и разнокалиберные глифы читались случайным набором.
   const hit = compact ? 'h-8 w-8' : 'h-10 w-10';
-  const arrow = compact ? 19 : 24;
+  const arrow = 22;
 
   return (
-    <div className="control-pill flex items-center rounded-full" style={tone}>
+    <div className="flex items-center">
       <button
         onClick={() => handleVote(1)}
         aria-label="Голосовать за"
         aria-pressed={vote.myVote === 1}
         className={`vote-hit relative flex ${hit} items-center justify-center rounded-full`}
+        style={{ color: upColor }}
       >
         <span className="arrow-clip">
           <span className={animating === 'up' ? 'animate-vote-up' : undefined} style={{ display: 'block' }}>
@@ -134,7 +135,9 @@ export function VoteBlock({
       {vote.myVote !== -1 && (
         <RollingNumber
           value={vote.score}
-          className={`min-w-[1.5em] justify-center font-num ${compact ? 'text-[13px]' : 'text-[15px]'}`}
+          className={`min-w-[1.4em] justify-center font-num ${compact ? 'text-[14px]' : 'text-[15px]'}`}
+          // Счётчик подхватывает цвет отданного голоса, но только текстом.
+          style={{ color: vote.myVote === 1 ? 'var(--up)' : 'var(--control)' }}
         />
       )}
 
@@ -143,6 +146,7 @@ export function VoteBlock({
         aria-label="Голосовать против"
         aria-pressed={vote.myVote === -1}
         className={`vote-hit flex ${hit} items-center justify-center rounded-full`}
+        style={{ color: downColor }}
       >
         <span className="arrow-clip">
           <span className={animating === 'down' ? 'animate-vote-down' : undefined} style={{ display: 'block' }}>

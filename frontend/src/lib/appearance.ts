@@ -124,6 +124,21 @@ export function applyWallpaper(wallpaper: WallpaperId) {
   window.localStorage.setItem(WALLPAPER_STORAGE_KEY, wallpaper);
 }
 
+export const PLAIN_BG_STORAGE_KEY = 'parafraz-plain-bg';
+
+/**
+ * «Чистый фон» — гасит акцентные пятна ауроры под интерфейсом. Отдельно от
+ * обоев: обои можно снять, а пятна останутся, они лежат своим слоем.
+ */
+export function applyPlainBackground(on: boolean) {
+  document.documentElement.setAttribute('data-plain-bg', on ? '1' : '0');
+  window.localStorage.setItem(PLAIN_BG_STORAGE_KEY, on ? '1' : '0');
+}
+
+export function readPlainBackground(): boolean {
+  return window.localStorage.getItem(PLAIN_BG_STORAGE_KEY) === '1';
+}
+
 export function readWallpaper(): WallpaperId {
   const stored = window.localStorage.getItem(WALLPAPER_STORAGE_KEY);
   return WALLPAPERS.some((w) => w.id === stored) ? (stored as WallpaperId) : 'none';

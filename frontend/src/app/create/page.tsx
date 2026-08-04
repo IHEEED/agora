@@ -279,7 +279,7 @@ export default function CreatePostPage() {
                 placeholder={t('communities.search')}
                 value={communityQuery}
                 onChange={(e) => setCommunityQuery(e.target.value)}
-                className="glass w-full rounded-full py-2.5 pl-10 pr-4 text-[15px] text-[var(--text)] outline-none transition-colors focus:border-[var(--accent)]"
+                className="w-full rounded-full border border-[var(--border)] bg-[var(--surface-2)] py-2.5 pl-10 pr-4 text-[15px] text-[var(--text)] outline-none transition-colors focus:border-[var(--accent)]"
               />
             </div>
           )}

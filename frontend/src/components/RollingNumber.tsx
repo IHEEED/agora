@@ -6,7 +6,15 @@ import { useEffect, useRef } from 'react';
  * Показывает число так, что при изменении прокручивается только тот разряд,
  * который реально поменялся: 128 → 129 крутит одну цифру, 99 → 100 — три.
  */
-export function RollingNumber({ value, className }: { value: number; className?: string }) {
+export function RollingNumber({
+  value,
+  className,
+  style,
+}: {
+  value: number;
+  className?: string;
+  style?: React.CSSProperties;
+}) {
   const previous = useRef(value);
   const from = previous.current;
 
@@ -22,7 +30,7 @@ export function RollingNumber({ value, className }: { value: number; className?:
   const direction = value >= from ? 'up' : 'down';
 
   return (
-    <span className={className} style={{ display: 'inline-flex', overflow: 'hidden' }}>
+    <span className={className} style={{ display: 'inline-flex', overflow: 'hidden', ...style }}>
       {currentPadded.split('').map((char, index) => {
         if (char === ' ') return null;
         const changed = char !== oldPadded[index];

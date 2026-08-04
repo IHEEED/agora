@@ -38,6 +38,7 @@ const APPEARANCE_INIT_SCRIPT = `
       root.setAttribute('data-theme', theme);
       root.setAttribute('data-accent', localStorage.getItem('parafraz-accent') || 'indigo');
       root.setAttribute('data-wallpaper', localStorage.getItem('parafraz-wallpaper') || 'none');
+      root.setAttribute('data-plain-bg', localStorage.getItem('parafraz-plain-bg') || '0');
     } catch (e) {}
   })();
 `;
