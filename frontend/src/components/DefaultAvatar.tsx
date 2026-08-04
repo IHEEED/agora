@@ -66,10 +66,18 @@ export function DefaultAvatar({ name, size = 48 }: { name: string; size?: number
       aria-label={`Аватар ${name}`}
     >
       <defs>
-        <linearGradient id={gradientId} gradientTransform={`rotate(${angle} 0.5 0.5)`}>
-          <stop offset="0%" stopColor={from} />
-          <stop offset="100%" stopColor={to} />
-        </linearGradient>
+        {/* Радиальный, а не линейный: у линейного видно направление, и рядом
+            стоящие аватарки читаются одинаково «косыми». Смещаем центр по
+            хешу — тогда у каждого свой блик. */}
+        <radialGradient
+          id={gradientId}
+          cx={`${25 + (angle % 50)}%`}
+          cy={`${20 + (angle % 40)}%`}
+          r="95%"
+        >
+          <stop offset="0%" stopColor={to} />
+          <stop offset="100%" stopColor={from} />
+        </radialGradient>
         <clipPath id={clipId}>
           <circle cx="24" cy="24" r="24" />
         </clipPath>

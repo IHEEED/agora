@@ -67,6 +67,30 @@ async function getVoteInfoByPostId(postIds: string[], userId?: string) {
   return { scores, myVotes };
 }
 
+/**
+ * Сколько репостов у каждого поста и есть ли среди них мой. Таблицы может ещё
+ * не быть (миграция 006) — тогда возвращаем пустое, а не роняем всю ленту.
+ */
+async function getRepostInfoByPostId(postIds: string[], userId?: string) {
+  const counts = new Map<string, number>();
+  const mine = new Set<string>();
+  if (postIds.length === 0) return { counts, mine };
+
+  const { data, error } = await supabase
+    .from('reposts')
+    .select('post_id, user_id')
+    .in('post_id', postIds);
+
+  if (error || !data) return { counts, mine };
+
+  data.forEach(({ post_id, user_id }) => {
+    counts.set(post_id, (counts.get(post_id) ?? 0) + 1);
+    if (userId && user_id === userId) mine.add(post_id);
+  });
+
+  return { counts, mine };
+}
+
 async function getCommentCountByPostId(postIds: string[]) {
   const counts = new Map<string, number>();
   if (postIds.length === 0) return counts;
@@ -211,6 +235,79 @@ router.delete('/:id/poll-vote', requireAuth, async (req, res) => {
   res.status(204).send();
 });
 
+router.post('/:id/repost', requireAuth, async (req, res) => {
+  const { error } = await supabase
+    .from('reposts')
+    .upsert({ post_id: req.params.id, user_id: req.user!.id }, { onConflict: 'user_id,post_id' });
+
+  if (error) {
+    console.error('posts: repost failed', error);
+    return res.status(500).json({ error: 'Не удалось сделать репост' });
+  }
+
+  res.status(204).send();
+});
+
+router.delete('/:id/repost', requireAuth, async (req, res) => {
+  const { error } = await supabase
+    .from('reposts')
+    .delete()
+    .eq('post_id', req.params.id)
+    .eq('user_id', req.user!.id);
+
+  if (error) {
+    console.error('posts: repost removal failed', error);
+    return res.status(500).json({ error: 'Не удалось убрать репост' });
+  }
+
+  res.status(204).send();
+});
+
+// Репосты конкретного человека — вкладка «Репосты» в профиле.
+router.get('/reposts/:userId', optionalAuth, async (req, res) => {
+  const { data: rows, error } = await supabase
+    .from('reposts')
+    .select('post_id, created_at')
+    .eq('user_id', req.params.userId)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('posts: reposts read failed', error);
+    return res.json([]);
+  }
+
+  const ids = rows.map((row) => row.post_id);
+  if (ids.length === 0) return res.json([]);
+
+  const { data } = await supabase
+    .from('posts')
+    .select('*, author:users(id, username), community:communities(id, name)')
+    .in('id', ids);
+
+  if (!data) return res.json([]);
+
+  const [{ scores, myVotes }, commentCounts, { polls, myPollVotes }, repostInfo] =
+    await Promise.all([
+      getVoteInfoByPostId(ids, req.user?.id),
+      getCommentCountByPostId(ids),
+      getPollsByPostId(ids, req.user?.id),
+      getRepostInfoByPostId(ids, req.user?.id),
+    ]);
+
+  res.json(
+    data.map((post) => ({
+      ...post,
+      score: scores.get(post.id) ?? 0,
+      myVote: myVotes.get(post.id) ?? null,
+      commentCount: commentCounts.get(post.id) ?? 0,
+      pollOptions: polls.get(post.id) ?? [],
+      myPollVote: myPollVotes.get(post.id) ?? null,
+      repostCount: repostInfo.counts.get(post.id) ?? 0,
+      myRepost: repostInfo.mine.has(post.id),
+    }))
+  );
+});
+
 router.post('/:id/view', async (req, res) => {
   const { id } = req.params;
 
@@ -249,10 +346,11 @@ router.get('/', optionalAuth, async (req, res) => {
   }
 
   const postIds = data.map((post) => post.id);
-  const [{ scores, myVotes }, commentCounts, { polls, myPollVotes }] = await Promise.all([
+  const [{ scores, myVotes }, commentCounts, { polls, myPollVotes }, repostInfo] = await Promise.all([
     getVoteInfoByPostId(postIds, req.user?.id),
     getCommentCountByPostId(postIds),
     getPollsByPostId(postIds, req.user?.id),
+    getRepostInfoByPostId(postIds, req.user?.id),
   ]);
 
   const enriched = data.map((post) => ({
@@ -283,10 +381,11 @@ router.get('/community/:communityId', optionalAuth, async (req, res) => {
   }
 
   const postIds = data.map((post) => post.id);
-  const [{ scores, myVotes }, commentCounts, { polls, myPollVotes }] = await Promise.all([
+  const [{ scores, myVotes }, commentCounts, { polls, myPollVotes }, repostInfo] = await Promise.all([
     getVoteInfoByPostId(postIds, req.user?.id),
     getCommentCountByPostId(postIds),
     getPollsByPostId(postIds, req.user?.id),
+    getRepostInfoByPostId(postIds, req.user?.id),
   ]);
 
   const enriched = data.map((post) => ({
@@ -319,10 +418,11 @@ router.get('/user/:userId', optionalAuth, async (req, res) => {
   }
 
   const postIds = data.map((post) => post.id);
-  const [{ scores, myVotes }, commentCounts, { polls, myPollVotes }] = await Promise.all([
+  const [{ scores, myVotes }, commentCounts, { polls, myPollVotes }, repostInfo] = await Promise.all([
     getVoteInfoByPostId(postIds, req.user?.id),
     getCommentCountByPostId(postIds),
     getPollsByPostId(postIds, req.user?.id),
+    getRepostInfoByPostId(postIds, req.user?.id),
   ]);
 
   const enriched = data.map((post) => ({

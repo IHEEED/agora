@@ -20,6 +20,7 @@ export function BottomSheet({
   height = '70vh',
   children,
   footer,
+  layer = 0,
 }: {
   open: boolean;
   onClose: () => void;
@@ -29,6 +30,12 @@ export function BottomSheet({
   children: React.ReactNode;
   /** Прижатый к низу блок: строка ввода, кнопки отправки. */
   footer?: React.ReactNode;
+  /**
+   * Этаж над обычными шторками. Подтверждение телефона вызывается изнутри
+   * комментариев и обязано лечь поверх них — при одинаковом z-index порядок
+   * решала разметка, и модалка уходила под ту шторку, которая её открыла.
+   */
+  layer?: number;
 }) {
   const [drag, setDrag] = useState<number | null>(null);
   const dragStart = useRef(0);
@@ -85,8 +92,9 @@ export function BottomSheet({
       <div
         onClick={onClose}
         aria-hidden
-        className="fixed inset-0 z-[60]"
+        className="fixed inset-0"
         style={{
+          zIndex: 60 + layer * 10,
           background: 'rgba(0, 0, 0, 0.55)',
           opacity: open ? 1 : 0,
           pointerEvents: open ? 'auto' : 'none',
@@ -98,8 +106,9 @@ export function BottomSheet({
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="bottom-sheet fixed inset-x-0 bottom-0 z-[61] mx-auto flex max-w-2xl flex-col rounded-t-[22px]"
+        className="bottom-sheet fixed inset-x-0 bottom-0 mx-auto flex max-w-2xl flex-col rounded-t-[22px]"
         style={{
+          zIndex: 61 + layer * 10,
           height,
           transform: open ? `translateY(${drag ?? 0}px)` : 'translateY(100%)',
           // visibility обязательна. Закрытая шторка стоит вплотную под нижней

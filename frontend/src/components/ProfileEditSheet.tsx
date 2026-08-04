@@ -19,6 +19,7 @@ export const PROFILE_USERNAME_KEY = 'parafraz-profile-username';
 export const PROFILE_AVATAR_KEY = 'parafraz-profile-avatar';
 export const PROFILE_AVATAR_ZOOM_KEY = 'parafraz-profile-avatar-zoom';
 export const PROFILE_COVER_KEY = 'parafraz-profile-cover';
+export const PROFILE_COVER_FIT_KEY = 'parafraz-profile-cover-fit';
 
 /** Событие, которым экран профиля узнаёт, что данные поменялись. */
 export const PROFILE_CHANGED_EVENT = 'parafraz-profile-changed';

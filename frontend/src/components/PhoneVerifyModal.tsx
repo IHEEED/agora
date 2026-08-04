@@ -96,6 +96,8 @@ export function PhoneVerifyModal({
       onClose={handleClose}
       title="Подтвердите телефон"
       height="64vh"
+      // Вызывается изнутри комментариев — обязана лечь поверх них.
+      layer={1}
     >
       <div className="py-3">
         <p className="mb-4 text-[14px] leading-relaxed text-[var(--text-muted)]">

@@ -86,7 +86,6 @@ export default function CreatePostPage() {
   }
   const [communityId, setCommunityId] = useState('');
   const [title, setTitle] = useState('');
-  const [body, setBody] = useState('');
 
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
@@ -154,8 +153,10 @@ export default function CreatePostPage() {
       const post = await apiFetch<Post>('/posts', {
         method: 'POST',
         body: JSON.stringify({
-          title,
-          body,
+          // Первая строка — заголовок, остальное — текст. Поле теперь одно,
+          // а модель на бэкенде по-прежнему из двух частей.
+          title: title.split('\n')[0].slice(0, 300),
+          body: title.split('\n').slice(1).join('\n').trim() || null,
           // Пустая строка означает личный пост — на бэкенд уходит null.
           community_id: communityId || null,
           image_url: imageUrl,
@@ -384,21 +385,18 @@ export default function CreatePostPage() {
           </div>
         )}
 
-        <input
+        {/* Одно поле вместо «заголовка» и «текста». Деление на два блока
+            навязывало структуру, которой в мыслях обычно нет, и половина
+            высоты шторки уходила на пустые рамки. Первая строка становится
+            заголовком сама — её и отправляем как title. */}
+        <textarea
           autoFocus
           required
-          placeholder={t('create.titlePlaceholder')}
+          rows={10}
+          placeholder={t('create.placeholder')}
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          className="rounded-2xl border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3 text-[17px] font-medium text-[var(--text)] outline-none focus:border-[var(--accent)]"
-        />
-
-        <textarea
-          rows={7}
-          placeholder={t('create.bodyPlaceholder')}
-          value={body}
-          onChange={(e) => setBody(e.target.value)}
-          className="resize-none rounded-2xl border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3 text-[15px] leading-relaxed text-[var(--text)] outline-none focus:border-[var(--accent)]"
+          className="resize-none border-none bg-transparent px-1 text-[16px] leading-relaxed text-[var(--text)] outline-none"
         />
 
         {(preview || imageUrl) && (

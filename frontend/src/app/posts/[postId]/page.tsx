@@ -1,8 +1,9 @@
 'use client';
 
-import { useCallback, useEffect, useState, SubmitEvent } from 'react';
-import { useParams } from 'next/navigation';
+import { useCallback, useEffect, useState, useSyncExternalStore, SubmitEvent } from 'react';
+import { useParams, useRouter } from 'next/navigation';
 import { apiFetch } from '@/lib/api';
+import { useT } from '@/lib/i18n';
 import { useSession } from '@/lib/useSession';
 import { useExpandedComments } from '@/lib/useExpandedComments';
 import { markPostViewed } from '@/lib/viewedPosts';
@@ -18,6 +19,8 @@ const COMMENT_SORT_OPTIONS: { value: CommentSort; label: string }[] = [
 
 export default function PostPage() {
   const { postId } = useParams<{ postId: string }>();
+  const router = useRouter();
+  const { t } = useT();
   const { session } = useSession();
   const { requestVerification } = usePhoneGate();
   const { isExpanded, toggle } = useExpandedComments(postId);
@@ -53,6 +56,29 @@ export default function PostPage() {
     loadComments();
   }, [loadComments]);
 
+  // Пришли по ссылке вида #comment-<id> из профиля. Цель берём из адреса прямо
+  // при рендере, а не ставим состоянием из эффекта: от неё зависит, какая ветка
+  // раскроется, и лишний кадр со свёрнутой веткой был бы виден.
+  const highlightId = useSyncExternalStore(
+    () => () => {},
+    () => {
+      const hash = window.location.hash;
+      return hash.startsWith('#comment-') ? hash.slice('#comment-'.length) : null;
+    },
+    () => null
+  );
+
+  // Прокручиваем уже после того, как ветка раскрылась и узел появился.
+  useEffect(() => {
+    if (!highlightId || comments.length === 0) return;
+    const frame = requestAnimationFrame(() => {
+      document
+        .getElementById(`comment-${highlightId}`)
+        ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [highlightId, comments]);
+
   async function handleSubmit(e: SubmitEvent) {
     e.preventDefault();
     setFormError(null);
@@ -77,26 +103,39 @@ export default function PostPage() {
   }
 
   return (
-    <div className="flex flex-1 flex-col items-center bg-zinc-50 dark:bg-black">
-      <main className="flex w-full max-w-2xl flex-col gap-6 py-12 px-4">
-        {loading && <p className="text-zinc-600 dark:text-zinc-400">Загрузка…</p>}
-        {error && <p className="text-red-600 dark:text-red-400">{error}</p>}
+    // Фон и цвета берём из темы, а не из палитры Tailwind: этот экран остался
+    // единственным, куда редизайн не дошёл, — отсюда и вид «чёрного листа».
+    <div className="flex flex-1 flex-col items-center">
+      <main className="below-header flex w-full max-w-2xl flex-col gap-5 px-4 pb-10">
+        <button
+          onClick={() => router.back()}
+          className="flex w-fit items-center gap-2 rounded-full px-2 py-1.5 text-[15px] text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-2)]"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M15 5l-7 7 7 7" />
+          </svg>
+          {t('common.back')}
+        </button>
+
+        {loading && <p className="text-[var(--text-muted)]">{t('common.loading')}</p>}
+        {error && <p style={{ color: 'var(--down)' }}>{error}</p>}
 
         {post && <PostCard post={post} linkToDetail={false} />}
 
-        <div className="flex flex-col gap-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-black dark:text-zinc-50">Комментарии</h2>
-            <div className="flex gap-1 rounded-full border border-black/[.08] p-1 dark:border-white/[.145]">
+        <div className="flex flex-col gap-4 border-t border-[var(--border)] pt-5">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-[17px] font-semibold text-[var(--text)]">Комментарии</h2>
+            <div className="flex gap-1 rounded-full border border-[var(--border)] p-1">
               {COMMENT_SORT_OPTIONS.map((option) => (
                 <button
                   key={option.value}
                   onClick={() => setCommentSort(option.value)}
-                  className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                  className="whitespace-nowrap rounded-full px-3 py-1 text-[12.5px] font-medium transition-colors"
+                  style={
                     commentSort === option.value
-                      ? 'bg-foreground text-background'
-                      : 'text-zinc-600 hover:bg-black/[.04] dark:text-zinc-400 dark:hover:bg-[#1a1a1a]'
-                  }`}
+                      ? { background: 'var(--accent)', color: 'var(--accent-contrast)' }
+                      : { color: 'var(--text-muted)' }
+                  }
                 >
                   {option.label}
                 </button>
@@ -104,30 +143,29 @@ export default function PostPage() {
             </div>
           </div>
 
-          {session ? (
+          {session && (
             <form onSubmit={handleSubmit} className="flex flex-col gap-2">
               <textarea
                 required
                 rows={3}
                 value={body}
                 onChange={(e) => setBody(e.target.value)}
-                placeholder="Ваш комментарий…"
-                className="rounded-md border border-black/[.08] px-3 py-2 text-sm text-black dark:border-white/[.145] dark:bg-zinc-900 dark:text-zinc-50"
+                placeholder="Поделитесь своим мнением"
+                className="resize-none rounded-2xl border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3 text-[15px] leading-relaxed text-[var(--text)] outline-none focus:border-[var(--accent)]"
               />
-              {formError && <p className="text-sm text-red-600 dark:text-red-400">{formError}</p>}
+              {formError && <p className="text-[13px]" style={{ color: 'var(--down)' }}>{formError}</p>}
               <button
                 type="submit"
-                disabled={submitting}
-                className="self-start rounded-full bg-foreground px-4 py-1.5 text-sm font-medium text-background disabled:opacity-50 dark:hover:bg-[#ccc]"
+                disabled={submitting || !body.trim()}
+                className="self-start rounded-full px-5 py-2 text-[14px] font-medium transition-opacity disabled:opacity-40"
+                style={{ background: 'var(--accent)', color: 'var(--accent-contrast)' }}
               >
                 Отправить
               </button>
             </form>
-          ) : (
-            <p className="text-sm text-zinc-600 dark:text-zinc-400">Войдите, чтобы оставить комментарий.</p>
           )}
 
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-5">
             {comments.map((comment) => (
               <CommentThread
                 key={comment.id}
@@ -136,10 +174,13 @@ export default function PostPage() {
                 onAdded={loadComments}
                 isExpanded={isExpanded}
                 onToggleExpand={toggle}
+                highlightId={highlightId}
               />
             ))}
             {!loading && comments.length === 0 && (
-              <p className="text-sm text-zinc-600 dark:text-zinc-400">Комментариев пока нет.</p>
+              <p className="py-8 text-center text-[var(--text-muted)]">
+                Комментариев пока нет. Будьте первым.
+              </p>
             )}
           </div>
         </div>

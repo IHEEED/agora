@@ -37,7 +37,9 @@ export default function FeedPage() {
 
         <Link
           href="/create"
-          className="mt-3 flex items-center gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3 text-left transition-colors hover:bg-[var(--surface)]"
+          // Заметно темнее surface-2: светлая плашка на светлой теме читалась
+          // пустым прямоугольником, а не полем ввода.
+          className="mt-3 flex items-center gap-3 rounded-2xl border border-[var(--glass-border)] bg-[var(--surface-2)] px-4 py-3 text-left transition-colors"
         >
           <DefaultAvatar name={(session?.user.email ?? '?').split('@')[0]} size={32} />
           <span className="text-[15px] text-[var(--text-muted)]">{t('feed.whatsNew')}</span>

@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { apiFetch } from '@/lib/api';
 import { Comment } from '@/lib/types';
 import { formatCompactAge } from '@/lib/formatDate';
-import { CommentVote } from '@/components/CommentVote';
+import { VoteBlock } from '@/components/VoteBlock';
 import { isPhoneNotVerifiedError, usePhoneGate } from '@/components/PhoneGateContext';
 import { BottomSheet } from '@/components/BottomSheet';
 import { DefaultAvatar } from '@/components/DefaultAvatar';
@@ -178,10 +178,12 @@ export function CommentSheet({
               <p className="text-[14.5px] leading-relaxed text-[var(--text)]">{comment.body}</p>
 
               <div className="mt-0.5 flex items-center gap-2">
-                <CommentVote
-                  commentId={comment.id}
+                <VoteBlock
+                  id={comment.id}
                   score={comment.score}
                   myVote={comment.myVote}
+                  kind="comment"
+                  compact
                 />
                 <button
                   onClick={() => setReplyTo(comment)}

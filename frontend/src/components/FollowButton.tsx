@@ -39,14 +39,16 @@ export function FollowButton({
   return (
     <button
       onClick={toggle}
-      className={`flex-none rounded-full px-4 py-1.5 text-[13px] font-medium transition-colors ${className}`}
+      // max-w с truncate: длинный ник забирает ширину первым, и кнопка ужимается
+      // до многоточия вместо того, чтобы выдавливать имя на вторую строку.
+      className={`min-w-0 max-w-[40%] flex-none truncate rounded-full px-3.5 py-1.5 text-[13px] font-medium transition-colors ${className}`}
       style={
         following
           ? { background: 'var(--surface-2)', color: 'var(--text-muted)' }
           : { background: 'var(--accent)', color: 'var(--accent-contrast)' }
       }
     >
-      {following ? t('suggest.following') : t('suggest.follow')}
+      {following ? t('suggest.unfollow') : t('suggest.follow')}
     </button>
   );
 }

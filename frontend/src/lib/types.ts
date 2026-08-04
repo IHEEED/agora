@@ -51,6 +51,8 @@ export interface Post {
   /** Пустой массив у постов без опроса. */
   pollOptions: PollOption[];
   myPollVote: string | null;
+  repostCount?: number;
+  myRepost?: boolean;
 }
 
 export type PostSort = 'hot' | 'new' | 'top' | 'commented';

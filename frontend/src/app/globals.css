@@ -70,7 +70,9 @@
 :root[data-theme="dark"] {
   --bg: #000000;
   --surface: #0e0e11;
-  --surface-2: #17171c;
+  /* Заметно светлее фона: поля ввода и «Что нового» на почти чёрном
+     surface-2 читались грязным пятном, а не местом, куда можно писать. */
+  --surface-2: #26262e;
   --border: rgba(255, 255, 255, 0.12);
   --text: #f5f5f7;
   --text-muted: #9a9aa5;
@@ -103,7 +105,9 @@
   :root:not([data-theme="light"]) {
     --bg: #000000;
     --surface: #0e0e11;
-    --surface-2: #17171c;
+    /* Заметно светлее фона: поля ввода и «Что нового» на почти чёрном
+     surface-2 читались грязным пятном, а не местом, куда можно писать. */
+  --surface-2: #26262e;
     --border: rgba(255, 255, 255, 0.12);
     --text: #f5f5f7;
     --text-muted: #9a9aa5;
@@ -237,17 +241,20 @@ body {
    появление элемента превращалось бы вползание.
    :where() держит нулевую специфичность — правило ничего не перебивает. */
 :where(*, *::before, *::after) {
-  transition-property: background-color, border-color, color, fill, stroke, box-shadow;
-  transition-duration: 0.32s;
+  transition-property:
+    background-color, background-image, border-color, color, fill, stroke, box-shadow, opacity;
+  transition-duration: 0.5s;
   transition-timing-function: cubic-bezier(0.32, 0.72, 0, 1);
 }
 
-/* Фоновые слои и стекло меняются вместе с темой — им отдельная, чуть более
-   долгая кривая, иначе градиент обоев перещёлкивается раньше остального. */
+/* Фоновые слои меняются вместе с темой, акцентом и выбором обоев. Им отдельная,
+   более долгая кривая: это самые большие пятна на экране, и переключись они
+   в одном темпе с мелочью — смена читалась бы рывком. */
 .wallpaper,
 .aurora,
-.app-header-veil {
-  transition: background 0.45s cubic-bezier(0.32, 0.72, 0, 1);
+.app-header-veil,
+.profile-cover {
+  transition: background 0.65s cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -517,6 +524,62 @@ body {
   );
 }
 
+/* Подсветка комментария, к которому пришли по ссылке из профиля. Секунда
+   серой заливки и плавный уход — глаз успевает найти нужную ветку, но экран
+   не остаётся раскрашенным. Приём из Instagram. */
+@keyframes comment-highlight {
+  0% {
+    background: transparent;
+  }
+  15% {
+    background: color-mix(in srgb, var(--text) 12%, transparent);
+  }
+  70% {
+    background: color-mix(in srgb, var(--text) 12%, transparent);
+  }
+  100% {
+    background: transparent;
+  }
+}
+
+.comment-highlight {
+  margin: -8px -10px;
+  padding: 8px 10px;
+  animation: comment-highlight 1.6s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .comment-highlight {
+    animation: none;
+    background: color-mix(in srgb, var(--text) 10%, transparent);
+  }
+}
+
+/* Линия принадлежности ветки ответов. Ствол идёт вниз, а у первого ответа
+   загибается вправо — видно, откуда ветка растёт. Прямая черта такого не
+   показывала: она читалась просто отступом.
+   Загиб рисуем скруглением рамки, а не отдельной картинкой, — так он тянется
+   вместе с высотой ветки и перекрашивается вместе с темой. */
+.reply-branch {
+  position: relative;
+  padding-left: 22px;
+}
+
+.reply-branch::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: -6px;
+  /* Ствол не доходит до низа: он обрывается у последнего ответа и там же
+     загибается вправо — к его аватарке. */
+  bottom: 18px;
+  width: 15px;
+  border-left: 2px solid var(--border);
+  border-bottom: 2px solid var(--border);
+  border-bottom-left-radius: 14px;
+  pointer-events: none;
+}
+
 /* Аватар сообщества как фон карточки: прижат к правому краю, обрезан её
    границами и растворяется маской к середине, освобождая место под текст. */
 .community-card-art {
@@ -668,7 +731,7 @@ body {
      чтобы сториз и аватар профиля не попадали под размытие в покое.
      Было -56px: акцентная дымка спускалась почти до середины экрана и мешала
      читать верхние карточки. Теперь свес вдвое короче. */
-  bottom: -26px;
+  bottom: -12px;
   pointer-events: none;
   /* Самый слабый слой тянется на всю высоту — он и «сшивает» края. */
   backdrop-filter: blur(calc(2px * var(--glass-strength)));
@@ -748,6 +811,26 @@ body {
 
 .page-enter {
   animation: page-enter 0.22s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+/* Вложенный экран въезжает справа — жест «вглубь», как в системной навигации. */
+@keyframes page-push {
+  from {
+    opacity: 0;
+    transform: translateX(28px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.page-push {
+  animation: page-push 0.28s cubic-bezier(0.32, 0.72, 0, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .page-push {
+    animation: none;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -919,8 +1002,11 @@ body {
 
 /* Общая обводка кнопок взаимодействия: чуть толще обычной границы,
    чтобы ряд действий не выглядел блёклым. */
+/* Без внешней обводки: ряд действий под постом состоял из трёх эллипсов подряд
+   и читался панелью кнопок, а не жестами. Форму держат сами иконки, цвет —
+   реакция. Рамка возвращается только когда голос отдан, как подсветка выбора. */
 .control-pill {
-  border: 1.5px solid var(--control-border);
+  border: 1.5px solid transparent;
   color: var(--control);
   transition:
     color 0.3s ease,

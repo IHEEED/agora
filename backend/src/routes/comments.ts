@@ -40,7 +40,7 @@ router.get('/user/:userId', optionalAuth, async (req, res) => {
 
   const { data, error } = await supabase
     .from('comments')
-    .select('*, author:users(username), post:posts(id, title)')
+    .select('*, author:users(id, username), post:posts(id, title)')
     .eq('author_id', userId)
     .order('created_at', { ascending: false });
 
@@ -75,7 +75,7 @@ router.post('/', requireAuth, requirePhoneVerified, async (req, res) => {
   const { data, error } = await supabase
     .from('comments')
     .insert({ post_id, author_id, parent_comment_id: parent_comment_id ?? null, body })
-    .select('*, author:users(username)')
+    .select('*, author:users(id, username)')
     .single();
 
   if (error) {
@@ -91,7 +91,7 @@ router.get('/post/:postId', optionalAuth, async (req, res) => {
 
   const { data, error } = await supabase
     .from('comments')
-    .select('*, author:users(username)')
+    .select('*, author:users(id, username)')
     .eq('post_id', postId)
     .order('created_at', { ascending: true });
 

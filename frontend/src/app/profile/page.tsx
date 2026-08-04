@@ -14,6 +14,7 @@ import {
   PROFILE_CHANGED_EVENT,
   PROFILE_AVATAR_KEY,
   PROFILE_AVATAR_ZOOM_KEY,
+  PROFILE_COVER_FIT_KEY,
   PROFILE_COVER_KEY,
   PROFILE_USERNAME_KEY,
   PROFILE_NAME_KEY,
@@ -22,7 +23,7 @@ import {
 } from '@/components/ProfileEditSheet';
 import { usePhoneGate } from '@/components/PhoneGateContext';
 import { formatCompactAge } from '@/lib/formatDate';
-import { CommentVote } from '@/components/CommentVote';
+import { VoteBlock } from '@/components/VoteBlock';
 import { TranslationKey, useT } from '@/lib/i18n';
 
 type Tab = 'posts' | 'comments' | 'reposts';
@@ -37,6 +38,38 @@ const TABS: ReadonlyArray<readonly [Tab, TranslationKey]> = [
   ['comments', 'profile.comments'],
   ['reposts', 'profile.reposts'],
 ];
+
+/** Ползунок подгонки изображения: масштаб или сдвиг по одной оси. */
+function FitSlider({
+  label,
+  value,
+  min,
+  max,
+  step,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  onChange: (value: number) => void;
+}) {
+  return (
+    <label className="flex items-center gap-3">
+      <span className="w-16 flex-none text-[12px] text-[var(--text-muted)]">{label}</span>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="flex-1 accent-[var(--accent)]"
+      />
+    </label>
+  );
+}
 
 function Stat({ value, label, info }: { value: number; label: string; info?: React.ReactNode }) {
   return (
@@ -70,6 +103,24 @@ export default function ProfilePage() {
     () => null
   );
   const coverImage = cover ?? storedCover;
+
+  // Кадрирование обложки. Держим одной строкой в localStorage, чтобы не плодить
+  // три ключа под то, что всегда меняется вместе.
+  const [coverFit, setCoverFit] = useState<{ zoom: number; x: number; y: number }>(() => {
+    if (typeof window === 'undefined') return { zoom: 1, x: 50, y: 50 };
+    try {
+      return { zoom: 1, x: 50, y: 50, ...JSON.parse(window.localStorage.getItem(PROFILE_COVER_FIT_KEY) ?? '{}') };
+    } catch {
+      return { zoom: 1, x: 50, y: 50 };
+    }
+  });
+  const { zoom: coverZoom, x: coverX, y: coverY } = coverFit;
+
+  function saveCoverFit(patch: Partial<{ zoom: number; x: number; y: number }>) {
+    const next = { ...coverFit, ...patch };
+    setCoverFit(next);
+    window.localStorage.setItem(PROFILE_COVER_FIT_KEY, JSON.stringify(next));
+  }
 
   function pickCover(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -141,8 +192,11 @@ export default function ProfilePage() {
   const postsResult = useApiData<Post[]>(userId ? `/posts/user/${userId}?sort=new` : null);
   const commentsResult = useApiData<CommentWithPost[]>(userId ? `/comments/user/${userId}` : null);
 
+  const repostsResult = useApiData<Post[]>(userId ? `/posts/reposts/${userId}` : null);
+
   const posts = useMemo(() => postsResult.data ?? [], [postsResult.data]);
   const comments = useMemo(() => commentsResult.data ?? [], [commentsResult.data]);
+  const reposts = useMemo(() => repostsResult.data ?? [], [repostsResult.data]);
   const loading = postsResult.loading || commentsResult.loading;
   const error = postsResult.error ?? commentsResult.error;
 
@@ -152,7 +206,7 @@ export default function ProfilePage() {
   const counts: Record<Tab, number> = {
     posts: posts.length,
     comments: comments.length,
-    reposts: 0,
+    reposts: reposts.length,
   };
 
   const activeTabIndex = TABS.findIndex(([value]) => value === tab);
@@ -225,8 +279,10 @@ export default function ProfilePage() {
               coverImage
                 ? {
                     backgroundImage: `url(${coverImage})`,
-                    backgroundSize: 'cover',
-                    backgroundPosition: 'center',
+                    // Масштаб и сдвиг задаёт человек ползунками ниже: кадр
+                    // из галереи почти никогда не совпадает с полосой 168px.
+                    backgroundSize: `${coverZoom * 100}%`,
+                    backgroundPosition: `${coverX}% ${coverY}%`,
                   }
                 : undefined
             }
@@ -245,11 +301,37 @@ export default function ProfilePage() {
             </span>
           </button>
 
+          {/* Подгонка обложки. Появляется только когда картинка выбрана —
+              до этого настраивать нечего. */}
           {coverImage && (
-            <p className="px-4 pt-2 text-[12.5px] leading-snug text-[var(--text-muted)] sm:px-5">
-              {t('profile.addCoverSoon')}
-            </p>
+            <div className="relative z-10 flex flex-col gap-1.5 px-4 pt-3 sm:px-5">
+              <FitSlider
+                label={t('profile.editZoom')}
+                value={coverZoom}
+                min={1}
+                max={3}
+                step={0.05}
+                onChange={(v) => saveCoverFit({ zoom: v })}
+              />
+              <FitSlider
+                label={t('profile.fitX')}
+                value={coverX}
+                min={0}
+                max={100}
+                step={1}
+                onChange={(v) => saveCoverFit({ x: v })}
+              />
+              <FitSlider
+                label={t('profile.fitY')}
+                value={coverY}
+                min={0}
+                max={100}
+                step={1}
+                onChange={(v) => saveCoverFit({ y: v })}
+              />
+            </div>
           )}
+
 
           {/* Высота не фиксирована: имя и описание бывают в несколько строк,
               при жёстких 140px они вылезали за нижнюю кромку карточки. */}
@@ -365,22 +447,37 @@ export default function ProfilePage() {
           {!loading && !error && tab === 'comments' && (
             <div className="flex flex-col divide-y divide-[var(--border)]">
               {comments.map((comment) => (
-                <article key={comment.id} className="flex flex-col gap-1.5 py-4">
+                <article key={comment.id} className="flex flex-col gap-2 py-4">
+                  {/* Под каким постом оставлен комментарий — видно прямо здесь,
+                      строкой-цитатой. Ссылка ведёт к самому комментарию, а не
+                      просто на пост: якорь в адресе подсвечивает нужную ветку. */}
                   {comment.post && (
                     <Link
-                      href={`/posts/${comment.post.id}`}
-                      className="text-[13px] font-medium hover:underline"
-                      style={{ color: 'var(--accent)' }}
+                      href={`/posts/${comment.post.id}#comment-${comment.id}`}
+                      className="flex items-center gap-2 rounded-xl px-3 py-2 transition-colors hover:bg-[var(--surface-2)]"
+                      style={{ background: 'var(--surface-2)' }}
                     >
-                      {comment.post.title}
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" className="flex-none">
+                        <path d="M4 5.5h16v11H8.5L4 20V5.5Z" />
+                      </svg>
+                      <span className="min-w-0 flex-1 truncate text-[13px] text-[var(--text-muted)]">
+                        {comment.post.title}
+                      </span>
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="flex-none">
+                        <path d="m9 6 6 6-6 6" />
+                      </svg>
                     </Link>
                   )}
+
                   <p className="text-[14.5px] leading-relaxed text-[var(--text)]">{comment.body}</p>
-                  <div className="mt-1 flex items-center gap-2">
-                    <CommentVote
-                      commentId={comment.id}
+
+                  <div className="flex items-center gap-2">
+                    <VoteBlock
+                      id={comment.id}
                       score={comment.score}
                       myVote={comment.myVote}
+                      kind="comment"
+                      compact
                     />
                     <span className="text-[12px] text-[var(--text-muted)]">
                       {formatCompactAge(comment.created_at)}
@@ -397,9 +494,16 @@ export default function ProfilePage() {
           )}
 
           {!loading && !error && tab === 'reposts' && (
-            <p className="py-10 text-center text-[var(--text-muted)]">
-              {t('profile.emptyReposts')}
-            </p>
+            <div className="flex flex-col divide-y divide-[var(--border)] pt-2">
+              {reposts.map((post) => (
+                <PostCard key={post.id} post={post} />
+              ))}
+              {reposts.length === 0 && (
+                <p className="py-10 text-center text-[var(--text-muted)]">
+                  {t('profile.emptyReposts')}
+                </p>
+              )}
+            </div>
           )}
         </section>
       </main>
