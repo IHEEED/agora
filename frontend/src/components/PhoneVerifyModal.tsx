@@ -2,7 +2,7 @@
 
 import { useState, SubmitEvent } from 'react';
 import { supabase } from '@/lib/supabase';
-import { BottomSheet } from '@/components/BottomSheet';
+import { CenterDialog } from '@/components/CenterDialog';
 
 type Step = 'phone' | 'code';
 
@@ -88,18 +88,12 @@ export function PhoneVerifyModal({
     onVerified();
   }
 
-  // Шторкой снизу, как комментарии и создание поста: всплывающее по центру
-  // окно было единственным местом со «старой» механикой появления.
+  // Окном по центру, а не шторкой. Шторка — «продолжение экрана», её тянут и
+  // смахивают; здесь же прерывание, которое требует ответа, и его не должно
+  // быть видно как очередную панель снизу.
   return (
-    <BottomSheet
-      open={open}
-      onClose={handleClose}
-      title="Подтвердите телефон"
-      height="64vh"
-      // Вызывается изнутри комментариев — обязана лечь поверх них.
-      layer={1}
-    >
-      <div className="py-3">
+    <CenterDialog open={open} onClose={handleClose} title="Подтвердите телефон">
+      <div>
         <p className="mb-4 text-[14px] leading-relaxed text-[var(--text-muted)]">
           Публикация постов и комментариев доступна только после подтверждения номера —
           это защита от спама и накрутки голосов.
@@ -158,6 +152,6 @@ export function PhoneVerifyModal({
           </form>
         )}
       </div>
-    </BottomSheet>
+    </CenterDialog>
   );
 }

@@ -68,18 +68,21 @@ export function BottomNav() {
     pathname === '/search' || pathname === '/create' || hiddenByPage || hiddenByScroll;
 
   return (
+    // Внешний контейнер — плавающая капсула, а не полоса во всю ширину.
+    // Позиционирование и отступы держим здесь, материал — в .ios-tabbar.
     <nav
-      className="ios-tabbar fixed inset-x-0 bottom-0 z-50 md:hidden"
+      className="pointer-events-none fixed inset-x-0 z-50 flex justify-center px-3 md:hidden"
       style={{
-        transform: hidden ? 'translateY(100%)' : 'none',
-        // Кривая iOS: быстрый старт, мягкая остановка, без пружины.
-        transition: 'transform 0.28s cubic-bezier(0.32, 0.72, 0, 1)',
+        bottom: 'calc(10px + env(safe-area-inset-bottom))',
+        transform: hidden ? 'translateY(calc(100% + 24px))' : 'none',
+        opacity: hidden ? 0 : 1,
+        transition:
+          'transform 0.32s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.2s ease',
       }}
       aria-hidden={hidden}
     >
       <div
-        className="flex items-stretch justify-between px-1"
-        style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+        className="ios-tabbar pointer-events-auto flex w-full max-w-[440px] items-center justify-between px-1"
       >
         {MOBILE_SLOTS.map((slot) => {
           if (!slot) {

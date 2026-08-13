@@ -74,7 +74,7 @@ export default function RootLayout({
               прижат к кромке во всю ширину, а не парит, поэтому запас точный. */}
           <div
             className="flex min-h-screen flex-col md:pb-0 md:pl-20"
-            style={{ paddingBottom: 'calc(58px + env(safe-area-inset-bottom))' }}
+            style={{ paddingBottom: 'calc(88px + env(safe-area-inset-bottom))' }}
           >
             <header className="app-header">
               <div className="app-header-veil" aria-hidden />

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState, SubmitEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, SubmitEvent } from 'react';
 import { invalidate, useApiData } from '@/lib/useApiData';
 import Link from 'next/link';
 import { apiFetch } from '@/lib/api';
@@ -9,6 +9,8 @@ import { Community } from '@/lib/types';
 import { CommunityAvatar } from '@/components/CommunityAvatar';
 import { setNavHidden } from '@/lib/navVisibility';
 import { BottomSheet } from '@/components/BottomSheet';
+import { ImageAdjustDialog } from '@/components/ImageAdjustDialog';
+import { DEFAULT_FIT, Fit } from '@/components/ImageFitter';
 import { ScreenTitle } from '@/components/ScreenTitle';
 import { useT } from '@/lib/i18n';
 
@@ -32,6 +34,29 @@ export default function CommunitiesPage() {
   const [rules, setRules] = useState('');
   const [access, setAccess] = useState<'open' | 'closed'>('open');
   const [whoPosts, setWhoPosts] = useState<'all' | 'picked'>('all');
+
+  // Аватар и шапка сообщества. Колонок под них в базе пока нет и бакета тоже,
+  // поэтому картинки остаются в форме — но задать их можно сразу, не заводя
+  // сообщество ради того, чтобы потом идти его оформлять.
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+  const coverInputRef = useRef<HTMLInputElement>(null);
+  const [avatar, setAvatar] = useState<string | null>(null);
+  const [cover, setCover] = useState<string | null>(null);
+  const [avatarFit, setAvatarFit] = useState<Fit>(DEFAULT_FIT);
+  const [coverFit, setCoverFit] = useState<Fit>(DEFAULT_FIT);
+  const [pending, setPending] = useState<{ src: string; shape: 'circle' | 'cover' } | null>(null);
+
+  function readInto(event: React.ChangeEvent<HTMLInputElement>, shape: 'circle' | 'cover') {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => setPending({ src: String(reader.result), shape });
+    reader.readAsDataURL(file);
+    event.target.value = '';
+  }
+
+  const pickAvatar = (e: React.ChangeEvent<HTMLInputElement>) => readInto(e, 'circle');
+  const pickCover = (e: React.ChangeEvent<HTMLInputElement>) => readInto(e, 'cover');
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -139,19 +164,70 @@ export default function CommunitiesPage() {
           }
         >
           <form id="create-community" onSubmit={handleCreate} className="flex flex-col gap-4 py-3">
-            {/* Аватар сообщества считается из названия — показываем сразу,
-                чтобы было видно, как оно будет выглядеть в списке. */}
-            <div className="flex items-center gap-3">
-              <CommunityAvatar name={name || '?'} size={56} />
-              <input
-                placeholder={t('communities.name')}
-                required
-                maxLength={40}
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="min-w-0 flex-1 rounded-2xl border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3 text-[15px] text-[var(--text)] outline-none focus:border-[var(--accent)]"
-              />
+            {/* Шапка и аватар задаются сразу при создании: заводить сообщество
+                и только потом идти его оформлять — лишний круг. */}
+            <div className="relative">
+              <input ref={coverInputRef} type="file" accept="image/*" onChange={pickCover} className="hidden" />
+              <input ref={avatarInputRef} type="file" accept="image/*" onChange={pickAvatar} className="hidden" />
+
+              <button
+                type="button"
+                onClick={() => coverInputRef.current?.click()}
+                className="flex h-28 w-full items-center justify-center rounded-2xl border border-dashed text-[13px] font-medium"
+                style={{
+                  borderColor: 'var(--border)',
+                  color: '#ffffff',
+                  ...(cover
+                    ? {
+                        backgroundImage: `url(${cover})`,
+                        backgroundSize: `${coverFit.zoom * 100}%`,
+                        backgroundPosition: `${coverFit.x}% ${coverFit.y}%`,
+                        backgroundRepeat: 'no-repeat',
+                        borderStyle: 'solid',
+                      }
+                    : { color: 'var(--text-muted)' }),
+                }}
+              >
+                <span
+                  className="rounded-full px-3 py-1.5 backdrop-blur-md"
+                  style={cover ? { background: 'color-mix(in srgb, #000000 42%, transparent)' } : undefined}
+                >
+                  {cover ? t('profile.changeCover') : t('communities.addCover')}
+                </span>
+              </button>
+
+              {/* Аватар заходит на шапку, как в готовом профиле сообщества. */}
+              <button
+                type="button"
+                onClick={() => avatarInputRef.current?.click()}
+                className="absolute -bottom-6 left-4 rounded-full"
+                style={{ background: 'var(--surface)', padding: 3 }}
+                aria-label={t('communities.addAvatar')}
+              >
+                {avatar ? (
+                  <span
+                    className="block h-16 w-16 overflow-hidden rounded-full"
+                    style={{
+                      backgroundImage: `url(${avatar})`,
+                      backgroundSize: `${avatarFit.zoom * 100}%`,
+                      backgroundPosition: `${avatarFit.x}% ${avatarFit.y}%`,
+                      backgroundRepeat: 'no-repeat',
+                    }}
+                  />
+                ) : (
+                  <CommunityAvatar name={name || '?'} size={64} />
+                )}
+              </button>
             </div>
+
+            <input
+              placeholder={t('communities.name')}
+              required
+              maxLength={40}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="mt-6 rounded-2xl border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3 text-[15px] text-[var(--text)] outline-none focus:border-[var(--accent)]"
+            />
 
             <label className="flex flex-col gap-1.5">
               <span className="text-[13px] text-[var(--text-muted)]">{t('communities.description')}</span>
@@ -282,6 +358,25 @@ export default function CommunitiesPage() {
           </p>
         )}
       </main>
+
+      <ImageAdjustDialog
+        open={Boolean(pending)}
+        src={pending?.src ?? null}
+        shape={pending?.shape ?? 'circle'}
+        initialFit={pending?.shape === 'cover' ? coverFit : avatarFit}
+        onCancel={() => setPending(null)}
+        onApply={(fit) => {
+          if (!pending) return;
+          if (pending.shape === 'cover') {
+            setCover(pending.src);
+            setCoverFit(fit);
+          } else {
+            setAvatar(pending.src);
+            setAvatarFit(fit);
+          }
+          setPending(null);
+        }}
+      />
     </div>
   );
 }

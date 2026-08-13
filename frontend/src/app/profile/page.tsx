@@ -1,7 +1,6 @@
 'use client';
 
 import { useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
-import Link from 'next/link';
 import { useSession } from '@/lib/useSession';
 import { useApiData } from '@/lib/useApiData';
 import { CommentWithPost, Post } from '@/lib/types';
@@ -9,7 +8,9 @@ import { PostCard } from '@/components/PostCard';
 import { ProfileAvatar } from '@/components/ProfileAvatar';
 import { InfluenceInfo } from '@/components/InfluenceInfo';
 import { SuggestedPeople } from '@/components/SuggestedPeople';
-import { DEFAULT_FIT, Fit, ImageFitter } from '@/components/ImageFitter';
+import { DEFAULT_FIT, Fit } from '@/components/ImageFitter';
+import { ImageAdjustDialog } from '@/components/ImageAdjustDialog';
+import { CommentSheet } from '@/components/CommentSheet';
 import {
   PROFILE_BIO_KEY,
   PROFILE_CHANGED_EVENT,
@@ -66,6 +67,10 @@ export default function ProfilePage() {
   // Обложка — пока только на устройстве: поля под неё в базе нет, бакета тоже.
   const coverInputRef = useRef<HTMLInputElement>(null);
   const [cover, setCover] = useState<string | null>(null);
+  const [pendingCover, setPendingCover] = useState<string | null>(null);
+  const [adjustingCover, setAdjustingCover] = useState(false);
+  // Какое обсуждение открыто шторкой и к какому комментарию в нём вести.
+  const [openThread, setOpenThread] = useState<{ postId: string; commentId: string } | null>(null);
   const storedCover = useSyncExternalStore(
     () => () => {},
     () => window.localStorage.getItem(PROFILE_COVER_KEY),
@@ -95,13 +100,15 @@ export default function ProfilePage() {
 
     // data-URL, а не objectURL: последний живёт только до перезагрузки, и
     // обложка «сбрасывалась» именно поэтому. Бакета под неё пока нет.
+    // Свежий файл уходит в окно подгонки: полоса 168px — не то место, где
+    // удобно ловить кадр пальцем.
     const reader = new FileReader();
     reader.onload = () => {
-      const value = String(reader.result);
-      window.localStorage.setItem(PROFILE_COVER_KEY, value);
-      setCover(value);
+      setPendingCover(String(reader.result));
+      setAdjustingCover(true);
     };
     reader.readAsDataURL(file);
+    event.target.value = '';
   }
 
   // Значения профиля живут на устройстве, пока в базе нет полей под них.
@@ -250,29 +257,47 @@ export default function ProfilePage() {
               ползунка занимали половину карточки и заставляли думать в
               координатах вместо простого «подвинуть, куда надо». */}
           {coverImage ? (
-            <ImageFitter
-              src={coverImage}
-              fit={coverFit}
-              onChange={saveCoverFit}
+            <div
               className="profile-cover -mb-9 flex h-[168px] w-full items-start justify-end rounded-t-2xl p-3"
+              style={{
+                backgroundImage: `url(${coverImage})`,
+                backgroundSize: `${coverFit.zoom * 100}%`,
+                backgroundPosition: `${coverFit.x}% ${coverFit.y}%`,
+                backgroundRepeat: 'no-repeat',
+              }}
             >
-              <button
-                type="button"
-                onClick={() => coverInputRef.current?.click()}
-                onPointerDown={(e) => e.stopPropagation()}
-                className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12.5px] font-medium backdrop-blur-md"
-                style={{
-                  background: 'color-mix(in srgb, #000000 42%, transparent)',
-                  color: '#ffffff',
-                }}
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M3 8.5a2 2 0 0 1 2-2h2l1.4-2h7.2L17 6.5h2a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" />
-                  <circle cx="12" cy="12.5" r="3.4" />
-                </svg>
-                {t('profile.changeCover')}
-              </button>
-            </ImageFitter>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPendingCover(coverImage);
+                    setAdjustingCover(true);
+                  }}
+                  className="rounded-full px-3 py-1.5 text-[12.5px] font-medium backdrop-blur-md"
+                  style={{
+                    background: 'color-mix(in srgb, #000000 42%, transparent)',
+                    color: '#ffffff',
+                  }}
+                >
+                  {t('profile.adjustTitle')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => coverInputRef.current?.click()}
+                  className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12.5px] font-medium backdrop-blur-md"
+                  style={{
+                    background: 'color-mix(in srgb, #000000 42%, transparent)',
+                    color: '#ffffff',
+                  }}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M3 8.5a2 2 0 0 1 2-2h2l1.4-2h7.2L17 6.5h2a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" />
+                    <circle cx="12" cy="12.5" r="3.4" />
+                  </svg>
+                  {t('profile.changeCover')}
+                </button>
+              </div>
+            </div>
           ) : (
             <button
               type="button"
@@ -417,9 +442,11 @@ export default function ProfilePage() {
                       строкой-цитатой. Ссылка ведёт к самому комментарию, а не
                       просто на пост: якорь в адресе подсвечивает нужную ветку. */}
                   {comment.post && (
-                    <Link
-                      href={`/posts/${comment.post.id}#comment-${comment.id}`}
-                      className="flex items-center gap-2 rounded-xl px-3 py-2 transition-colors hover:bg-[var(--surface-2)]"
+                    <button
+                      onClick={() =>
+                        setOpenThread({ postId: comment.post!.id, commentId: comment.id })
+                      }
+                      className="flex items-center gap-2 rounded-xl px-3 py-2 text-left transition-colors hover:bg-[var(--surface-2)]"
                       style={{ background: 'var(--surface-2)' }}
                     >
                       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" className="flex-none">
@@ -431,7 +458,7 @@ export default function ProfilePage() {
                       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="flex-none">
                         <path d="m9 6 6 6-6 6" />
                       </svg>
-                    </Link>
+                    </button>
                   )}
 
                   <p className="text-[14.5px] leading-relaxed text-[var(--text)]">{comment.body}</p>
@@ -472,6 +499,34 @@ export default function ProfilePage() {
           )}
         </section>
       </main>
+
+      {/* Обсуждение открывается шторкой поверх профиля, как везде: уходить
+          на страницу поста ради одного комментария незачем — теряется место,
+          до которого дочитали. */}
+      {openThread && (
+        <CommentSheet
+          postId={openThread.postId}
+          open
+          onClose={() => setOpenThread(null)}
+          highlightId={openThread.commentId}
+        />
+      )}
+
+      <ImageAdjustDialog
+        open={adjustingCover}
+        src={pendingCover}
+        shape="cover"
+        initialFit={coverFit}
+        onCancel={() => setAdjustingCover(false)}
+        onApply={(fit) => {
+          if (pendingCover) {
+            window.localStorage.setItem(PROFILE_COVER_KEY, pendingCover);
+            setCover(pendingCover);
+          }
+          saveCoverFit(fit);
+          setAdjustingCover(false);
+        }}
+      />
 
       <ProfileEditSheet
         open={editing}

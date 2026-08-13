@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { apiFetch } from '@/lib/api';
 import { Comment } from '@/lib/types';
 import { formatCompactAge } from '@/lib/formatDate';
@@ -17,11 +18,14 @@ export function CommentSheet({
   open,
   onClose,
   onCountChange,
+  highlightId,
 }: {
   postId: string;
   open: boolean;
   onClose: () => void;
   onCountChange?: (count: number) => void;
+  /** Комментарий, к которому нужно прокрутить и подсветить его на секунду. */
+  highlightId?: string;
 }) {
   const { requestVerification } = usePhoneGate();
   const [comments, setComments] = useState<Comment[]>([]);
@@ -56,6 +60,18 @@ export function CommentSheet({
       cancelled = true;
     };
   }, [open, loaded, postId, onCountChange]);
+
+  // Пришли к конкретному комментарию — доводим до него, когда список
+  // отрисован. Ждать нужно именно отрисовки: до неё узла в разметке нет.
+  useEffect(() => {
+    if (!highlightId || comments.length === 0) return;
+    const frame = requestAnimationFrame(() => {
+      document
+        .getElementById(`comment-${highlightId}`)
+        ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [highlightId, comments]);
 
   async function submit(value: string) {
     const body = value.trim();
@@ -171,11 +187,24 @@ export function CommentSheet({
 
       <div className="flex flex-col">
         {comments.map((comment) => (
-          <article key={comment.id} className="flex gap-3 py-3">
-            <DefaultAvatar name={comment.author.username} size={32} />
+          <article
+            key={comment.id}
+            id={`comment-${comment.id}`}
+            className={`flex gap-3 rounded-xl py-3 ${
+              highlightId === comment.id ? 'comment-highlight' : ''
+            }`}
+          >
+            <Link href={comment.author.id ? `/u/${comment.author.id}` : '#'} className="flex-none">
+              <DefaultAvatar name={comment.author.username} size={32} />
+            </Link>
             <div className="flex min-w-0 flex-1 flex-col gap-1">
               <span className="text-[13px] text-[var(--text-muted)]">
-                <span className="font-semibold text-[var(--text)]">{comment.author.username}</span>
+                <Link
+                  href={comment.author.id ? `/u/${comment.author.id}` : '#'}
+                  className="font-semibold text-[var(--text)] hover:underline"
+                >
+                  {comment.author.username}
+                </Link>
                 {' · '}
                 {formatCompactAge(comment.created_at)}
               </span>

@@ -426,6 +426,20 @@ export default function CreatePostPage() {
           </div>
         )}
 
+        {/* Блок опроса разворачивается и схлопывается по высоте, а не
+            выдёргивается из разметки: без этого форма прыгала на всю высоту
+            блока в один кадр. grid-rows от 0fr к 1fr — единственный способ
+            анимировать высоту содержимого, которое заранее неизвестно. */}
+        <div
+          className="grid"
+          style={{
+            gridTemplateRows: pollOptions ? '1fr' : '0fr',
+            opacity: pollOptions ? 1 : 0,
+            transition:
+              'grid-template-rows 0.32s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.24s ease',
+          }}
+        >
+          <div className="overflow-hidden">
         {pollOptions && (
           <div className="flex flex-col gap-2 rounded-2xl border border-[var(--border)] p-4">
             <div className="flex items-center justify-between">
@@ -478,6 +492,8 @@ export default function CreatePostPage() {
             )}
           </div>
         )}
+          </div>
+        </div>
 
         {/* Панель вложений: только иконки, подписи убраны — они и так узнаваемы. */}
         <div className="flex items-center gap-3">

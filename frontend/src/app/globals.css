@@ -375,20 +375,52 @@ textarea,
   border-bottom-color: var(--accent);
 }
 
-/* Материал таб-бара iOS: плотное стекло, волосяная линия сверху и никакой
-   тени. Тень выдаёт «плавающую панель», а системный бар не парит — он часть
-   нижней кромки экрана. */
+/* Плавающая капсула нижней навигации — liquid glass в духе iOS и Threads.
+   Это отдельный объект поверх интерфейса, а не полоса, приклеенная к кромке:
+   отсюда полная скруглённость, ambient-тень и равные поля по бокам.
+
+   Прозрачность и размытие считаются от --glass-strength, поэтому системная
+   настройка «Уменьшить прозрачность» гасит эффект вместе со всем приложением
+   и капсула становится сплошной, а не мутной. */
 .ios-tabbar {
+  min-height: 64px;
+  border-radius: 9999px;
   background: color-mix(
     in srgb,
-    var(--surface) calc(100% - 22% * var(--glass-strength)),
+    var(--surface) calc(100% - 26% * var(--glass-strength)),
     transparent
   );
   backdrop-filter: blur(calc(var(--glass-blur) * 1.9))
-    saturate(calc(100% + 110% * var(--glass-strength)));
-  /* Именно волосяная: 1px делится на плотность пикселей, поэтому на телефоне
-     линия остаётся тонкой, а не превращается в жирную полосу. */
-  border-top: 0.5px solid var(--glass-border);
+    saturate(calc(100% + 120% * var(--glass-strength)));
+  /* Префикс здесь нужен: Safari на iOS до 18 знает только -webkit-версию.
+     В остальных местах его добавляет сборщик, но капсула — единственная
+     поверхность, без которой навигация становится нечитаемой. */
+  -webkit-backdrop-filter: blur(calc(var(--glass-blur) * 1.9))
+    saturate(calc(100% + 120% * var(--glass-strength)));
+  border: 1px solid var(--glass-border);
+  /* Мягкая рассеянная тень, а не жёсткая подложка: капсула должна казаться
+     приподнятой над контентом, а не наклеенной на него. */
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.18),
+    0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* На планшете и десктопе капсула заметно уже экрана и стоит по центру —
+   растянутая на всю ширину она снова превращается в обычный navbar. */
+@media (min-width: 640px) {
+  .ios-tabbar {
+    max-width: 380px;
+  }
+}
+
+/* Нажатие: капсула коротко проседает под пальцем. Единственная анимация,
+   которую сюда добавляем, — она про отклик, а не про украшение. */
+.ios-tabbar a:active {
+  transform: scale(0.94);
+}
+
+.ios-tabbar a {
+  transition: transform 0.18s cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 /* Старое имя оставлено, чтобы не переписывать все места разом.
@@ -1001,28 +1033,32 @@ textarea,
 
 /* Голосование: стрелка один раз улетает за край и тут же возвращается
    с противоположной стороны, не выходя за пределы эллипса. */
-/* Стрелка коротко подаётся в сторону голоса и мягко возвращается.
-   Раньше она улетала за край и телепортировалась с противоположной стороны —
-   на глаз это читалось рывком, а не откликом на нажатие. */
+/* Стрелка резко выстреливает в сторону голоса и возвращается с отскоком.
+   Прошлый вариант был вялым: плавный подъём и такой же плавный возврат
+   читались как задержка интерфейса, а не как отклик на нажатие. Резкий старт
+   и пружина на возврате дают ощущение, что кнопка «сработала». */
 @keyframes vote-launch-up {
   0% { transform: translateY(0) scale(1); }
-  40% { transform: translateY(-22%) scale(1.12); }
+  22% { transform: translateY(-42%) scale(1.22); }
+  55% { transform: translateY(6%) scale(0.94); }
+  78% { transform: translateY(-4%) scale(1.04); }
   100% { transform: translateY(0) scale(1); }
 }
 
 @keyframes vote-launch-down {
   0% { transform: translateY(0) scale(1); }
-  40% { transform: translateY(22%) scale(1.12); }
+  22% { transform: translateY(42%) scale(1.22); }
+  55% { transform: translateY(-6%) scale(0.94); }
+  78% { transform: translateY(4%) scale(1.04); }
   100% { transform: translateY(0) scale(1); }
 }
 
-/* Обойма обрезает стрелку по краю, чтобы движение не вылезало из кнопки.
-   Размер берём от самой стрелки, а не фиксируем в 24px: при иконке в 22px
-   обойма была на пиксель больше, стрелка вставала не по центру, и кружок
-   наведения выглядел смещённым. */
+/* Обойма больше ничего не обрезает. overflow: hidden здесь стоял ради старой
+   анимации, где стрелка улетала за край и возвращалась с другой стороны. Той
+   анимации нет, а обрезка осталась и срезала кончик стрелки, когда та
+   приподнималась при нажатии. */
 .arrow-clip {
   display: inline-flex;
-  overflow: hidden;
   line-height: 0;
 }
 
@@ -1054,8 +1090,8 @@ textarea,
   100% { transform: rotate(360deg) scale(1); }
 }
 
-.animate-vote-up { animation: vote-launch-up 0.34s cubic-bezier(0.32, 0.72, 0, 1); }
-.animate-vote-down { animation: vote-launch-down 0.34s cubic-bezier(0.32, 0.72, 0, 1); }
+.animate-vote-up { animation: vote-launch-up 0.42s cubic-bezier(0.22, 1.4, 0.4, 1); }
+.animate-vote-down { animation: vote-launch-down 0.42s cubic-bezier(0.22, 1.4, 0.4, 1); }
 .animate-digit-up { animation: digit-roll-up 0.4s ease-out; }
 .animate-digit-down { animation: digit-roll-down 0.4s ease-out; }
 .animate-repost { animation: repost-spin 0.5s cubic-bezier(0.32, 0.72, 0, 1); }

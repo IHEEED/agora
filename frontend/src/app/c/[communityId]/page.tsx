@@ -1,134 +1,92 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState, SubmitEvent } from 'react';
-import { useParams } from 'next/navigation';
-import { apiFetch } from '@/lib/api';
+import { useMemo } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import { useApiData } from '@/lib/useApiData';
 import { useSession } from '@/lib/useSession';
-import { Post } from '@/lib/types';
+import { Community, Post } from '@/lib/types';
 import { PostCard } from '@/components/PostCard';
-import { StoriesBar } from '@/components/StoriesBar';
-import { isPhoneNotVerifiedError, usePhoneGate } from '@/components/PhoneGateContext';
+import { CommunityAvatar } from '@/components/CommunityAvatar';
+import { useT } from '@/lib/i18n';
 
+/**
+ * Страница сообщества.
+ *
+ * Раньше здесь открывалась обычная лента со сториз и полем «Что нового» —
+ * то есть главный экран, только с другими постами. О самом сообществе не было
+ * ни слова: ни названия, ни описания, ни аватара. Теперь сверху шапка
+ * сообщества, а ниже — то, что в нём написано.
+ */
 export default function CommunityPage() {
   const { communityId } = useParams<{ communityId: string }>();
+  const router = useRouter();
   const { session } = useSession();
-  const { requestVerification } = usePhoneGate();
-  const [posts, setPosts] = useState<Post[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { t } = useT();
 
-  const [showForm, setShowForm] = useState(false);
-  const [title, setTitle] = useState('');
-  const [body, setBody] = useState('');
-  const [formError, setFormError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
+  // Список сообществ почти всегда уже в кеше — шапка появляется мгновенно.
+  const communitiesResult = useApiData<Community[]>('/communities');
+  const postsResult = useApiData<Post[]>(`/posts/community/${communityId}?sort=hot`);
 
-  const loadPosts = useCallback(() => {
-    apiFetch<Post[]>(`/posts/community/${communityId}?sort=hot`)
-      .then(setPosts)
-      .catch((err) => setError(err.message))
-      .finally(() => setLoading(false));
-  }, [communityId]);
-
-  useEffect(() => {
-    loadPosts();
-  }, [loadPosts]);
-
-  const storyUsernames = useMemo(
-    () => Array.from(new Set(posts.map((p) => p.author.username))),
-    [posts]
+  const community = useMemo(
+    () => communitiesResult.data?.find((c) => c.id === communityId),
+    [communitiesResult.data, communityId]
   );
-
-  async function handleCreate(e: SubmitEvent) {
-    e.preventDefault();
-    setFormError(null);
-    setSubmitting(true);
-
-    try {
-      await apiFetch<Post>('/posts', {
-        method: 'POST',
-        body: JSON.stringify({ title, body, community_id: communityId }),
-      });
-      setTitle('');
-      setBody('');
-      setShowForm(false);
-      loadPosts();
-    } catch (err) {
-      if (isPhoneNotVerifiedError(err)) {
-        setShowForm(false);
-        requestVerification();
-        return;
-      }
-      setFormError(err instanceof Error ? err.message : 'Не удалось создать пост');
-    } finally {
-      setSubmitting(false);
-    }
-  }
+  const posts = useMemo(() => postsResult.data ?? [], [postsResult.data]);
 
   return (
     <div className="flex flex-1 flex-col items-center">
-      <main className="below-header flex w-full max-w-2xl flex-col gap-4 px-4 pb-8">
-        <StoriesBar
-          usernames={storyUsernames}
-          currentUserLetter={session?.user.email?.[0]?.toUpperCase()}
-        />
+      <main className="below-header flex w-full max-w-2xl flex-col gap-2.5 px-2.5 pb-10">
+        <button
+          onClick={() => router.back()}
+          className="flex w-fit items-center gap-2 rounded-full px-2 py-1.5 text-[15px] text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-2)]"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M15 5l-7 7 7 7" />
+          </svg>
+          {t('common.back')}
+        </button>
 
-        {session && (
-          <button
-            onClick={() => setShowForm((v) => !v)}
-            className="mt-3 flex items-center gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3 text-left transition-colors hover:bg-[var(--surface)]"
-          >
-            <span
-              className="flex h-8 w-8 flex-none items-center justify-center rounded-full text-sm font-semibold"
-              style={{ background: 'var(--surface)', color: 'var(--accent)' }}
-            >
-              {session.user.email?.[0]?.toUpperCase()}
-            </span>
-            <span className="text-[15px] text-[var(--text-muted)]">
-              {showForm ? 'Отмена' : 'Что нового?'}
-            </span>
-          </button>
+        {/* Шапка сообщества: крупный аватар, название, описание и счётчик
+            записей. Это первое, что должно быть видно при заходе. */}
+        <section className="glass flex flex-col gap-3 rounded-2xl p-5">
+          <div className="flex items-center gap-4">
+            <CommunityAvatar name={community?.name ?? '?'} size={64} />
+            <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+              <h1 className="truncate text-[19px] font-semibold text-[var(--text)]">
+                {community?.name ?? '—'}
+              </h1>
+              <span className="text-[13px] text-[var(--text-muted)]">
+                <span className="font-num">{posts.length}</span> {t('community.posts')}
+              </span>
+            </div>
+          </div>
+
+          {community?.description && (
+            <p className="text-[14px] leading-relaxed text-[var(--text)]">
+              {community.description}
+            </p>
+          )}
+        </section>
+
+        {postsResult.loading && (
+          <p className="px-2 text-[var(--text-muted)]">{t('common.loading')}</p>
+        )}
+        {postsResult.error && (
+          <p className="px-2" style={{ color: 'var(--down)' }}>{postsResult.error}</p>
         )}
 
-        {showForm && (
-          <form
-            onSubmit={handleCreate}
-            className="flex flex-col gap-3 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4"
-          >
-            <input
-              placeholder="Заголовок"
-              required
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              className="rounded-md border border-[var(--border)] bg-[var(--bg)] px-3 py-2 text-sm text-[var(--text)]"
-            />
-            <textarea
-              placeholder="Текст (необязательно)"
-              rows={3}
-              value={body}
-              onChange={(e) => setBody(e.target.value)}
-              className="rounded-md border border-[var(--border)] bg-[var(--bg)] px-3 py-2 text-sm text-[var(--text)]"
-            />
-            {formError && <p className="text-sm" style={{ color: 'var(--down)' }}>{formError}</p>}
-            <button
-              type="submit"
-              disabled={submitting}
-              className="self-start rounded-full bg-[var(--accent)] px-4 py-1.5 text-sm font-medium text-[var(--accent-contrast)] disabled:opacity-50"
-            >
-              Создать
-            </button>
-          </form>
-        )}
-
-        {loading && <p className="text-[var(--text-muted)]">Загрузка…</p>}
-        {error && <p style={{ color: 'var(--down)' }}>{error}</p>}
-
-        <div className="flex flex-col divide-y divide-[var(--border)]">
+        <div className="glass flex flex-col divide-y divide-[var(--border)] rounded-2xl px-4">
           {posts.map((post) => (
-            <PostCard key={post.id} post={post} />
+            <PostCard
+              key={post.id}
+              post={post}
+              canFollow={post.author.id !== session?.user.id}
+            />
           ))}
-          {!loading && !error && posts.length === 0 && (
-            <p className="py-4 text-[var(--text-muted)]">В этом сообществе пока нет постов.</p>
+          {!postsResult.loading && posts.length === 0 && (
+            <p className="py-12 text-center text-[var(--text-muted)]">
+              {t('community.empty')}
+            </p>
           )}
         </div>
       </main>

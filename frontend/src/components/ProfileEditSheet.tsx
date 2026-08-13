@@ -3,7 +3,8 @@
 import { useRef, useState } from 'react';
 import { BottomSheet } from '@/components/BottomSheet';
 import { DefaultAvatar } from '@/components/DefaultAvatar';
-import { DEFAULT_FIT, Fit, ImageFitter } from '@/components/ImageFitter';
+import { DEFAULT_FIT, Fit } from '@/components/ImageFitter';
+import { ImageAdjustDialog } from '@/components/ImageAdjustDialog';
 import { useT } from '@/lib/i18n';
 
 /**
@@ -50,6 +51,10 @@ export function ProfileEditSheet({
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [avatarFit, setAvatarFit] = useState<Fit>(DEFAULT_FIT);
   const avatarInputRef = useRef<HTMLInputElement>(null);
+  // Картинка, которую сейчас подгоняют в отдельном окне. Пока не подтвердили —
+  // в профиль она не попадает.
+  const [pendingAvatar, setPendingAvatar] = useState<string | null>(null);
+  const [adjusting, setAdjusting] = useState(false);
 
   function pickAvatar(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -59,8 +64,15 @@ export function ProfileEditSheet({
     // страницы и в localStorage бесполезен — картинка «сбрасывалась» именно
     // поэтому. Бакета под аватары пока нет, так что храним само изображение.
     const reader = new FileReader();
-    reader.onload = () => setAvatarPreview(String(reader.result));
+    reader.onload = () => {
+      // Свежий файл сразу отправляем в окно подгонки: кадрировать миниатюру
+      // в 96px пальцем невозможно, а в окне превью крупное.
+      setPendingAvatar(String(reader.result));
+      setAdjusting(true);
+    };
     reader.readAsDataURL(file);
+    // Сбрасываем значение: иначе повторный выбор того же файла не вызовет change.
+    event.target.value = '';
   }
 
   // Значения подтягиваем на открытии, а не при монтировании: шторка живёт
@@ -121,14 +133,17 @@ export function ProfileEditSheet({
             aria-label={t('profile.editAvatar')}
           >
             {avatarPreview ? (
-              // Кадрируем перетаскиванием прямо в круге: ползунки заставляли
-              // подбирать координаты вместо того, чтобы просто подвинуть лицо
-              // в центр. Колесо и щипок меняют масштаб.
-              <ImageFitter
-                src={avatarPreview}
-                fit={avatarFit}
-                onChange={setAvatarFit}
+              // Здесь только показываем результат. Подгоняют его в отдельном
+              // окне — попасть пальцем в круг 96px и разглядеть в нём кадр
+              // всё равно не выходит.
+              <span
                 className="block h-24 w-24 overflow-hidden rounded-full"
+                style={{
+                  backgroundImage: `url(${avatarPreview})`,
+                  backgroundSize: `${avatarFit.zoom * 100}%`,
+                  backgroundPosition: `${avatarFit.x}% ${avatarFit.y}%`,
+                  backgroundRepeat: 'no-repeat',
+                }}
               />
             ) : (
               <DefaultAvatar name={defaultName} size={96} />
@@ -154,8 +169,18 @@ export function ProfileEditSheet({
             {t('profile.editAvatar')}
           </span>
 
+          {/* Уже поставленное фото можно переподогнать, не выбирая файл заново. */}
           {avatarPreview && (
-            <span className="text-[12px] text-[var(--text-muted)]">{t('profile.dragHint')}</span>
+            <button
+              type="button"
+              onClick={() => {
+                setPendingAvatar(avatarPreview);
+                setAdjusting(true);
+              }}
+              className="text-[12.5px] text-[var(--text-muted)] underline-offset-2 hover:underline"
+            >
+              {t('profile.adjustTitle')}
+            </button>
           )}
         </div>
 
@@ -209,6 +234,19 @@ export function ProfileEditSheet({
           {t('profile.editLocalOnly')}
         </p>
       </div>
+
+      <ImageAdjustDialog
+        open={adjusting}
+        src={pendingAvatar}
+        shape="circle"
+        initialFit={avatarFit}
+        onCancel={() => setAdjusting(false)}
+        onApply={(fit) => {
+          setAvatarPreview(pendingAvatar);
+          setAvatarFit(fit);
+          setAdjusting(false);
+        }}
+      />
     </BottomSheet>
   );
 }
