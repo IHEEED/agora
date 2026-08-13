@@ -106,7 +106,11 @@ export function PostCard({
         </div>
 
         {canFollow && post.author.id && (
-          <FollowButton userId={post.author.id} className="text-[12.5px]" />
+          <FollowButton
+            userId={post.author.id}
+            initiallyFollowing={post.author.isFollowing}
+            className="text-[12.5px]"
+          />
         )}
       </div>
 
@@ -149,7 +153,7 @@ export function PostCard({
               style={{ color: 'var(--control)' }}
             >
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M4 5.5h16v11H8.5L4 20V5.5Z" />
+                <path d="M20 11.5a7.5 7.5 0 0 1-7.5 7.5c-1 0-2-.2-2.9-.6L4.5 20l1.2-4.4A7.5 7.5 0 1 1 20 11.5Z" />
               </svg>
               <span className="font-num text-[15px]">{commentCount}</span>
             </button>

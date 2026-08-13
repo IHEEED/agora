@@ -1,14 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import Link from 'next/link';
+import { useCallback, useEffect, useState } from 'react';
 import { apiFetch } from '@/lib/api';
 import { Comment } from '@/lib/types';
-import { formatCompactAge } from '@/lib/formatDate';
-import { VoteBlock } from '@/components/VoteBlock';
+import { useExpandedComments } from '@/lib/useExpandedComments';
 import { isPhoneNotVerifiedError, usePhoneGate } from '@/components/PhoneGateContext';
 import { BottomSheet } from '@/components/BottomSheet';
-import { DefaultAvatar } from '@/components/DefaultAvatar';
+import { CommentThread } from '@/components/CommentThread';
 
 /** Быстрые реакции над строкой ввода — то же, что в Instagram. */
 const QUICK_EMOJI = ['❤️', '🙌', '🔥', '👏', '😢', '😍', '😮', '😂'];
@@ -36,13 +34,18 @@ export function CommentSheet({
   // Кому отвечаем. Бэкенд принимает parent_comment_id — дерево он уже умеет,
   // а вот собрать ответ было неоткуда.
   const [replyTo, setReplyTo] = useState<Comment | null>(null);
+  const { isExpanded, toggle } = useExpandedComments(postId);
+  // Счётчик перезагрузок: отправленный ответ должен попасть в дерево, а собрать
+  // его на клиенте сложнее, чем перечитать — комментариев на пост немного.
+  const [reloads, setReloads] = useState(0);
+  const reload = useCallback(() => setReloads((n) => n + 1), []);
 
   // Загрузка — производное состояние, а не флаг: пока шторку открыли, список
   // не пришёл и ошибки нет, значит идёт запрос.
   const loading = open && !loaded && !error;
 
   useEffect(() => {
-    if (!open || loaded) return;
+    if (!open) return;
 
     let cancelled = false;
     apiFetch<Comment[]>(`/comments/post/${postId}`)
@@ -59,7 +62,7 @@ export function CommentSheet({
     return () => {
       cancelled = true;
     };
-  }, [open, loaded, postId, onCountChange]);
+  }, [open, postId, reloads, onCountChange]);
 
   // Пришли к конкретному комментарию — доводим до него, когда список
   // отрисован. Ждать нужно именно отрисовки: до неё узла в разметке нет.
@@ -185,48 +188,21 @@ export function CommentSheet({
         </p>
       )}
 
-      <div className="flex flex-col">
+      {/* Рисуем деревом, а не плоским списком корневых комментариев. Плоский
+          список был причиной, по которой переход «к нужному комментарию» не
+          работал: если искомый комментарий — ответ, его просто не было
+          в разметке, и прокручивать было не к чему. */}
+      <div className="flex flex-col gap-5 py-1">
         {comments.map((comment) => (
-          <article
+          <CommentThread
             key={comment.id}
-            id={`comment-${comment.id}`}
-            className={`flex gap-3 rounded-xl py-3 ${
-              highlightId === comment.id ? 'comment-highlight' : ''
-            }`}
-          >
-            <Link href={comment.author.id ? `/u/${comment.author.id}` : '#'} className="flex-none">
-              <DefaultAvatar name={comment.author.username} size={32} />
-            </Link>
-            <div className="flex min-w-0 flex-1 flex-col gap-1">
-              <span className="text-[13px] text-[var(--text-muted)]">
-                <Link
-                  href={comment.author.id ? `/u/${comment.author.id}` : '#'}
-                  className="font-semibold text-[var(--text)] hover:underline"
-                >
-                  {comment.author.username}
-                </Link>
-                {' · '}
-                {formatCompactAge(comment.created_at)}
-              </span>
-              <p className="text-[14.5px] leading-relaxed text-[var(--text)]">{comment.body}</p>
-
-              <div className="mt-0.5 flex items-center gap-2">
-                <VoteBlock
-                  id={comment.id}
-                  score={comment.score}
-                  myVote={comment.myVote}
-                  kind="comment"
-                  compact
-                />
-                <button
-                  onClick={() => setReplyTo(comment)}
-                  className="rounded-full px-2 py-1 text-[12.5px] font-medium text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-2)]"
-                >
-                  Ответить
-                </button>
-              </div>
-            </div>
-          </article>
+            comment={comment}
+            postId={postId}
+            onAdded={reload}
+            isExpanded={isExpanded}
+            onToggleExpand={toggle}
+            highlightId={highlightId}
+          />
         ))}
       </div>
     </BottomSheet>

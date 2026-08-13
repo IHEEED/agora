@@ -44,6 +44,43 @@ function sortPosts<T extends { created_at: string; score: number; commentCount: 
   return sorted;
 }
 
+/**
+ * Общая доводка списка постов: голоса, комментарии, опросы, репосты и отметка
+ * «я подписан на автора».
+ *
+ * Раньше каждый обработчик собирал это у себя, и списки разъехались: репосты
+ * считались, но в ответ не попадали, а кнопка подписки в ленте всегда рисовала
+ * плюс — даже у тех, на кого уже подписан.
+ */
+async function enrichPosts<T extends { id: string; author?: { id?: string | null } | null }>(
+  posts: T[],
+  userId?: string
+) {
+  const ids = posts.map((post) => post.id);
+  const [{ scores, myVotes }, commentCounts, { polls, myPollVotes }, repostInfo, following] =
+    await Promise.all([
+      getVoteInfoByPostId(ids, userId),
+      getCommentCountByPostId(ids),
+      getPollsByPostId(ids, userId),
+      getRepostInfoByPostId(ids, userId),
+      followingSet(userId),
+    ]);
+
+  return posts.map((post) => ({
+    ...post,
+    author: post.author
+      ? { ...post.author, isFollowing: following.has(String(post.author.id)) }
+      : post.author,
+    score: scores.get(post.id) ?? 0,
+    myVote: myVotes.get(post.id) ?? null,
+    commentCount: commentCounts.get(post.id) ?? 0,
+    pollOptions: polls.get(post.id) ?? [],
+    myPollVote: myPollVotes.get(post.id) ?? null,
+    repostCount: repostInfo.counts.get(post.id) ?? 0,
+    myRepost: repostInfo.mine.has(post.id),
+  }));
+}
+
 async function getVoteInfoByPostId(postIds: string[], userId?: string) {
   const scores = new Map<string, number>();
   const myVotes = new Map<string, 1 | -1>();
@@ -89,6 +126,19 @@ async function getRepostInfoByPostId(postIds: string[], userId?: string) {
   });
 
   return { counts, mine };
+}
+
+/** На кого подписан этот человек — чтобы кнопка у автора знала своё состояние. */
+async function followingSet(userId?: string): Promise<Set<string>> {
+  if (!userId) return new Set();
+
+  const { data, error } = await supabase
+    .from('follows')
+    .select('following_id')
+    .eq('follower_id', userId);
+
+  if (error) return new Set();
+  return new Set(data.map((row) => row.following_id as string));
 }
 
 async function getCommentCountByPostId(postIds: string[]) {
@@ -286,26 +336,7 @@ router.get('/reposts/:userId', optionalAuth, async (req, res) => {
 
   if (!data) return res.json([]);
 
-  const [{ scores, myVotes }, commentCounts, { polls, myPollVotes }, repostInfo] =
-    await Promise.all([
-      getVoteInfoByPostId(ids, req.user?.id),
-      getCommentCountByPostId(ids),
-      getPollsByPostId(ids, req.user?.id),
-      getRepostInfoByPostId(ids, req.user?.id),
-    ]);
-
-  res.json(
-    data.map((post) => ({
-      ...post,
-      score: scores.get(post.id) ?? 0,
-      myVote: myVotes.get(post.id) ?? null,
-      commentCount: commentCounts.get(post.id) ?? 0,
-      pollOptions: polls.get(post.id) ?? [],
-      myPollVote: myPollVotes.get(post.id) ?? null,
-      repostCount: repostInfo.counts.get(post.id) ?? 0,
-      myRepost: repostInfo.mine.has(post.id),
-    }))
-  );
+  res.json(await enrichPosts(data, req.user?.id));
 });
 
 router.post('/:id/view', async (req, res) => {
@@ -345,24 +376,7 @@ router.get('/', optionalAuth, async (req, res) => {
     return res.status(500).json({ error: 'Не удалось выполнить запрос, попробуйте ещё раз' });
   }
 
-  const postIds = data.map((post) => post.id);
-  const [{ scores, myVotes }, commentCounts, { polls, myPollVotes }, repostInfo] = await Promise.all([
-    getVoteInfoByPostId(postIds, req.user?.id),
-    getCommentCountByPostId(postIds),
-    getPollsByPostId(postIds, req.user?.id),
-    getRepostInfoByPostId(postIds, req.user?.id),
-  ]);
-
-  const enriched = data.map((post) => ({
-    ...post,
-    score: scores.get(post.id) ?? 0,
-    myVote: myVotes.get(post.id) ?? null,
-    commentCount: commentCounts.get(post.id) ?? 0,
-    pollOptions: polls.get(post.id) ?? [],
-    myPollVote: myPollVotes.get(post.id) ?? null,
-  }));
-
-  res.json(sortPosts(enriched, sort));
+  res.json(sortPosts(await enrichPosts(data, req.user?.id), sort));
 });
 
 router.get('/community/:communityId', optionalAuth, async (req, res) => {
@@ -380,24 +394,7 @@ router.get('/community/:communityId', optionalAuth, async (req, res) => {
     return res.status(500).json({ error: 'Не удалось выполнить запрос, попробуйте ещё раз' });
   }
 
-  const postIds = data.map((post) => post.id);
-  const [{ scores, myVotes }, commentCounts, { polls, myPollVotes }, repostInfo] = await Promise.all([
-    getVoteInfoByPostId(postIds, req.user?.id),
-    getCommentCountByPostId(postIds),
-    getPollsByPostId(postIds, req.user?.id),
-    getRepostInfoByPostId(postIds, req.user?.id),
-  ]);
-
-  const enriched = data.map((post) => ({
-    ...post,
-    score: scores.get(post.id) ?? 0,
-    myVote: myVotes.get(post.id) ?? null,
-    commentCount: commentCounts.get(post.id) ?? 0,
-    pollOptions: polls.get(post.id) ?? [],
-    myPollVote: myPollVotes.get(post.id) ?? null,
-  }));
-
-  res.json(sortPosts(enriched, sort));
+  res.json(sortPosts(await enrichPosts(data, req.user?.id), sort));
 });
 
 // Лента конкретного автора — используется на странице профиля.
@@ -417,24 +414,7 @@ router.get('/user/:userId', optionalAuth, async (req, res) => {
     return res.status(500).json({ error: 'Не удалось выполнить запрос, попробуйте ещё раз' });
   }
 
-  const postIds = data.map((post) => post.id);
-  const [{ scores, myVotes }, commentCounts, { polls, myPollVotes }, repostInfo] = await Promise.all([
-    getVoteInfoByPostId(postIds, req.user?.id),
-    getCommentCountByPostId(postIds),
-    getPollsByPostId(postIds, req.user?.id),
-    getRepostInfoByPostId(postIds, req.user?.id),
-  ]);
-
-  const enriched = data.map((post) => ({
-    ...post,
-    score: scores.get(post.id) ?? 0,
-    myVote: myVotes.get(post.id) ?? null,
-    commentCount: commentCounts.get(post.id) ?? 0,
-    pollOptions: polls.get(post.id) ?? [],
-    myPollVote: myPollVotes.get(post.id) ?? null,
-  }));
-
-  res.json(sortPosts(enriched, sort));
+  res.json(sortPosts(await enrichPosts(data, req.user?.id), sort));
 });
 
 router.get('/:id', optionalAuth, async (req, res) => {
@@ -448,20 +428,10 @@ router.get('/:id', optionalAuth, async (req, res) => {
 
   if (error) return res.status(404).json({ error: 'post not found' });
 
-  const [{ scores, myVotes }, commentCounts, { polls, myPollVotes }] = await Promise.all([
-    getVoteInfoByPostId([data.id], req.user?.id),
-    getCommentCountByPostId([data.id]),
-    getPollsByPostId([data.id], req.user?.id),
-  ]);
-
-  res.json({
-    ...data,
-    score: scores.get(data.id) ?? 0,
-    myVote: myVotes.get(data.id) ?? null,
-    commentCount: commentCounts.get(data.id) ?? 0,
-    pollOptions: polls.get(data.id) ?? [],
-    myPollVote: myPollVotes.get(data.id) ?? null,
-  });
+  // Тем же путём, что и списки: страница поста показывает те же счётчики,
+  // и собирать их здесь по-своему — верный способ снова разойтись.
+  const [post] = await enrichPosts([data], req.user?.id);
+  res.json(post);
 });
 
 export default router;

@@ -22,6 +22,15 @@ function paletteIndex(name: string): number {
   return hash % PALETTE.length;
 }
 
+/**
+ * Пара цветов сообщества. Нужна не только аватару: шапка на странице
+ * сообщества красится в тот же цвет, иначе она везде одинаково фиолетовая
+ * и сообщества не различить с первого взгляда.
+ */
+export function communityPalette(name: string): readonly [string, string] {
+  return PALETTE[paletteIndex(name)];
+}
+
 export function CommunityAvatar({ name, size = 44 }: { name: string; size?: number }) {
   const [from, to] = PALETTE[paletteIndex(name)];
 

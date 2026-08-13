@@ -3,14 +3,15 @@
 import { useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { useSession } from '@/lib/useSession';
 import { useApiData } from '@/lib/useApiData';
-import { CommentWithPost, Post } from '@/lib/types';
+import { CommentWithPost, Post, UserProfile } from '@/lib/types';
+import { PeopleSheet } from '@/components/PeopleSheet';
 import { PostCard } from '@/components/PostCard';
 import { ProfileAvatar } from '@/components/ProfileAvatar';
 import { InfluenceInfo } from '@/components/InfluenceInfo';
 import { SuggestedPeople } from '@/components/SuggestedPeople';
 import { DEFAULT_FIT, Fit } from '@/components/ImageFitter';
 import { ImageAdjustDialog } from '@/components/ImageAdjustDialog';
-import { CommentSheet } from '@/components/CommentSheet';
+import Link from 'next/link';
 import {
   PROFILE_BIO_KEY,
   PROFILE_CHANGED_EVENT,
@@ -41,11 +42,21 @@ const TABS: ReadonlyArray<readonly [Tab, TranslationKey]> = [
   ['reposts', 'profile.reposts'],
 ];
 
-function Stat({ value, label, info }: { value: number; label: string; info?: React.ReactNode }) {
-  return (
-    // min-w-0 обязателен: без него длинная подпись распирает флекс-строку
-    // и цифры выезжают за край карточки.
-    <div className="flex min-w-0 flex-1 flex-col items-center gap-0.5">
+function Stat({
+  value,
+  label,
+  info,
+  onClick,
+}: {
+  value: number;
+  label: string;
+  info?: React.ReactNode;
+  onClick?: () => void;
+}) {
+  // min-w-0 обязателен: без него длинная подпись распирает флекс-строку
+  // и цифры выезжают за край карточки.
+  const body = (
+    <>
       <span className="font-num text-[19px] font-semibold leading-none text-[var(--text)]">
         {value}
       </span>
@@ -53,7 +64,23 @@ function Stat({ value, label, info }: { value: number; label: string; info?: Rea
         <span className="truncate">{label}</span>
         {info}
       </span>
-    </div>
+    </>
+  );
+
+  const shape = 'flex min-w-0 flex-1 flex-col items-center gap-0.5';
+
+  // Кликабельны только те счётчики, за которыми есть список. Кнопка вокруг
+  // всей колонки, а не вокруг цифры: попасть пальцем в 19px непросто.
+  return onClick ? (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`${shape} rounded-xl py-1 transition-transform active:scale-95`}
+    >
+      {body}
+    </button>
+  ) : (
+    <div className={`${shape} py-1`}>{body}</div>
   );
 }
 
@@ -63,14 +90,15 @@ export default function ProfilePage() {
   const { t } = useT();
   const [tab, setTab] = useState<Tab>('posts');
   const [editing, setEditing] = useState(false);
+  // Какой список людей открыт. Одна шторка на оба счётчика: содержимое у них
+  // одинаковое, разница только в адресе запроса.
+  const [peopleTab, setPeopleTab] = useState<'followers' | 'following' | null>(null);
 
   // Обложка — пока только на устройстве: поля под неё в базе нет, бакета тоже.
   const coverInputRef = useRef<HTMLInputElement>(null);
   const [cover, setCover] = useState<string | null>(null);
   const [pendingCover, setPendingCover] = useState<string | null>(null);
   const [adjustingCover, setAdjustingCover] = useState(false);
-  // Какое обсуждение открыто шторкой и к какому комментарию в нём вести.
-  const [openThread, setOpenThread] = useState<{ postId: string; commentId: string } | null>(null);
   const storedCover = useSyncExternalStore(
     () => () => {},
     () => window.localStorage.getItem(PROFILE_COVER_KEY),
@@ -175,6 +203,9 @@ export default function ProfilePage() {
   const commentsResult = useApiData<CommentWithPost[]>(userId ? `/comments/user/${userId}` : null);
 
   const repostsResult = useApiData<Post[]>(userId ? `/posts/reposts/${userId}` : null);
+  // Счётчики подписок приходят отдельным запросом: считать их на клиенте
+  // пришлось бы, вытянув оба списка целиком.
+  const profileResult = useApiData<UserProfile>(userId ? `/users/${userId}` : null);
 
   const posts = useMemo(() => postsResult.data ?? [], [postsResult.data]);
   const comments = useMemo(() => commentsResult.data ?? [], [commentsResult.data]);
@@ -266,37 +297,9 @@ export default function ProfilePage() {
                 backgroundRepeat: 'no-repeat',
               }}
             >
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPendingCover(coverImage);
-                    setAdjustingCover(true);
-                  }}
-                  className="rounded-full px-3 py-1.5 text-[12.5px] font-medium backdrop-blur-md"
-                  style={{
-                    background: 'color-mix(in srgb, #000000 42%, transparent)',
-                    color: '#ffffff',
-                  }}
-                >
-                  {t('profile.adjustTitle')}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => coverInputRef.current?.click()}
-                  className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12.5px] font-medium backdrop-blur-md"
-                  style={{
-                    background: 'color-mix(in srgb, #000000 42%, transparent)',
-                    color: '#ffffff',
-                  }}
-                >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M3 8.5a2 2 0 0 1 2-2h2l1.4-2h7.2L17 6.5h2a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" />
-                    <circle cx="12" cy="12.5" r="3.4" />
-                  </svg>
-                  {t('profile.changeCover')}
-                </button>
-              </div>
+              {/* Поставленная обложка остаётся чистой: кнопки поверх неё
+                  закрывали ровно то, ради чего её и ставили. Заменить и
+                  подогнать можно из «Редактировать профиль». */}
             </div>
           ) : (
             <button
@@ -336,11 +339,6 @@ export default function ProfilePage() {
                   photoFit={savedAvatarFit}
                 />
               </div>
-              <div className="flex min-w-0 flex-1 items-start gap-1 pb-1">
-                <Stat value={posts.length} label={t('profile.stat.posts')} />
-                <Stat value={0} label={t('profile.stat.followers')} />
-                <Stat value={influence} label={t('profile.stat.influence')} info={<InfluenceInfo />} />
-              </div>
             </div>
 
             <div className="flex flex-col gap-0.5">
@@ -349,6 +347,24 @@ export default function ProfilePage() {
                 @{handle}
               </span>
               {bio && <p className="mt-1 text-[14px] leading-snug text-[var(--text)]">{bio}</p>}
+            </div>
+
+            {/* Метрики идут отдельной строкой во всю ширину. Рядом с аватаром
+                на них оставалось меньше семидесяти точек на колонку, и подписи
+                обрезались до «подпис…»: цифра без внятной подписи бесполезна. */}
+            <div className="flex items-start gap-1 border-y border-[var(--border)] py-1.5">
+              <Stat value={posts.length} label={t('profile.stat.posts')} />
+              <Stat
+                value={profileResult.data?.followers ?? 0}
+                label={t('profile.stat.followers')}
+                onClick={() => setPeopleTab('followers')}
+              />
+              <Stat
+                value={profileResult.data?.following ?? 0}
+                label={t('profile.stat.following')}
+                onClick={() => setPeopleTab('following')}
+              />
+              <Stat value={influence} label={t('profile.stat.influence')} info={<InfluenceInfo />} />
             </div>
 
             <button
@@ -442,15 +458,13 @@ export default function ProfilePage() {
                       строкой-цитатой. Ссылка ведёт к самому комментарию, а не
                       просто на пост: якорь в адресе подсвечивает нужную ветку. */}
                   {comment.post && (
-                    <button
-                      onClick={() =>
-                        setOpenThread({ postId: comment.post!.id, commentId: comment.id })
-                      }
+                    <Link
+                      href={`/posts/${comment.post.id}#comment-${comment.id}`}
                       className="flex items-center gap-2 rounded-xl px-3 py-2 text-left transition-colors hover:bg-[var(--surface-2)]"
                       style={{ background: 'var(--surface-2)' }}
                     >
                       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" className="flex-none">
-                        <path d="M4 5.5h16v11H8.5L4 20V5.5Z" />
+                        <path d="M20 11.5a7.5 7.5 0 0 1-7.5 7.5c-1 0-2-.2-2.9-.6L4.5 20l1.2-4.4A7.5 7.5 0 1 1 20 11.5Z" />
                       </svg>
                       <span className="min-w-0 flex-1 truncate text-[13px] text-[var(--text-muted)]">
                         {comment.post.title}
@@ -458,7 +472,7 @@ export default function ProfilePage() {
                       <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="flex-none">
                         <path d="m9 6 6 6-6 6" />
                       </svg>
-                    </button>
+                    </Link>
                   )}
 
                   <p className="text-[14.5px] leading-relaxed text-[var(--text)]">{comment.body}</p>
@@ -500,18 +514,6 @@ export default function ProfilePage() {
         </section>
       </main>
 
-      {/* Обсуждение открывается шторкой поверх профиля, как везде: уходить
-          на страницу поста ради одного комментария незачем — теряется место,
-          до которого дочитали. */}
-      {openThread && (
-        <CommentSheet
-          postId={openThread.postId}
-          open
-          onClose={() => setOpenThread(null)}
-          highlightId={openThread.commentId}
-        />
-      )}
-
       <ImageAdjustDialog
         open={adjustingCover}
         src={pendingCover}
@@ -534,6 +536,16 @@ export default function ProfilePage() {
         defaultName={DISPLAY_NAME}
         defaultBio={BIO}
         defaultUsername={emailHandle}
+      />
+
+      <PeopleSheet
+        open={peopleTab !== null}
+        onClose={() => setPeopleTab(null)}
+        title={peopleTab === 'following' ? t('people.following') : t('people.followers')}
+        endpoint={userId && peopleTab ? `/users/${userId}/${peopleTab}` : null}
+        emptyText={
+          peopleTab === 'following' ? t('people.emptyFollowing') : t('people.emptyFollowers')
+        }
       />
     </div>
   );

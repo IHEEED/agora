@@ -93,6 +93,66 @@ export default function CreatePostPage() {
 
   // null — опроса нет. Массив появляется по кнопке и стартует с двух пустых строк.
   const [pollOptions, setPollOptions] = useState<string[] | null>(null);
+  // Ключи строк живут отдельно от значений: по индексу React переиспользует узлы,
+  // и при удалении средней строки анимация проигрывалась бы на соседней.
+  const [pollKeys, setPollKeys] = useState<number[]>([]);
+  const nextPollKey = useRef(0);
+  // Строка не исчезает мгновенно: сначала схлопывается, потом уходит из массива.
+  const [removingOption, setRemovingOption] = useState<number | null>(null);
+  const [enteringKey, setEnteringKey] = useState<number | null>(null);
+  const removeTimer = useRef<number | undefined>(undefined);
+  // Блок опроса при закрытии остаётся в разметке, пока схлопывается: убери его
+  // сразу — и схлопывать будет нечего, блок пропадал в один кадр.
+  const [pollClosing, setPollClosing] = useState(false);
+  const closeTimer = useRef<number | undefined>(undefined);
+
+  const pollShown = pollOptions !== null && !pollClosing;
+
+  useEffect(
+    () => () => {
+      window.clearTimeout(removeTimer.current);
+      window.clearTimeout(closeTimer.current);
+    },
+    []
+  );
+
+  function togglePoll() {
+    if (pollShown) {
+      setPollClosing(true);
+      closeTimer.current = window.setTimeout(() => {
+        setPollOptions(null);
+        setPollKeys([]);
+        setRemovingOption(null);
+        setPollClosing(false);
+      }, 320);
+      return;
+    }
+    // Вернули опрос, пока он ещё схлопывался — просто разворачиваем обратно
+    // с теми же вариантами, ничего не теряя.
+    window.clearTimeout(closeTimer.current);
+    setPollClosing(false);
+    if (pollOptions) return;
+    setPollOptions(['', '']);
+    setPollKeys([nextPollKey.current++, nextPollKey.current++]);
+  }
+
+  function addOption() {
+    const key = nextPollKey.current++;
+    setPollOptions((prev) => [...prev!, '']);
+    setPollKeys((prev) => [...prev, key]);
+    setEnteringKey(key);
+  }
+
+  function removeOption(index: number) {
+    // Пока одна строка схлопывается, индексы остальных не должны разъезжаться.
+    if (removingOption !== null) return;
+    setRemovingOption(index);
+    removeTimer.current = window.setTimeout(() => {
+      setPollOptions((prev) => prev!.filter((_, i) => i !== index));
+      setPollKeys((prev) => prev.filter((_, i) => i !== index));
+      setRemovingOption(null);
+    }, 240);
+  }
 
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -160,7 +220,11 @@ export default function CreatePostPage() {
           // Пустая строка означает личный пост — на бэкенд уходит null.
           community_id: communityId || null,
           image_url: imageUrl,
-          poll_options: pollOptions?.map((option) => option.trim()).filter(Boolean) ?? [],
+          // Опрос, который уже схлопывается, отправлять не надо: для пользователя
+          // он снят, даже если строки ещё живут в разметке.
+          poll_options: pollShown
+            ? pollOptions!.map((option) => option.trim()).filter(Boolean)
+            : [],
           post_as_community: asCommunity,
         }),
       });
@@ -433,8 +497,8 @@ export default function CreatePostPage() {
         <div
           className="grid"
           style={{
-            gridTemplateRows: pollOptions ? '1fr' : '0fr',
-            opacity: pollOptions ? 1 : 0,
+            gridTemplateRows: pollShown ? '1fr' : '0fr',
+            opacity: pollShown ? 1 : 0,
             transition:
               'grid-template-rows 0.32s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.24s ease',
           }}
@@ -446,44 +510,63 @@ export default function CreatePostPage() {
               <span className="text-[14px] font-medium text-[var(--text)]">{t('create.poll')}</span>
               <button
                 type="button"
-                onClick={() => setPollOptions(null)}
+                onClick={togglePoll}
                 className="text-[13px] text-[var(--text-muted)] hover:underline"
               >
                 {t('create.pollRemove')}
               </button>
             </div>
 
+            {/* Строки появляются и уходят схлопыванием по высоте: раньше они
+                возникали и пропадали одним кадром, и весь блок дёргался.
+                key по устойчивому идентификатору, а не по индексу — иначе при
+                удалении средней строки React переиспользует узлы и анимация
+                проигрывается не на той. */}
             {pollOptions.map((option, index) => (
-              <div key={index} className="flex items-center gap-2">
-                <input
-                  value={option}
-                  placeholder={`${t('create.pollOption')} ${index + 1}`}
-                  onChange={(e) =>
-                    setPollOptions((prev) =>
-                      prev!.map((value, i) => (i === index ? e.target.value : value))
-                    )
-                  }
-                  className="flex-1 rounded-full border border-[var(--border)] bg-[var(--surface-2)] px-4 py-2 text-[14px] text-[var(--text)] outline-none focus:border-[var(--accent)]"
-                />
-                {pollOptions.length > 2 && (
-                  <button
-                    type="button"
-                    onClick={() => setPollOptions((prev) => prev!.filter((_, i) => i !== index))}
-                    aria-label={`Убрать вариант ${index + 1}`}
-                    className="flex h-8 w-8 flex-none items-center justify-center rounded-full text-[var(--text-muted)] hover:bg-[var(--surface-2)]"
-                  >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                      <path d="M6 6l12 12M18 6 6 18" />
-                    </svg>
-                  </button>
-                )}
+              <div
+                key={pollKeys[index] ?? index}
+                className={`grid${enteringKey === pollKeys[index] ? ' poll-option-enter' : ''}`}
+                onAnimationEnd={() => setEnteringKey(null)}
+                style={{
+                  gridTemplateRows: removingOption === index ? '0fr' : '1fr',
+                  opacity: removingOption === index ? 0 : 1,
+                  transition:
+                    'grid-template-rows 0.26s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.2s ease',
+                }}
+              >
+                <div className="overflow-hidden">
+                  <div className="flex items-center gap-2 pb-2">
+                    <input
+                      value={option}
+                      placeholder={`${t('create.pollOption')} ${index + 1}`}
+                      onChange={(e) =>
+                        setPollOptions((prev) =>
+                          prev!.map((value, i) => (i === index ? e.target.value : value))
+                        )
+                      }
+                      className="flex-1 rounded-full border border-[var(--border)] bg-[var(--surface-2)] px-4 py-2 text-[14px] text-[var(--text)] outline-none focus:border-[var(--accent)]"
+                    />
+                    {pollOptions.length > 2 && (
+                      <button
+                        type="button"
+                        onClick={() => removeOption(index)}
+                        aria-label={`Убрать вариант ${index + 1}`}
+                        className="flex h-8 w-8 flex-none items-center justify-center rounded-full text-[var(--text-muted)] hover:bg-[var(--surface-2)]"
+                      >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                          <path d="M6 6l12 12M18 6 6 18" />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
+                </div>
               </div>
             ))}
 
             {pollOptions.length < 6 && (
               <button
                 type="button"
-                onClick={() => setPollOptions((prev) => [...prev!, ''])}
+                onClick={addOption}
                 className="self-start text-[13px] font-medium"
                 style={{ color: 'var(--accent)' }}
               >
@@ -542,15 +625,15 @@ export default function CreatePostPage() {
 
           <button
             type="button"
-            onClick={() => setPollOptions((prev) => (prev ? null : ['', '']))}
+            onClick={togglePoll}
             aria-label={t('create.poll')}
-            aria-pressed={Boolean(pollOptions)}
+            aria-pressed={pollShown}
             title="Опрос"
             className="flex h-12 w-12 items-center justify-center rounded-full border transition-colors"
             style={{
-              borderColor: pollOptions ? 'var(--accent)' : 'var(--border)',
-              color: pollOptions ? 'var(--accent)' : 'var(--text)',
-              background: pollOptions ? 'var(--accent-soft)' : 'transparent',
+              borderColor: pollShown ? 'var(--accent)' : 'var(--border)',
+              color: pollShown ? 'var(--accent)' : 'var(--text)',
+              background: pollShown ? 'var(--accent-soft)' : 'transparent',
             }}
           >
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">

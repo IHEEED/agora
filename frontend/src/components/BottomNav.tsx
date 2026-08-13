@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { CREATE_HREF, CreateIcon, MOBILE_SLOTS } from '@/components/navTabs';
@@ -24,6 +24,35 @@ export function BottomNav() {
   const { t } = useT();
   const [hiddenByPage, setHiddenByPage] = useNavHiddenRequest();
   const [hiddenByScroll, setHiddenByScroll] = useState(false);
+
+  // Капля повторяет геометрию активного слота, поэтому её приходится измерять:
+  // слоты тянутся вместе с шириной экрана, и заранее её не посчитать.
+  const pillRef = useRef<HTMLDivElement>(null);
+  const slotRefs = useRef<Array<HTMLAnchorElement | null>>([]);
+  const [blob, setBlob] = useState<{ x: number; width: number; height: number } | null>(null);
+
+  const activeSlot = MOBILE_SLOTS.findIndex((slot) => slot !== null && slot.href === pathname);
+
+  useLayoutEffect(() => {
+    function measure() {
+      const element = activeSlot >= 0 ? slotRefs.current[activeSlot] : null;
+      const pill = pillRef.current;
+      if (!element || !pill) {
+        setBlob(null);
+        return;
+      }
+      setBlob({
+        x: element.offsetLeft,
+        width: element.offsetWidth,
+        height: pill.clientHeight - 12,
+      });
+    }
+
+    measure();
+    const observer = new ResizeObserver(measure);
+    if (pillRef.current) observer.observe(pillRef.current);
+    return () => observer.disconnect();
+  }, [activeSlot]);
 
   // Уход на другой экран снимает обе причины прятать бар. Правку делаем прямо
   // в рендере — это тот случай «состояние зависит от пропса», для которого
@@ -82,20 +111,37 @@ export function BottomNav() {
       aria-hidden={hidden}
     >
       <div
-        className="ios-tabbar pointer-events-auto flex w-full max-w-[440px] items-center justify-between px-1"
+        ref={pillRef}
+        className="ios-tabbar pointer-events-auto relative flex w-full max-w-[440px] items-center justify-between px-2"
       >
-        {MOBILE_SLOTS.map((slot) => {
+        {/* Капля под активной вкладкой. Ездит трансформацией, а не сменой
+            позиции: браузер считает её на видеокарте, и переезд идёт ровно. */}
+        {blob && (
+          <span
+            aria-hidden
+            className="nav-blob"
+            style={{
+              transform: `translate(${blob.x}px, -50%)`,
+              width: blob.width,
+              height: blob.height,
+            }}
+          />
+        )}
+
+        {MOBILE_SLOTS.map((slot, index) => {
           if (!slot) {
             return (
               <Link
                 key="create"
                 href={CREATE_HREF}
                 aria-label={t('nav.create')}
-                className="flex flex-1 flex-col items-center justify-center gap-0.5 pb-1.5 pt-2"
+                ref={(node) => {
+                  slotRefs.current[index] = node;
+                }}
+                className="relative z-10 flex h-14 flex-1 items-center justify-center"
                 style={{ color: 'var(--accent)' }}
               >
-                <CreateIcon size={26} />
-                <span className="text-[10px] font-medium leading-none">{t('nav.create')}</span>
+                <CreateIcon size={27} />
               </Link>
             );
           }
@@ -107,18 +153,15 @@ export function BottomNav() {
               href={slot.href}
               aria-label={slot.label}
               aria-current={active ? 'page' : undefined}
-              ref={undefined}
-              className="flex flex-1 flex-col items-center justify-center gap-0.5 pb-1.5 pt-2"
+              ref={(node) => {
+                slotRefs.current[index] = node;
+              }}
+              className="relative z-10 flex h-14 flex-1 items-center justify-center"
               style={{
-                // Активная вкладка берёт акцент целиком, спящая — приглушённый
-                // серый. Никаких подложек: так устроен системный таб-бар.
                 color: active ? 'var(--accent)' : 'var(--text-muted)',
               }}
             >
-              <slot.Icon active={active} size={25} />
-              <span className="text-[10px] font-medium leading-none">
-                {t(slot.labelKey)}
-              </span>
+              <slot.Icon active={active} size={26} />
             </Link>
           );
         })}

@@ -2,6 +2,8 @@ export interface Author {
   /** Нужен, чтобы в ленте показать кнопку «Подписаться» на автора. */
   id?: string;
   username: string;
+  /** Подставляет бэкенд по текущей сессии — чтобы кнопка не мигала плюсом. */
+  isFollowing?: boolean;
 }
 
 export interface Community {
@@ -26,6 +28,13 @@ export interface UserSummary {
   karma: number;
   /** Подставляет бэкенд по текущей сессии; без неё всегда false. */
   isFollowing?: boolean;
+}
+
+/** Профиль со счётчиками — то, что показывает шапка профиля. */
+export interface UserProfile extends UserSummary {
+  followers: number;
+  following: number;
+  created_at?: string;
 }
 
 export interface Post {

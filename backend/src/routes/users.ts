@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Response, Router } from 'express';
 import { supabase } from '../config/supabase';
 import { optionalAuth, requireAuth } from '../middleware/auth';
 
@@ -166,5 +166,86 @@ router.get('/', optionalAuth, async (req, res) => {
   const following = await followingIds(req.user?.id);
   res.json(data.map((user) => ({ ...user, isFollowing: following.has(user.id) })));
 });
+
+/**
+ * Профиль одного человека со счётчиками. Считаем через `head: true` —
+ * строки при этом не едут, приходит только число, а подписчиков у заметного
+ * автора могут быть тысячи.
+ *
+ * Маршрут объявлен последним: `/:id` перехватил бы и `/suggestions`, стой он
+ * выше — Express разбирает пути в порядке объявления.
+ */
+router.get('/:id', optionalAuth, async (req, res) => {
+  const { id } = req.params;
+
+  const [profile, followers, following, mine] = await Promise.all([
+    supabase.from('users').select('id, username, karma, created_at').eq('id', id).single(),
+    supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', id),
+    supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', id),
+    req.user
+      ? supabase
+          .from('follows')
+          .select('*', { count: 'exact', head: true })
+          .eq('follower_id', req.user.id)
+          .eq('following_id', id)
+      : Promise.resolve({ count: 0, error: null }),
+  ]);
+
+  if (profile.error || !profile.data) {
+    return res.status(404).json({ error: 'Профиль не найден' });
+  }
+
+  res.json({
+    ...profile.data,
+    followers: followers.count ?? 0,
+    following: following.count ?? 0,
+    isFollowing: (mine.count ?? 0) > 0,
+  });
+});
+
+/** Список подписчиков или подписок — обе вкладки экрана «Друзья». */
+async function followList(
+  res: Response,
+  id: string,
+  me: string | undefined,
+  direction: 'followers' | 'following'
+) {
+  // У подписчиков нас интересует, кто подписался; у подписок — на кого.
+  const [match, take] =
+    direction === 'followers'
+      ? (['following_id', 'follower_id'] as const)
+      : (['follower_id', 'following_id'] as const);
+
+  const { data, error } = await supabase.from('follows').select(take).eq(match, id).limit(100);
+
+  if (error) {
+    console.error(`users: ${direction} lookup failed`, error);
+    return res.status(500).json({ error: 'Не удалось загрузить список' });
+  }
+
+  const ids = data.map((row) => (row as Record<string, string>)[take]);
+  if (ids.length === 0) return res.json([]);
+
+  const { data: people, error: peopleError } = await supabase
+    .from('users')
+    .select('id, username, karma')
+    .in('id', ids);
+
+  if (peopleError) {
+    console.error(`users: ${direction} profiles failed`, peopleError);
+    return res.status(500).json({ error: 'Не удалось загрузить список' });
+  }
+
+  const mine = await followingIds(me);
+  res.json(people.map((user) => ({ ...user, isFollowing: mine.has(user.id) })));
+}
+
+router.get('/:id/followers', optionalAuth, (req, res) =>
+  followList(res, String(req.params.id), req.user?.id,'followers')
+);
+
+router.get('/:id/following', optionalAuth, (req, res) =>
+  followList(res, String(req.params.id), req.user?.id,'following')
+);
 
 export default router;

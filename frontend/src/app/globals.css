@@ -398,11 +398,35 @@ textarea,
   -webkit-backdrop-filter: blur(calc(var(--glass-blur) * 1.9))
     saturate(calc(100% + 120% * var(--glass-strength)));
   border: 1px solid var(--glass-border);
-  /* Мягкая рассеянная тень, а не жёсткая подложка: капсула должна казаться
-     приподнятой над контентом, а не наклеенной на него. */
+  /* Преломление по кромкам — то, чем настоящее стекло отличается от матовой
+     плёнки. Сверху кромка ловит свет, снизу уходит в тень: получается объём
+     линзы, а не плоский полупрозрачный прямоугольник. Внешняя тень мягкая и
+     рассеянная — капсула приподнята над контентом, а не наклеена на него. */
   box-shadow:
+    inset 0 1px 0 color-mix(in srgb, #ffffff 45%, transparent),
+    inset 0 -1px 0 color-mix(in srgb, #000000 18%, transparent),
+    inset 0 8px 18px -12px color-mix(in srgb, #ffffff 55%, transparent),
     0 8px 32px rgba(0, 0, 0, 0.18),
     0 2px 8px rgba(0, 0, 0, 0.1);
+  position: relative;
+  isolation: isolate;
+}
+
+/* Блик, скользящий по верхней половине капсулы. Он и создаёт ощущение
+   искривления: свет по стеклу распределяется неравномерно. */
+.ios-tabbar::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 0;
+  opacity: var(--glass-strength);
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, #ffffff 16%, transparent),
+    transparent 46%
+  );
 }
 
 /* На планшете и десктопе капсула заметно уже экрана и стоит по центру —
@@ -1029,6 +1053,25 @@ textarea,
 }
 .no-scrollbar::-webkit-scrollbar {
   display: none;
+}
+
+/* Новый вариант опроса раскрывается сверху вниз. Переходом это не сделать:
+   у только что смонтированного узла нет предыдущего значения, с которого
+   браузеру идти, поэтому вход описан анимацией. Анимация в каскаде сильнее
+   inline-стиля, так что заданный там gridTemplateRows ей не мешает. */
+@keyframes poll-option-in {
+  from {
+    grid-template-rows: 0fr;
+    opacity: 0;
+  }
+  to {
+    grid-template-rows: 1fr;
+    opacity: 1;
+  }
+}
+
+.poll-option-enter {
+  animation: poll-option-in 0.26s cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 /* Голосование: стрелка один раз улетает за край и тут же возвращается
