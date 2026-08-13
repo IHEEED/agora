@@ -344,7 +344,10 @@ export default function ProfilePage() {
               в край карточки и вылезала за скругление. */}
           <div
             ref={tabsRef}
-            className="relative flex justify-center gap-1 border-b border-[var(--border)] py-2"
+            // Вкладки распределены по ширине, а не сбиты к центру: капля под
+            // крайней вкладкой прижималась к кромке карточки, и отступы слева
+            // и справа выходили разными.
+            className="relative flex items-center justify-between gap-1 border-b border-[var(--border)] px-1 py-2"
           >
             {tabBlob && (
               <span
@@ -365,7 +368,7 @@ export default function ProfilePage() {
                 ref={(node) => {
                   tabRefs.current[index] = node;
                 }}
-                className="relative z-10 whitespace-nowrap rounded-full px-3 py-2 text-[13.5px] font-medium transition-colors"
+                className="relative z-10 flex-1 whitespace-nowrap rounded-full px-2 py-2 text-center text-[13.5px] font-medium transition-colors"
                 style={{ color: tab === value ? 'var(--accent)' : 'var(--text-muted)' }}
               >
                 {t(labelKey)} <span className="font-num">{counts[value]}</span>

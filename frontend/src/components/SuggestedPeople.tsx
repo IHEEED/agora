@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { apiFetch } from '@/lib/api';
 import { UserSummary } from '@/lib/types';
 import { DefaultAvatar } from '@/components/DefaultAvatar';
+import { FollowButton } from '@/components/FollowButton';
 import { useT } from '@/lib/i18n';
 
 /** Сколько длится сворачивание. Должно совпадать с transition в разметке. */
@@ -30,7 +31,6 @@ export function SuggestedPeople({
 }) {
   const { t } = useT();
   const [people, setPeople] = useState<UserSummary[]>([]);
-  const [followed, setFollowed] = useState<Set<string>>(new Set());
 
   // Два шага при закрытии: сначала блок сворачивается, и только потом исчезает
   // из разметки. Одним setState это не сделать — узел пропал бы мгновенно.
@@ -75,36 +75,18 @@ export function SuggestedPeople({
     collapseTimeout.current = setTimeout(() => setGone(true), COLLAPSE_MS);
   }
 
-  async function follow(id: string) {
-    setFollowed((prev) => new Set(prev).add(id));
-    try {
-      await apiFetch(`/users/${id}/follow`, { method: 'POST' });
-    } catch {
-      setFollowed((prev) => {
-        const next = new Set(prev);
-        next.delete(id);
-        return next;
-      });
-    }
-  }
-
   if (storedDismissed || gone || people.length === 0) return null;
 
+  // Общая кнопка вместо своей копии: она умеет и подписку, и отписку.
+  // Раньше здесь стояла кнопка, которая после нажатия просто блокировалась —
+  // передумать было нельзя.
   function followButton(person: UserSummary, wide: boolean) {
-    const done = followed.has(person.id);
     return (
-      <button
-        onClick={() => follow(person.id)}
-        disabled={done}
-        className={`${wide ? 'w-full' : 'flex-none px-4'} rounded-full py-1.5 text-[13px] font-medium transition-colors`}
-        style={
-          done
-            ? { background: 'var(--surface-2)', color: 'var(--text-muted)' }
-            : { background: 'var(--accent)', color: 'var(--accent-contrast)' }
-        }
-      >
-        {done ? t('suggest.following') : t('suggest.follow')}
-      </button>
+      <FollowButton
+        userId={person.id}
+        initiallyFollowing={person.isFollowing}
+        className={wide ? 'w-full max-w-none' : ''}
+      />
     );
   }
 

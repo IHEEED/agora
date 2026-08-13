@@ -78,11 +78,17 @@ export default function CommunitiesPage() {
         <div className="flex items-center justify-between px-2">
           <ScreenTitle>{t('communities.title')}</ScreenTitle>
           {session && (
+            // Один «плюс» вместо надписи: действие очевидно из иконки, а
+            // текстовая кнопка перетягивала вес с заголовка экрана.
             <button
-              onClick={() => setShowForm((v) => !v)}
-              className="rounded-full bg-[var(--accent)] px-4 py-1.5 text-sm font-medium text-[var(--accent-contrast)] transition-opacity hover:opacity-90"
+              onClick={() => setShowForm(true)}
+              aria-label={t('communities.submit')}
+              className="flex h-10 w-10 flex-none items-center justify-center rounded-full transition-opacity hover:opacity-90"
+              style={{ background: 'var(--accent)', color: 'var(--accent-contrast)' }}
             >
-              {showForm ? t('common.cancel') : t('communities.create')}
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round">
+                <path d="M12 5v14M5 12h14" />
+              </svg>
             </button>
           )}
         </div>
@@ -109,7 +115,7 @@ export default function CommunitiesPage() {
             // Фокус убирает нижний бар вниз — там, где сейчас встанет клавиатура.
             onFocus={() => setNavHidden(true)}
             onBlur={() => setNavHidden(false)}
-            className="w-full rounded-full border border-[var(--border)] bg-[var(--surface-2)] py-2.5 pl-10 pr-4 text-[15px] text-[var(--text)] outline-none transition-colors focus:border-[var(--accent)]"
+            className="field-line w-full py-2.5 pl-9 pr-2 text-[15px] text-[var(--text)] outline-none transition-colors focus:border-[var(--accent)]"
           />
         </div>
 

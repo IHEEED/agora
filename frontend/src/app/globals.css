@@ -64,36 +64,37 @@
   --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
 }
 
-/* Тёмная тема — честный чёрный и нейтральная серая шкала. Прежний набор был
-   подкрашен в фиолетовый (#0b0910), и рядом с любым акцентом, кроме сиреневого,
-   фон выглядел грязным. Оттенок теперь даёт только акцент и обои. */
+/* Тёмная тема — тёмно-серая, а не чёрная, как в Threads. Чистый #000 на OLED
+   даёт провал: карточки на нём выглядят вырезанными дырами, а любая тень
+   пропадает. Серый фон оставляет поверхностям место различаться.
+   Оттенок даёт только акцент и обои — шкала намеренно нейтральная. */
 :root[data-theme="dark"] {
-  --bg: #000000;
-  --surface: #0e0e11;
-  /* Заметно светлее фона: поля ввода и «Что нового» на почти чёрном
-     surface-2 читались грязным пятном, а не местом, куда можно писать. */
-  --surface-2: #26262e;
+  --bg: #0f0f0f;
+  --surface: #181818;
+  /* Ступенью светлее поверхности: поля ввода должны читаться как место,
+     куда можно писать, а не как та же карточка. */
+  --surface-2: #242424;
   --border: rgba(255, 255, 255, 0.12);
   --text: #f5f5f7;
   --text-muted: #9a9aa5;
 
   --accent: #a880ff;
-  --accent-contrast: #000000;
+  --accent-contrast: #0f0f0f;
 
   --control: #eaeaee;
   --control-border: rgba(255, 255, 255, 0.3);
 
-  --sunken: #000000;
+  --sunken: #0a0a0a;
 
   --up: #3ddc84;
   --up-bg: rgba(61, 220, 132, 0.14);
   --down: #ff6b61;
   --down-bg: rgba(255, 107, 97, 0.14);
 
-  --nav-bg: rgba(14, 14, 17, 0.55);
+  --nav-bg: rgba(24, 24, 24, 0.55);
   --nav-border: rgba(255, 255, 255, 0.1);
   --nav-active: #ffffff;
-  --header-bg: rgba(0, 0, 0, 0.78);
+  --header-bg: rgba(15, 15, 15, 0.78);
 
   color-scheme: dark;
 }
@@ -103,32 +104,30 @@
      проставит data-theme, и на случай отключённого JS. Значения обязаны
      совпадать с блоком выше. */
   :root:not([data-theme="light"]) {
-    --bg: #000000;
-    --surface: #0e0e11;
-    /* Заметно светлее фона: поля ввода и «Что нового» на почти чёрном
-     surface-2 читались грязным пятном, а не местом, куда можно писать. */
-  --surface-2: #26262e;
+    --bg: #0f0f0f;
+    --surface: #181818;
+    --surface-2: #242424;
     --border: rgba(255, 255, 255, 0.12);
     --text: #f5f5f7;
     --text-muted: #9a9aa5;
 
     --accent: #a880ff;
-    --accent-contrast: #000000;
+    --accent-contrast: #0f0f0f;
 
     --control: #eaeaee;
     --control-border: rgba(255, 255, 255, 0.3);
 
-    --sunken: #000000;
+    --sunken: #0a0a0a;
 
     --up: #3ddc84;
     --up-bg: rgba(61, 220, 132, 0.14);
     --down: #ff6b61;
     --down-bg: rgba(255, 107, 97, 0.14);
 
-    --nav-bg: rgba(14, 14, 17, 0.55);
+    --nav-bg: rgba(24, 24, 24, 0.55);
     --nav-border: rgba(255, 255, 255, 0.1);
     --nav-active: #ffffff;
-    --header-bg: rgba(0, 0, 0, 0.78);
+    --header-bg: rgba(15, 15, 15, 0.78);
 
     color-scheme: dark;
   }
@@ -240,21 +239,35 @@ body {
    поимённо: transition: all заодно анимировал бы размеры и положение, и любое
    появление элемента превращалось бы вползание.
    :where() держит нулевую специфичность — правило ничего не перебивает. */
-:where(*, *::before, *::after) {
-  transition-property:
-    background-color, background-image, border-color, color, fill, stroke, box-shadow, opacity;
-  transition-duration: 0.5s;
-  transition-timing-function: cubic-bezier(0.32, 0.72, 0, 1);
+/* Смену темы, акцента и обоев анимируем через View Transitions — браузер
+   снимает два кадра и кроссфейдит их на видеокарте.
+
+   Раньше здесь висел transition на :where(*, *::before, *::after): переход
+   навешивался на каждый элемент страницы, и переключение темы означало
+   одновременную анимацию сотен узлов. Отсюда и «2 fps» — это была не тяжёлая
+   картинка, а тяжесть самого приёма. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 0.42s;
+  animation-timing-function: cubic-bezier(0.32, 0.72, 0, 1);
+  /* Оба кадра смешиваются, а не сменяют друг друга рывком. */
+  mix-blend-mode: normal;
 }
 
-/* Фоновые слои меняются вместе с темой, акцентом и выбором обоев. Им отдельная,
-   более долгая кривая: это самые большие пятна на экране, и переключись они
-   в одном темпе с мелочью — смена читалась бы рывком. */
-.wallpaper,
-.aurora,
-.app-header-veil,
-.profile-cover {
-  transition: background 0.65s cubic-bezier(0.32, 0.72, 0, 1);
+/* Точечные переходы там, где они действительно нужны: наведение, нажатие,
+   выбор. Их единицы, и на кадры они не влияют. */
+button,
+a,
+input,
+textarea,
+.control-pill,
+.tab-blob,
+.nav-blob {
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease,
+    opacity 0.2s ease;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -343,6 +356,39 @@ body {
       color-mix(in srgb, #ffffff 1.5%, transparent) 20%,
       transparent 62%
     );
+}
+
+/* Поле ввода — строка, а не таблетка. Скруглённая обойма читается кнопкой:
+   на неё хочется нажать, а не писать в неё. Подчёркивание снизу — привычный
+   знак «сюда вводят», и при фокусе оно наливается акцентом. */
+.field-line {
+  background: transparent;
+  border: none;
+  border-bottom: 1.5px solid var(--border);
+  border-radius: 0;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.field-line:focus,
+.field-line:focus-within {
+  border-bottom-color: var(--accent);
+}
+
+/* Материал таб-бара iOS: плотное стекло, волосяная линия сверху и никакой
+   тени. Тень выдаёт «плавающую панель», а системный бар не парит — он часть
+   нижней кромки экрана. */
+.ios-tabbar {
+  background: color-mix(
+    in srgb,
+    var(--surface) calc(100% - 22% * var(--glass-strength)),
+    transparent
+  );
+  backdrop-filter: blur(calc(var(--glass-blur) * 1.9))
+    saturate(calc(100% + 110% * var(--glass-strength)));
+  /* Именно волосяная: 1px делится на плотность пикселей, поэтому на телефоне
+     линия остаётся тонкой, а не превращается в жирную полосу. */
+  border-top: 0.5px solid var(--glass-border);
 }
 
 /* Старое имя оставлено, чтобы не переписывать все места разом.
@@ -955,26 +1001,29 @@ body {
 
 /* Голосование: стрелка один раз улетает за край и тут же возвращается
    с противоположной стороны, не выходя за пределы эллипса. */
+/* Стрелка коротко подаётся в сторону голоса и мягко возвращается.
+   Раньше она улетала за край и телепортировалась с противоположной стороны —
+   на глаз это читалось рывком, а не откликом на нажатие. */
 @keyframes vote-launch-up {
-  0% { transform: translateY(0); }
-  45% { transform: translateY(-150%); }
-  46% { transform: translateY(150%); }
-  100% { transform: translateY(0); }
+  0% { transform: translateY(0) scale(1); }
+  40% { transform: translateY(-22%) scale(1.12); }
+  100% { transform: translateY(0) scale(1); }
 }
 
 @keyframes vote-launch-down {
-  0% { transform: translateY(0); }
-  45% { transform: translateY(150%); }
-  46% { transform: translateY(-150%); }
-  100% { transform: translateY(0); }
+  0% { transform: translateY(0) scale(1); }
+  40% { transform: translateY(22%) scale(1.12); }
+  100% { transform: translateY(0) scale(1); }
 }
 
-/* Обойма обрезает стрелку по краю, чтобы «улёт» не вылезал из кнопки. */
+/* Обойма обрезает стрелку по краю, чтобы движение не вылезало из кнопки.
+   Размер берём от самой стрелки, а не фиксируем в 24px: при иконке в 22px
+   обойма была на пиксель больше, стрелка вставала не по центру, и кружок
+   наведения выглядел смещённым. */
 .arrow-clip {
-  display: block;
-  width: 24px;
-  height: 24px;
+  display: inline-flex;
   overflow: hidden;
+  line-height: 0;
 }
 
 /* Счётчик: прокручивается только та цифра разряда, которая изменилась. */
@@ -1005,11 +1054,11 @@ body {
   100% { transform: rotate(360deg) scale(1); }
 }
 
-.animate-vote-up { animation: vote-launch-up 0.4s ease-in-out; }
-.animate-vote-down { animation: vote-launch-down 0.4s ease-in-out; }
+.animate-vote-up { animation: vote-launch-up 0.34s cubic-bezier(0.32, 0.72, 0, 1); }
+.animate-vote-down { animation: vote-launch-down 0.34s cubic-bezier(0.32, 0.72, 0, 1); }
 .animate-digit-up { animation: digit-roll-up 0.4s ease-out; }
 .animate-digit-down { animation: digit-roll-down 0.4s ease-out; }
-.animate-repost { animation: repost-spin 0.55s cubic-bezier(0.34, 1.4, 0.64, 1); }
+.animate-repost { animation: repost-spin 0.5s cubic-bezier(0.32, 0.72, 0, 1); }
 
 /* Общая обводка кнопок взаимодействия: чуть толще обычной границы,
    чтобы ряд действий не выглядел блёклым. */

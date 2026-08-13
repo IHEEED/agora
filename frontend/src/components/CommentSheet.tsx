@@ -134,24 +134,28 @@ export function CommentSheet({
             }}
             className="flex items-center gap-2"
           >
-            <input
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              placeholder="Поделитесь своим мнением"
-              enterKeyHint="send"
-              className="w-full flex-1 rounded-full border border-[var(--border)] bg-[var(--surface-2)] px-4 py-2.5 text-[15px] text-[var(--text)] outline-none focus:border-[var(--accent)]"
-            />
-            <button
-              type="submit"
-              disabled={!text.trim() || sending}
-              aria-label="Отправить"
-              className="flex h-10 w-10 flex-none items-center justify-center rounded-full transition-opacity disabled:opacity-35"
-              style={{ background: 'var(--accent)', color: 'var(--accent-contrast)' }}
-            >
-              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M4 12h15M13 6l6 6-6 6" />
-              </svg>
-            </button>
+            {/* Строка с кнопкой отправки внутри, справа: таблетка с отдельным
+                кружком рядом занимала две формы под одно действие. */}
+            <div className="field-line flex w-full items-center gap-2 pl-1">
+              <input
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                placeholder="Поделитесь своим мнением"
+                enterKeyHint="send"
+                className="min-w-0 flex-1 border-none bg-transparent py-2.5 text-[15px] text-[var(--text)] outline-none"
+              />
+              <button
+                type="submit"
+                disabled={!text.trim() || sending}
+                aria-label="Отправить"
+                className="flex h-8 w-8 flex-none items-center justify-center rounded-full transition-opacity disabled:opacity-30"
+                style={{ color: 'var(--accent)' }}
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M4 12h15M13 6l6 6-6 6" />
+                </svg>
+              </button>
+            </div>
           </form>
         </>
       }

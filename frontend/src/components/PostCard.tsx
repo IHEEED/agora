@@ -58,11 +58,14 @@ export function PostCard({
       <div className="relative flex items-center gap-2 text-[14px]">
         <DefaultAvatar name={post.author.username} size={30} />
 
-        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1.5 gap-y-0.5">
+        {/* min-w-0 на контейнере и truncate на нике: без первого флекс не даёт
+            элементу сжаться ниже содержимого, и длинный ник выдавливал кнопку
+            подписки за край вместо того, чтобы обрезаться. */}
+        <div className="flex min-w-0 flex-1 items-center gap-x-1.5 overflow-hidden">
           {/* Ник ведёт в профиль автора — самый ожидаемый жест в любой ленте. */}
           <Link
             href={post.author.id ? `/u/${post.author.id}` : '#'}
-            className="font-semibold text-[var(--text)] hover:underline"
+            className="min-w-0 truncate font-semibold text-[var(--text)] hover:underline"
           >
             {post.author.username}
           </Link>

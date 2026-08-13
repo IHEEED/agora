@@ -70,7 +70,12 @@ export default function RootLayout({
               нечего размывать и оно выглядит просто серой заливкой. */}
           <div className="aurora" aria-hidden />
           <DesktopSidebar />
-          <div className="flex min-h-screen flex-col pb-16 md:pb-0 md:pl-20">
+          {/* Отступ под таб-бар: его высота плюс домашний индикатор. Бар теперь
+              прижат к кромке во всю ширину, а не парит, поэтому запас точный. */}
+          <div
+            className="flex min-h-screen flex-col md:pb-0 md:pl-20"
+            style={{ paddingBottom: 'calc(58px + env(safe-area-inset-bottom))' }}
+          >
             <header className="app-header">
               <div className="app-header-veil" aria-hidden />
               {/* Верхний отступ учитывает вырез телефона: env(safe-area-inset-top)

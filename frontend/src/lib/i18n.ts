@@ -26,7 +26,7 @@ const DICTIONARY = {
     'nav.search': 'Поиск',
     'nav.settings': 'Настройки',
 
-    'feed.whatsNew': 'Что нового?',
+    'feed.whatsNew': 'Напишите пару фраз',
     'feed.empty': 'В ленте пока пусто.',
     'feed.findCommunities': 'Найти сообщества',
     'feed.yourStory': 'Ваша история',
@@ -180,7 +180,7 @@ const DICTIONARY = {
     'nav.search': 'Search',
     'nav.settings': 'Settings',
 
-    'feed.whatsNew': "What's new?",
+    'feed.whatsNew': 'Write a couple of lines',
     'feed.empty': 'Your feed is empty.',
     'feed.findCommunities': 'Find communities',
     'feed.yourStory': 'Your story',
@@ -334,7 +334,7 @@ const DICTIONARY = {
     'nav.search': 'Buscar',
     'nav.settings': 'Ajustes',
 
-    'feed.whatsNew': '¿Qué hay de nuevo?',
+    'feed.whatsNew': 'Escribe un par de frases',
     'feed.empty': 'Tu feed está vacío.',
     'feed.findCommunities': 'Buscar comunidades',
     'feed.yourStory': 'Tu historia',

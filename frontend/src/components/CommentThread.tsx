@@ -11,19 +11,9 @@ import { VoteBlock } from '@/components/VoteBlock';
 import { DefaultAvatar } from '@/components/DefaultAvatar';
 import { Comment } from '@/lib/types';
 
-function countDescendants(comment: Comment): number {
-  return comment.replies.reduce((sum, reply) => sum + 1 + countDescendants(reply), 0);
-}
-
 /** Лежит ли искомый комментарий где-то в этой ветке. */
 function contains(comment: Comment, id: string): boolean {
   return comment.replies.some((reply) => reply.id === id || contains(reply, id));
-}
-
-function truncateWords(text: string, wordCount = 8): string {
-  const words = text.trim().split(/\s+/);
-  if (words.length <= wordCount) return text;
-  return `${words.slice(0, wordCount).join(' ')}…`;
 }
 
 /**
@@ -68,7 +58,14 @@ export function CommentThread({
   // не рендерит ответы, и прокручивать было бы не к чему.
   const holdsTarget = Boolean(highlightId) && contains(comment, highlightId!);
   const collapsed = hasReplies && !isExpanded(comment.id) && !holdsTarget;
-  const descendantCount = hasReplies ? countDescendants(comment) : 0;
+
+  // Первые два ответа видны сразу, остальные — по кнопке. Полностью свёрнутая
+  // ветка прячет самое живое в обсуждении: чтобы прочитать разговор,
+  // приходилось раскрывать каждую по очереди. Два — компромисс между
+  // «видно, что отвечали» и «лента не тонет в ответах».
+  const PREVIEW_REPLIES = 2;
+  const shownReplies = collapsed ? comment.replies.slice(0, PREVIEW_REPLIES) : comment.replies;
+  const hiddenReplies = comment.replies.length - shownReplies.length;
 
   async function submitReply(e: SubmitEvent) {
     e.preventDefault();
@@ -114,40 +111,27 @@ export function CommentThread({
               {comment.author.username}
             </Link>
             <span className="text-[var(--text-muted)]">{formatCompactAge(comment.created_at)}</span>
-            {hasReplies && (
+          </div>
+
+          <p className="text-[14.5px] leading-relaxed text-[var(--text)]">{comment.body}</p>
+
+          <div className="mt-0.5 flex items-center gap-2">
+            <VoteBlock
+              id={comment.id}
+              score={comment.score}
+              myVote={comment.myVote}
+              kind="comment"
+              compact
+            />
+            {session && (
               <button
-                onClick={() => onToggleExpand(comment.id)}
-                className="text-[12.5px] font-medium"
-                style={{ color: 'var(--accent)' }}
+                onClick={() => setReplying((v) => !v)}
+                className="rounded-full px-2 py-1 text-[12.5px] font-medium text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-2)]"
               >
-                {collapsed ? `${descendantCount} ${pluralizeReplies(descendantCount)}` : 'свернуть'}
+                {replying ? 'Отмена' : 'Ответить'}
               </button>
             )}
           </div>
-
-          <p className="text-[14.5px] leading-relaxed text-[var(--text)]">
-            {collapsed ? truncateWords(comment.body) : comment.body}
-          </p>
-
-          {!collapsed && (
-            <div className="mt-0.5 flex items-center gap-2">
-              <VoteBlock
-                id={comment.id}
-                score={comment.score}
-                myVote={comment.myVote}
-                kind="comment"
-                compact
-              />
-              {session && (
-                <button
-                  onClick={() => setReplying((v) => !v)}
-                  className="rounded-full px-2 py-1 text-[12.5px] font-medium text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-2)]"
-                >
-                  {replying ? 'Отмена' : 'Ответить'}
-                </button>
-              )}
-            </div>
-          )}
 
           {replying && (
             <form onSubmit={submitReply} className="mt-1 flex flex-col gap-2">
@@ -183,12 +167,12 @@ export function CommentThread({
           вертикальная черта такого родства не показывала — было непонятно,
           откуда ветка растёт. Глубже четвёртого уровня сдвиг не наращиваем,
           иначе на телефоне не остаётся ширины под текст. */}
-      {!collapsed && hasReplies && (
+      {hasReplies && (
         <div
           className="reply-branch flex flex-col gap-4"
           style={{ marginLeft: depth < 4 ? 15 : 0 }}
         >
-          {comment.replies.map((reply) => (
+          {shownReplies.map((reply) => (
             <CommentThread
               key={reply.id}
               comment={reply}
@@ -200,6 +184,16 @@ export function CommentThread({
               highlightId={highlightId}
             />
           ))}
+
+          {hiddenReplies > 0 && (
+            <button
+              onClick={() => onToggleExpand(comment.id)}
+              className="self-start text-[13px] font-medium"
+              style={{ color: 'var(--accent)' }}
+            >
+              Ещё {hiddenReplies} {pluralizeReplies(hiddenReplies)}
+            </button>
+          )}
         </div>
       )}
     </div>

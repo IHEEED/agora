@@ -157,7 +157,7 @@ export default function SearchPage() {
               onKeyDown={(e) => {
                 if (e.key === 'Enter') remember(query);
               }}
-              className="w-full rounded-full border border-[var(--border)] bg-[var(--surface-2)] py-2.5 pl-11 pr-4 text-[15px] text-[var(--text)] outline-none focus:border-[var(--accent)]"
+              className="field-line w-full py-2.5 pl-9 pr-2 text-[15px] text-[var(--text)] outline-none focus:border-[var(--accent)]"
             />
           </div>
 

@@ -87,6 +87,33 @@ function systemTheme(): Theme {
   return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 }
 
+type DocumentWithViewTransition = Document & {
+  startViewTransition?: (callback: () => void) => unknown;
+};
+
+/**
+ * Применяет смену оформления кроссфейдом.
+ *
+ * View Transitions снимают снимок «до», выполняют изменение и плавно смешивают
+ * его со снимком «после» — вся работа уходит на видеокарту. Альтернатива —
+ * CSS-переход на каждом элементе — заставляла браузер анимировать сотни узлов
+ * разом и роняла частоту кадров до слайдшоу.
+ *
+ * Где API нет, изменение просто применяется мгновенно: это не ошибка, а
+ * отсутствие украшения.
+ */
+function withTransition(change: () => void) {
+  const doc = document as DocumentWithViewTransition;
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  if (reduced || typeof doc.startViewTransition !== 'function') {
+    change();
+    return;
+  }
+
+  doc.startViewTransition(change);
+}
+
 /**
  * «Системная» не пишется в data-theme — там всегда конкретное значение,
  * иначе CSS не знал бы, какую палитру брать. В localStorage при этом
@@ -94,7 +121,10 @@ function systemTheme(): Theme {
  */
 export function applyTheme(preference: ThemePreference) {
   const resolved = preference === 'system' ? systemTheme() : preference;
-  document.documentElement.setAttribute('data-theme', resolved);
+
+  withTransition(() => {
+    document.documentElement.setAttribute('data-theme', resolved);
+  });
 
   if (preference === 'system') {
     window.localStorage.removeItem(THEME_STORAGE_KEY);
@@ -104,7 +134,9 @@ export function applyTheme(preference: ThemePreference) {
 }
 
 export function applyAccent(accent: AccentId) {
-  document.documentElement.setAttribute('data-accent', accent);
+  withTransition(() => {
+    document.documentElement.setAttribute('data-accent', accent);
+  });
   window.localStorage.setItem(ACCENT_STORAGE_KEY, accent);
 }
 
@@ -120,7 +152,9 @@ export function readAccent(): AccentId {
 }
 
 export function applyWallpaper(wallpaper: WallpaperId) {
-  document.documentElement.setAttribute('data-wallpaper', wallpaper);
+  withTransition(() => {
+    document.documentElement.setAttribute('data-wallpaper', wallpaper);
+  });
   window.localStorage.setItem(WALLPAPER_STORAGE_KEY, wallpaper);
 }
 
@@ -131,7 +165,9 @@ export const PLAIN_BG_STORAGE_KEY = 'parafraz-plain-bg';
  * обоев: обои можно снять, а пятна останутся, они лежат своим слоем.
  */
 export function applyPlainBackground(on: boolean) {
-  document.documentElement.setAttribute('data-plain-bg', on ? '1' : '0');
+  withTransition(() => {
+    document.documentElement.setAttribute('data-plain-bg', on ? '1' : '0');
+  });
   window.localStorage.setItem(PLAIN_BG_STORAGE_KEY, on ? '1' : '0');
 }
 

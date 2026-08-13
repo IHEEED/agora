@@ -25,18 +25,18 @@ export function iconProps(active: boolean, size = 26) {
   };
 }
 
-export function HomeIcon({ active }: IconProps) {
+export function HomeIcon({ active, size }: IconProps) {
   return (
-    <svg {...iconProps(active)}>
+    <svg {...iconProps(active, size)}>
       <path d="M12 3.4 2.9 11.4v7.9a1.4 1.4 0 0 0 1.4 1.4h15.4a1.4 1.4 0 0 0 1.4-1.4v-7.9Z" />
       <path d="M9.7 20.7v-6.1h4.6v6.1Z" />
     </svg>
   );
 }
 
-export function CommunitiesIcon({ active }: IconProps) {
+export function CommunitiesIcon({ active, size }: IconProps) {
   return (
-    <svg {...iconProps(active)}>
+    <svg {...iconProps(active, size)}>
       <path d="M9 5.8a3.2 3.2 0 1 0 0 6.4 3.2 3.2 0 0 0 0-6.4Z" />
       <path d="M9 13.6c-3.1 0-5.7 2.4-6.1 5.6h12.2c-.4-3.2-3-5.6-6.1-5.6Z" />
       <path d="M16.6 7.4a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5Z" />
@@ -63,20 +63,22 @@ export function BellIcon({ active, size }: IconProps) {
   );
 }
 
-export function ProfileIcon({ active }: IconProps) {
+export function ProfileIcon({ active, size }: IconProps) {
   return (
-    <svg {...iconProps(active)}>
+    <svg {...iconProps(active, size)}>
       <path d="M12 4.6a3.6 3.6 0 1 0 0 7.2 3.6 3.6 0 0 0 0-7.2Z" />
       <path d="M12 13.6c-4.2 0-7.5 2.8-7.5 6.4h15c0-3.6-3.3-6.4-7.5-6.4Z" />
     </svg>
   );
 }
 
+// labelKey нужен подписям под иконками в баре — они переводятся вместе со
+// всем остальным. label остаётся для aria-label и боковой панели.
 export const TABS = [
-  { href: '/', label: 'Главная', Icon: HomeIcon },
-  { href: '/communities', label: 'Сообщества', Icon: CommunitiesIcon },
-  { href: '/notifications', label: 'Уведомления', Icon: BellIcon },
-  { href: '/profile', label: 'Профиль', Icon: ProfileIcon },
+  { href: '/', label: 'Главная', labelKey: 'nav.home', Icon: HomeIcon },
+  { href: '/communities', label: 'Сообщества', labelKey: 'nav.communities', Icon: CommunitiesIcon },
+  { href: '/notifications', label: 'Уведомления', labelKey: 'nav.notifications', Icon: BellIcon },
+  { href: '/profile', label: 'Профиль', labelKey: 'nav.profile', Icon: ProfileIcon },
 ] as const;
 
 /** Куда ведёт плюс по центру нижнего бара и в боковой панели. */
