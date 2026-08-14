@@ -42,45 +42,32 @@ const TABS: ReadonlyArray<readonly [Tab, TranslationKey]> = [
   ['reposts', 'profile.reposts'],
 ];
 
-function Stat({
+/**
+ * Счётчик людей — строкой, а не колонкой в общем ряду метрик.
+ *
+ * За ним стоит список, поэтому он выглядит нажимаемым и стоит рядом с таким
+ * же вторым. Цифры про сам профиль ушли отдельной строкой ниже: они справка,
+ * а не действие, и в одном ряду обманывали — половина ряда выглядела
+ * нажимаемой, ничем таковой не будучи.
+ */
+function PeopleStat({
   value,
   label,
-  info,
   onClick,
 }: {
   value: number;
   label: string;
-  info?: React.ReactNode;
-  onClick?: () => void;
+  onClick: () => void;
 }) {
-  // min-w-0 обязателен: без него длинная подпись распирает флекс-строку
-  // и цифры выезжают за край карточки.
-  const body = (
-    <>
-      <span className="font-num text-[19px] font-semibold leading-none text-[var(--text)]">
-        {value}
-      </span>
-      <span className="flex max-w-full items-center gap-1 text-[11.5px] leading-tight text-[var(--text-muted)]">
-        <span className="truncate">{label}</span>
-        {info}
-      </span>
-    </>
-  );
-
-  const shape = 'flex min-w-0 flex-1 flex-col items-center gap-0.5';
-
-  // Кликабельны только те счётчики, за которыми есть список. Кнопка вокруг
-  // всей колонки, а не вокруг цифры: попасть пальцем в 19px непросто.
-  return onClick ? (
+  return (
     <button
       type="button"
       onClick={onClick}
-      className={`${shape} rounded-xl py-1 transition-transform active:scale-95`}
+      className="flex items-baseline gap-1.5 rounded-xl transition-transform active:scale-95"
     >
-      {body}
+      <span className="font-num text-[16px] font-semibold text-[var(--text)]">{value}</span>
+      <span className="text-[13.5px] text-[var(--text-muted)]">{label}</span>
     </button>
-  ) : (
-    <div className={`${shape} py-1`}>{body}</div>
   );
 }
 
@@ -349,22 +336,32 @@ export default function ProfilePage() {
               {bio && <p className="mt-1 text-[14px] leading-snug text-[var(--text)]">{bio}</p>}
             </div>
 
-            {/* Метрики идут отдельной строкой во всю ширину. Рядом с аватаром
-                на них оставалось меньше семидесяти точек на колонку, и подписи
-                обрезались до «подпис…»: цифра без внятной подписи бесполезна. */}
-            <div className="flex items-start gap-1 border-y border-[var(--border)] py-1.5">
-              <Stat value={posts.length} label={t('profile.stat.posts')} />
-              <Stat
+            {/* Люди отдельно от цифр: за подписчиками ходят, а посты и
+                influence — справка о профиле, по ней не нажимают. */}
+            <div className="flex items-center gap-4">
+              <PeopleStat
                 value={profileResult.data?.followers ?? 0}
                 label={t('profile.stat.followers')}
                 onClick={() => setPeopleTab('followers')}
               />
-              <Stat
+              <PeopleStat
                 value={profileResult.data?.following ?? 0}
                 label={t('profile.stat.following')}
                 onClick={() => setPeopleTab('following')}
               />
-              <Stat value={influence} label={t('profile.stat.influence')} info={<InfluenceInfo />} />
+            </div>
+
+            <div className="flex items-center gap-1.5 text-[13px] text-[var(--text-muted)]">
+              <span>
+                <span className="font-num text-[var(--text)]">{posts.length}</span>{' '}
+                {t('profile.stat.posts')}
+              </span>
+              <span aria-hidden>·</span>
+              <span className="flex items-center gap-1">
+                <span className="font-num text-[var(--text)]">{influence}</span>{' '}
+                {t('profile.stat.influence')}
+                <InfluenceInfo />
+              </span>
             </div>
 
             <button
@@ -423,7 +420,7 @@ export default function ProfilePage() {
           {/* pt-4: посты жались прямо к линии под вкладками и читались её
               продолжением, а не отдельным списком. */}
           {!loading && !error && tab === 'posts' && (
-            <div className="flex flex-col divide-y divide-[var(--border)] pt-2">
+            <div className="flex flex-col pt-2">
               {posts.map((post) => (
                 <PostCard key={post.id} post={post} />
               ))}
@@ -451,7 +448,7 @@ export default function ProfilePage() {
           )}
 
           {!loading && !error && tab === 'comments' && (
-            <div className="flex flex-col divide-y divide-[var(--border)]">
+            <div className="flex flex-col">
               {comments.map((comment) => (
                 <article key={comment.id} className="flex flex-col gap-2 py-4">
                   {/* Под каким постом оставлен комментарий — видно прямо здесь,
@@ -500,7 +497,7 @@ export default function ProfilePage() {
           )}
 
           {!loading && !error && tab === 'reposts' && (
-            <div className="flex flex-col divide-y divide-[var(--border)] pt-2">
+            <div className="flex flex-col pt-2">
               {reposts.map((post) => (
                 <PostCard key={post.id} post={post} />
               ))}

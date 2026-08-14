@@ -26,16 +26,16 @@ export function CommentThread({
   comment,
   postId,
   onAdded,
-  isExpanded,
-  onToggleExpand,
+  isCollapsed,
+  onToggleCollapse,
   depth = 0,
   highlightId,
 }: {
   comment: Comment;
   postId: string;
   onAdded: () => void;
-  isExpanded: (commentId: string) => boolean;
-  onToggleExpand: (commentId: string) => void;
+  isCollapsed: (commentId: string) => boolean;
+  onToggleCollapse: (commentId: string) => void;
   /** Уровень вложенности: от него зависит сдвиг ответа вправо. */
   depth?: number;
   /** Комментарий, к которому пришли по ссылке, — подсвечивается на секунду. */
@@ -57,18 +57,13 @@ export function CommentThread({
   // Ветку с искомым комментарием держим раскрытой принудительно: свёрнутая
   // не рендерит ответы, и прокручивать было бы не к чему.
   const holdsTarget = Boolean(highlightId) && contains(comment, highlightId!);
-  const collapsed = hasReplies && !isExpanded(comment.id) && !holdsTarget;
 
-  // Первый ответ виден сразу, остальные — по кнопке. Полностью свёрнутая ветка
-  // прячет самое живое в обсуждении: чтобы прочитать разговор, приходилось
-  // раскрывать каждую по очереди. Один — компромисс между «видно, что
-  // отвечали» и «лента не тонет в ответах»; при двух кнопка не появлялась
-  // почти нигде, потому что веток длиннее двух ответов в обсуждении мало.
-  const PREVIEW_REPLIES = 1;
-  const shownReplies = collapsed ? comment.replies.slice(0, PREVIEW_REPLIES) : comment.replies;
-  // Сколько ответов вообще прячется под кнопкой — величина постоянная, не
-  // зависящая от того, раскрыта ветка сейчас или нет.
-  const restCount = Math.max(comment.replies.length - PREVIEW_REPLIES, 0);
+  // Ветка открыта, пока её не свернули. Прошлая схема показывала часть ответов
+  // и прятала остальные — на одну кнопку приходилось три состояния, и было
+  // непонятно, что она сделает: «Свернуть» убирала не всё, «Ещё» открывала не
+  // с начала. Теперь состояний два, и оба видно по подписи.
+  const collapsed = hasReplies && isCollapsed(comment.id) && !holdsTarget;
+  const replyCount = comment.replies.length;
 
   async function submitReply(e: SubmitEvent) {
     e.preventDefault();
@@ -175,53 +170,68 @@ export function CommentThread({
           className="reply-branch flex flex-col gap-4"
           style={{ marginLeft: depth < 4 ? 15 : 0 }}
         >
-          {shownReplies.map((reply) => (
-            <CommentThread
-              key={reply.id}
-              comment={reply}
-              postId={postId}
-              onAdded={onAdded}
-              isExpanded={isExpanded}
-              onToggleExpand={onToggleExpand}
-              depth={depth + 1}
-              highlightId={highlightId}
-            />
-          ))}
+          {/* Ветка схлопывается по высоте, а не выдёргивается из разметки:
+              grid-rows от 1fr к 0fr — единственный способ анимировать высоту
+              содержимого, размер которого заранее неизвестен. Ответы при этом
+              остаются в разметке, поэтому схлопывать есть что. */}
+          <div
+            className="grid"
+            style={{
+              gridTemplateRows: collapsed ? '0fr' : '1fr',
+              opacity: collapsed ? 0 : 1,
+              transition:
+                'grid-template-rows 0.34s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.24s ease',
+            }}
+          >
+            <div className="overflow-hidden">
+              <div className="flex flex-col gap-4">
+                {comment.replies.map((reply) => (
+                  <CommentThread
+                    key={reply.id}
+                    comment={reply}
+                    postId={postId}
+                    onAdded={onAdded}
+                    isCollapsed={isCollapsed}
+                    onToggleCollapse={onToggleCollapse}
+                    depth={depth + 1}
+                    highlightId={highlightId}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
 
-          {/* Кнопка не исчезает после раскрытия, а становится «Свернуть»:
-              раньше развернуть ветку было можно, а свернуть обратно — нет.
-              Подписи лежат друг на друге в одной клетке грида и меняются
+          {/* Подписи лежат друг на друге в одной клетке грида и меняются
               перекрёстным затуханием: смена текста в один кадр дёргала
               ширину кнопки. */}
-          {restCount > 0 && (
-            <button
-              onClick={() => onToggleExpand(comment.id)}
-              className="grid self-start text-[13px] font-medium"
-              style={{ color: 'var(--accent)' }}
-            >
-              {[
-                // Число считаем от постоянной величины, а не от hiddenReplies:
-                // после раскрытия та обнуляется, и подпись успевала мигнуть
-                // «Ещё 0 ответов», пока затухала.
-                { key: 'more', show: collapsed, text: `Ещё ${restCount} ${pluralizeReplies(restCount)}` },
-                { key: 'less', show: !collapsed, text: 'Свернуть' },
-              ].map((label) => (
-                <span
-                  key={label.key}
-                  aria-hidden={!label.show}
-                  className="col-start-1 row-start-1 whitespace-nowrap text-left"
-                  style={{
-                    opacity: label.show ? 1 : 0,
-                    transform: label.show ? 'none' : 'translateY(-3px)',
-                    pointerEvents: label.show ? 'auto' : 'none',
-                    transition: 'opacity 0.22s ease, transform 0.22s cubic-bezier(0.32, 0.72, 0, 1)',
-                  }}
-                >
-                  {label.text}
-                </span>
-              ))}
-            </button>
-          )}
+          <button
+            onClick={() => onToggleCollapse(comment.id)}
+            className="grid self-start rounded-lg text-[13px] font-medium transition-transform active:scale-95"
+            style={{ color: 'var(--accent)' }}
+          >
+            {[
+              {
+                key: 'more',
+                show: collapsed,
+                text: `Показать ${replyCount} ${pluralizeReplies(replyCount)}`,
+              },
+              { key: 'less', show: !collapsed, text: 'Свернуть' },
+            ].map((label) => (
+              <span
+                key={label.key}
+                aria-hidden={!label.show}
+                className="col-start-1 row-start-1 whitespace-nowrap text-left"
+                style={{
+                  opacity: label.show ? 1 : 0,
+                  transform: label.show ? 'none' : 'translateY(-3px)',
+                  pointerEvents: label.show ? 'auto' : 'none',
+                  transition: 'opacity 0.22s ease, transform 0.22s cubic-bezier(0.32, 0.72, 0, 1)',
+                }}
+              >
+                {label.text}
+              </span>
+            ))}
+          </button>
         </div>
       )}
     </div>

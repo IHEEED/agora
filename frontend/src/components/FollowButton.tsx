@@ -18,10 +18,13 @@ import { useT } from '@/lib/i18n';
 export function FollowButton({
   userId,
   initiallyFollowing = false,
+  withLabel = false,
   className = '',
 }: {
   userId: string;
   initiallyFollowing?: boolean;
+  /** Со словом рядом со знаком — там, где кнопка стоит одна и должна читаться. */
+  withLabel?: boolean;
   className?: string;
 }) {
   const { t } = useT();
@@ -47,11 +50,13 @@ export function FollowButton({
       onClick={toggle}
       aria-label={following ? t('suggest.unfollow') : t('suggest.follow')}
       aria-pressed={following}
-      className={`flex h-8 w-8 flex-none items-center justify-center rounded-full ${className}`}
+      className={`flex items-center justify-center rounded-full transition-transform active:scale-95 ${
+        withLabel ? 'gap-2 py-2.5 text-[14px] font-semibold' : 'h-8 w-8 flex-none'
+      } ${className}`}
       style={{
         background: following ? 'var(--surface-2)' : 'var(--accent)',
         color: following ? 'var(--text-muted)' : 'var(--accent-contrast)',
-        transition: 'background-color 0.24s ease, color 0.24s ease',
+        transition: 'background-color 0.24s ease, color 0.24s ease, transform 0.18s ease',
       }}
     >
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
@@ -70,6 +75,29 @@ export function FollowButton({
           }}
         />
       </svg>
+
+      {/* Подписи лежат в одной клетке грида и меняются затуханием: «Подписаться»
+          и «Вы подписаны» разной длины, и подмена текста дёргала бы ширину. */}
+      {withLabel && (
+        <span className="grid">
+          {[
+            { key: 'follow', show: !following, text: t('suggest.follow') },
+            { key: 'unfollow', show: following, text: t('suggest.following') },
+          ].map((label) => (
+            <span
+              key={label.key}
+              aria-hidden={!label.show}
+              className="col-start-1 row-start-1 whitespace-nowrap"
+              style={{
+                opacity: label.show ? 1 : 0,
+                transition: 'opacity 0.2s ease',
+              }}
+            >
+              {label.text}
+            </span>
+          ))}
+        </span>
+      )}
     </button>
   );
 }

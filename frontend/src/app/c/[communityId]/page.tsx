@@ -1,57 +1,39 @@
 'use client';
 
-import { useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useApiData } from '@/lib/useApiData';
 import { useSession } from '@/lib/useSession';
 import { Community, Post } from '@/lib/types';
 import { PostCard } from '@/components/PostCard';
+import { BottomSheet } from '@/components/BottomSheet';
 import { CommunityAvatar, communityPalette } from '@/components/CommunityAvatar';
 import { DefaultAvatar } from '@/components/DefaultAvatar';
 import { FollowButton } from '@/components/FollowButton';
-import { TranslationKey, useT } from '@/lib/i18n';
-
-type Tab = 'posts' | 'people' | 'about';
-
-const TABS: ReadonlyArray<readonly [Tab, TranslationKey]> = [
-  ['posts', 'community.tab.posts'],
-  ['people', 'community.tab.people'],
-  ['about', 'community.tab.about'],
-];
-
-/** Метрика в строке под аватаром — тот же вид, что в профиле человека. */
-function Stat({ value, label }: { value: number; label: string }) {
-  return (
-    <div className="flex min-w-0 flex-1 flex-col items-center gap-0.5 py-1">
-      <span className="font-num text-[19px] font-semibold leading-none text-[var(--text)]">
-        {value}
-      </span>
-      <span className="max-w-full truncate text-[11.5px] leading-tight text-[var(--text-muted)]">
-        {label}
-      </span>
-    </div>
-  );
-}
+import { useT } from '@/lib/i18n';
 
 /**
  * Страница сообщества, устроенная как профиль человека: обложка, аватар на
- * ней, строка метрик, описание и вкладки.
+ * ней, справка о сообществе и его стена.
  *
  * До этого здесь была скромная плитка с названием — сообщество выглядело
  * подписью к ленте, а не местом, куда приходят. У ВКонтакте и Reddit группа
  * подана ровно как профиль, и это правильно: снаружи она такой же субъект,
  * у неё есть лицо, описание и люди.
  *
+ * Вкладок нет: читают здесь одно — стену. Участники и справка живут в шторке,
+ * которую открывают раз, а место три таблетки занимали всегда.
+ *
  * Обложка красится в цвет сообщества, а не в общий акцент: иначе все
- * сообщества выглядят одинаково и различаются только буквой на аватаре.
+ * сообщества выглядят одинаково и различаются только названием.
  */
 export default function CommunityPage() {
   const { communityId } = useParams<{ communityId: string }>();
   const router = useRouter();
   const { session } = useSession();
   const { t } = useT();
-  const [tab, setTab] = useState<Tab>('posts');
+  const [aboutOpen, setAboutOpen] = useState(false);
 
   // Список сообществ почти всегда уже в кеше — шапка появляется мгновенно.
   const communitiesResult = useApiData<Community[]>('/communities');
@@ -93,38 +75,7 @@ export default function CommunityPage() {
 
   const influence = useMemo(() => posts.reduce((sum, post) => sum + post.score, 0), [posts]);
 
-  const counts: Record<Tab, number | null> = {
-    posts: posts.length,
-    people: people.length,
-    about: null,
-  };
-
   const [from, to] = communityPalette(community?.name ?? '?');
-
-  // Капля под активной вкладкой — как в профиле: ездит трансформацией,
-  // поэтому переезд считает видеокарта.
-  const tabsRef = useRef<HTMLDivElement>(null);
-  const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
-  const [tabBlob, setTabBlob] = useState<{ x: number; width: number; height: number } | null>(null);
-  const activeTabIndex = TABS.findIndex(([value]) => value === tab);
-
-  useLayoutEffect(() => {
-    function measure() {
-      const element = tabRefs.current[activeTabIndex];
-      if (!element) return;
-      setTabBlob({
-        x: element.offsetLeft,
-        width: element.offsetWidth,
-        height: element.offsetHeight,
-      });
-    }
-
-    measure();
-    const observer = new ResizeObserver(measure);
-    if (tabsRef.current) observer.observe(tabsRef.current);
-    return () => observer.disconnect();
-    // Подписи вкладок несут счётчики — при их смене ширина меняется.
-  }, [activeTabIndex, counts.posts, counts.people]);
 
   const created = community?.created_at
     ? new Date(community.created_at).toLocaleDateString('ru-RU', {
@@ -179,56 +130,75 @@ export default function CommunityPage() {
               )}
             </div>
 
-            {/* Метрики во всю ширину — как в профиле человека: рядом с аватаром
-                подписям не хватало места и они обрезались. */}
-            <div className="flex items-start gap-1 border-y border-[var(--border)] py-1.5">
-              <Stat value={posts.length} label={t('community.stat.posts')} />
-              <Stat value={people.length} label={t('community.stat.people')} />
-              <Stat value={influence} label={t('community.stat.influence')} />
+            {/* Участники — единственная цифра, за которой есть список; она и
+                открывает его. Остальное справкой в строку, без линий. */}
+            <div className="flex items-center gap-4">
+              <button
+                type="button"
+                onClick={() => setAboutOpen(true)}
+                className="flex items-baseline gap-1.5 rounded-xl transition-transform active:scale-95"
+              >
+                <span className="font-num text-[16px] font-semibold text-[var(--text)]">
+                  {people.length}
+                </span>
+                <span className="text-[13.5px] text-[var(--text-muted)]">
+                  {t('community.stat.people')}
+                </span>
+              </button>
             </div>
 
-            <Link
-              href="/create"
-              className="w-full rounded-full border py-2 text-center text-[14px] font-medium transition-colors"
-              style={{ borderColor: 'var(--glass-border)', color: 'var(--text)' }}
-            >
-              {t('community.write')}
-            </Link>
+            <div className="flex items-center gap-1.5 text-[13px] text-[var(--text-muted)]">
+              <span>
+                <span className="font-num text-[var(--text)]">{posts.length}</span>{' '}
+                {t('community.stat.posts')}
+              </span>
+              <span aria-hidden>·</span>
+              <span>
+                <span className="font-num text-[var(--text)]">{influence}</span>{' '}
+                {t('community.stat.influence')}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              {/* Запись сразу от имени сообщества: сообщество уже выбрано тем,
+                  что человек стоит на его странице, и спрашивать об этом на
+                  следующем экране — переспрашивать очевидное. */}
+              <Link
+                href={`/create?community=${communityId}`}
+                className="flex flex-1 items-center justify-center gap-2 rounded-full py-2.5 text-[14px] font-semibold transition-transform active:scale-[0.98]"
+                style={{ background: 'var(--accent)', color: 'var(--accent-contrast)' }}
+              >
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
+                  <path d="M12 5v14M5 12h14" />
+                </svg>
+                {t('community.publish')}
+              </Link>
+
+              {/* Справка о сообществе — маленькой кнопкой, а не вкладкой во всю
+                  ширину: её открывают один раз, а место она занимала всегда. */}
+              <button
+                type="button"
+                onClick={() => setAboutOpen(true)}
+                aria-label={t('community.tab.about')}
+                className="flex h-10 w-10 flex-none items-center justify-center rounded-full transition-transform active:scale-90"
+                style={{ background: 'var(--accent-soft)', color: 'var(--accent)' }}
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="9" />
+                  <path d="M12 11v5.5M12 7.6v.1" />
+                </svg>
+              </button>
+            </div>
           </div>
         </section>
 
+        {/* Вкладок нет: в сообществе всё, что читают, — это его стена.
+            Участники и справка ушли в шторку, и вместо трёх таблеток осталось
+            одно название раздела. */}
         <section className="glass rounded-2xl px-4 pb-2">
-          <div
-            ref={tabsRef}
-            className="relative flex items-center justify-between gap-1 border-b border-[var(--border)] px-1 py-2"
-          >
-            {tabBlob && (
-              <span
-                aria-hidden
-                className="tab-blob"
-                style={{
-                  transform: `translate(${tabBlob.x}px, -50%)`,
-                  width: tabBlob.width,
-                  height: tabBlob.height,
-                }}
-              />
-            )}
-
-            {TABS.map(([value, labelKey], index) => (
-              <button
-                key={value}
-                onClick={() => setTab(value)}
-                ref={(node) => {
-                  tabRefs.current[index] = node;
-                }}
-                className="relative z-10 flex-1 whitespace-nowrap rounded-full px-2 py-2 text-center text-[13.5px] font-medium transition-colors"
-                style={{ color: tab === value ? 'var(--accent)' : 'var(--text-muted)' }}
-              >
-                {t(labelKey)}
-                {counts[value] !== null && <span className="font-num"> {counts[value]}</span>}
-              </button>
-            ))}
-          </div>
+          <h2 className="px-1 py-3 text-[15px] font-semibold text-[var(--text)]">
+            {t('community.wall')}
+          </h2>
 
           {postsResult.loading && (
             <p className="py-6 text-[var(--text-muted)]">{t('common.loading')}</p>
@@ -239,79 +209,87 @@ export default function CommunityPage() {
             </p>
           )}
 
-          {tab === 'posts' && (
-            <div className="flex flex-col divide-y divide-[var(--border)]">
-              {posts.map((post) => (
-                <PostCard
-                  key={post.id}
-                  post={post}
-                  canFollow={post.author.id !== session?.user.id}
-                />
-              ))}
-              {!postsResult.loading && posts.length === 0 && (
-                <p className="py-12 text-center text-[var(--text-muted)]">{t('community.empty')}</p>
-              )}
-            </div>
-          )}
-
-          {tab === 'people' && (
-            <div className="flex flex-col divide-y divide-[var(--border)]">
-              {people.map((person) => (
-                <div key={person.id} className="flex items-center gap-3 py-3">
-                  <Link href={`/u/${person.id}`} className="flex min-w-0 flex-1 items-center gap-3">
-                    <DefaultAvatar name={person.username} size={44} />
-                    <div className="flex min-w-0 flex-col">
-                      <span className="truncate text-[15px] font-medium text-[var(--text)]">
-                        {person.username}
-                      </span>
-                      <span className="text-[12.5px] text-[var(--text-muted)]">
-                        <span className="font-num">{person.posts}</span> {t('community.posts')}
-                      </span>
-                    </div>
-                  </Link>
-                  {person.id !== session?.user.id && (
-                    <FollowButton userId={person.id} initiallyFollowing={person.isFollowing} />
-                  )}
-                </div>
-              ))}
-              {people.length === 0 && (
-                <p className="py-12 text-center text-[var(--text-muted)]">
-                  {t('community.emptyPeople')}
-                </p>
-              )}
-            </div>
-          )}
-
-          {tab === 'about' && (
-            <div className="flex flex-col gap-4 py-4">
-              <p className="text-[14.5px] leading-relaxed text-[var(--text)]">
-                {community?.description || t('community.noDescription')}
-              </p>
-
-              <div className="flex flex-col gap-2.5 text-[13.5px]">
-                {community?.creator && (
-                  <div className="flex items-center gap-2">
-                    <span className="text-[var(--text-muted)]">{t('community.founder')}</span>
-                    <Link
-                      href={`/u/${community.creator.id}`}
-                      className="font-medium"
-                      style={{ color: 'var(--accent)' }}
-                    >
-                      {community.creator.username}
-                    </Link>
-                  </div>
-                )}
-                {created && (
-                  <div className="flex items-center gap-2">
-                    <span className="text-[var(--text-muted)]">{t('community.since')}</span>
-                    <span className="text-[var(--text)]">{created}</span>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
+          <div className="flex flex-col">
+            {posts.map((post) => (
+              <PostCard
+                key={post.id}
+                post={post}
+                canFollow={post.author.id !== session?.user.id}
+              />
+            ))}
+            {!postsResult.loading && posts.length === 0 && (
+              <p className="py-12 text-center text-[var(--text-muted)]">{t('community.empty')}</p>
+            )}
+          </div>
         </section>
       </main>
+
+      <BottomSheet
+        open={aboutOpen}
+        onClose={() => setAboutOpen(false)}
+        title={t('community.tab.about')}
+      >
+        <div className="flex flex-col gap-5 py-2">
+          <p className="text-[14.5px] leading-relaxed text-[var(--text)]">
+            {community?.description || t('community.noDescription')}
+          </p>
+
+          <div className="flex flex-col gap-2.5 text-[13.5px]">
+            {community?.creator && (
+              <div className="flex items-center gap-2">
+                <span className="text-[var(--text-muted)]">{t('community.founder')}</span>
+                <Link
+                  href={`/u/${community.creator.id}`}
+                  onClick={() => setAboutOpen(false)}
+                  className="font-medium"
+                  style={{ color: 'var(--accent)' }}
+                >
+                  {community.creator.username}
+                </Link>
+              </div>
+            )}
+            {created && (
+              <div className="flex items-center gap-2">
+                <span className="text-[var(--text-muted)]">{t('community.since')}</span>
+                <span className="text-[var(--text)]">{created}</span>
+              </div>
+            )}
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <h3 className="text-[14px] font-semibold text-[var(--text)]">
+              {t('community.tab.people')}
+            </h3>
+            {people.map((person) => (
+              <div key={person.id} className="flex items-center gap-3 py-2.5">
+                <Link
+                  href={`/u/${person.id}`}
+                  onClick={() => setAboutOpen(false)}
+                  className="flex min-w-0 flex-1 items-center gap-3"
+                >
+                  <DefaultAvatar name={person.username} size={40} />
+                  <div className="flex min-w-0 flex-col">
+                    <span className="truncate text-[15px] font-medium text-[var(--text)]">
+                      {person.username}
+                    </span>
+                    <span className="text-[12.5px] text-[var(--text-muted)]">
+                      <span className="font-num">{person.posts}</span> {t('community.posts')}
+                    </span>
+                  </div>
+                </Link>
+                {person.id !== session?.user.id && (
+                  <FollowButton userId={person.id} initiallyFollowing={person.isFollowing} />
+                )}
+              </div>
+            ))}
+            {people.length === 0 && (
+              <p className="py-6 text-[14px] text-[var(--text-muted)]">
+                {t('community.emptyPeople')}
+              </p>
+            )}
+          </div>
+        </div>
+      </BottomSheet>
     </div>
   );
 }

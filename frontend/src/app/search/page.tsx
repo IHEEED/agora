@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useApiData } from '@/lib/useApiData';
@@ -11,6 +11,7 @@ import { DefaultAvatar } from '@/components/DefaultAvatar';
 import { FollowButton } from '@/components/FollowButton';
 import { SuggestedPeople } from '@/components/SuggestedPeople';
 import { ScreenTitle } from '@/components/ScreenTitle';
+import { useScreenExit } from '@/lib/screenExit';
 import { TranslationKey, useT } from '@/lib/i18n';
 
 type Scope = 'all' | 'people' | 'posts' | 'communities';
@@ -31,6 +32,14 @@ export default function SearchPage() {
 
   const [query, setQuery] = useState('');
   const [scope, setScope] = useState<Scope>('all');
+
+  // Экран сам гасит себя перед уходом — крестик в шапке только просит об этом.
+  const [leaving, setLeaving] = useState(false);
+  const leave = useCallback(() => {
+    setLeaving(true);
+    window.setTimeout(() => router.back(), 210);
+  }, [router]);
+  useScreenExit(leave);
 
   // История запросов живёт на устройстве: серверу она не нужна, а человеку
   // удобно вернуться к тому, что искал вчера.
@@ -119,7 +128,16 @@ export default function SearchPage() {
   const nothingFound = normalized && !showPeople && !showCommunities && !showPosts;
 
   return (
-    <div className="flex flex-1 flex-col items-center">
+    <div
+      className="flex flex-1 flex-col items-center"
+      style={{
+        // Уход экрана поиска: сначала гаснем и слегка опускаемся, потом
+        // меняется маршрут. Раньше крестик снимал разметку в тот же кадр.
+        opacity: leaving ? 0 : 1,
+        transform: leaving ? 'translateY(8px) scale(0.99)' : 'none',
+        transition: 'opacity 0.2s ease, transform 0.2s cubic-bezier(0.32, 0.72, 0, 1)',
+      }}
+    >
       <main className="below-header flex w-full max-w-2xl flex-col gap-4 px-4 pb-8">
         {/* Крупный заголовок со стрелкой назад — как в системных экранах
             поиска: понятно, куда попал и как выйти, без охоты за крестиком. */}

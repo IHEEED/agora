@@ -2,41 +2,40 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { useApiData } from '@/lib/useApiData';
 import { useSession } from '@/lib/useSession';
-import { Post, UserProfile } from '@/lib/types';
+import { CommentWithPost, Post, UserProfile } from '@/lib/types';
+import { SegmentedControl } from '@/components/SegmentedControl';
+import { formatCompactAge } from '@/lib/formatDate';
+import { VoteBlock } from '@/components/VoteBlock';
 import { PostCard } from '@/components/PostCard';
 import { ProfileAvatar } from '@/components/ProfileAvatar';
 import { FollowButton } from '@/components/FollowButton';
 import { PeopleSheet } from '@/components/PeopleSheet';
 import { useT } from '@/lib/i18n';
 
-/** Одна метрика в строке под аватаром. Тот же вид, что и в своём профиле. */
-function Stat({ value, label, onClick }: { value: number; label: string; onClick?: () => void }) {
-  const body = (
-    <>
-      <span className="font-num text-[19px] font-semibold leading-none text-[var(--text)]">
-        {value}
-      </span>
-      <span className="max-w-full truncate text-[11.5px] leading-tight text-[var(--text-muted)]">
-        {label}
-      </span>
-    </>
-  );
+type Tab = 'posts' | 'comments' | 'reposts';
 
-  const shape = 'flex min-w-0 flex-1 flex-col items-center gap-0.5';
-
-  return onClick ? (
+/** Счётчик людей — строкой. Тот же вид, что и в своём профиле. */
+function PeopleStat({
+  value,
+  label,
+  onClick,
+}: {
+  value: number;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
     <button
       type="button"
       onClick={onClick}
-      className={`${shape} rounded-xl py-1 transition-transform active:scale-95`}
+      className="flex items-baseline gap-1.5 rounded-xl transition-transform active:scale-95"
     >
-      {body}
+      <span className="font-num text-[16px] font-semibold text-[var(--text)]">{value}</span>
+      <span className="text-[13.5px] text-[var(--text-muted)]">{label}</span>
     </button>
-  ) : (
-    <div className={`${shape} py-1`}>{body}</div>
   );
 }
 
@@ -47,17 +46,28 @@ function Stat({ value, label, onClick }: { value: number; label: string; onClick
  */
 export default function UserProfilePage() {
   const { userId } = useParams<{ userId: string }>();
+  const router = useRouter();
   const { session } = useSession();
   const { t } = useT();
 
   const [peopleTab, setPeopleTab] = useState<'followers' | 'following' | null>(null);
+  const [tab, setTab] = useState<Tab>('posts');
 
   const postsResult = useApiData<Post[]>(`/posts/user/${userId}?sort=new`);
+  // Комментарии и репосты подтягиваем только когда на них перешли: в чужой
+  // профиль чаще заходят посмотреть записи, и тянуть остальное наперёд —
+  // два лишних запроса на каждое открытие.
+  const commentsResult = useApiData<CommentWithPost[]>(
+    tab === 'comments' ? `/comments/user/${userId}` : null
+  );
+  const repostsResult = useApiData<Post[]>(tab === 'reposts' ? `/posts/reposts/${userId}` : null);
   // Раньше профиль искали в общем списке людей: тот отдаёт всего 30 человек по
   // карме, и у кого угодно за его пределами шапка оставалась пустой.
   const person = useApiData<UserProfile>(`/users/${userId}`).data;
 
   const posts = useMemo(() => postsResult.data ?? [], [postsResult.data]);
+  const comments = useMemo(() => commentsResult.data ?? [], [commentsResult.data]);
+  const reposts = useMemo(() => repostsResult.data ?? [], [repostsResult.data]);
 
   // Имя есть и в постах — берём оттуда, если список людей ещё не пришёл.
   const username = person?.username ?? posts[0]?.author.username ?? '';
@@ -67,6 +77,18 @@ export default function UserProfilePage() {
   return (
     <div className="flex flex-1 flex-col items-center">
       <main className="below-header flex w-full max-w-2xl flex-col gap-2.5 px-2.5 pb-10">
+        {/* Выход из чужого профиля. Крестика в шапке здесь нет — она показывает
+            лупу, — и вернуться было нечем, кроме системного жеста. */}
+        <button
+          onClick={() => router.back()}
+          className="-ml-1 flex w-fit items-center gap-1.5 rounded-full py-2 pl-2 pr-3.5 text-[16px] font-medium text-[var(--text)] transition-transform active:scale-95"
+        >
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M15 5l-7 7 7 7" />
+          </svg>
+          {t('common.back')}
+        </button>
+
         {/* Та же карточка, что и в своём профиле: обложка, растворяющаяся в
             стекло, аватар на ней и строка метрик. Отличие одно — вместо
             «Редактировать» здесь кнопка подписки. */}
@@ -92,55 +114,140 @@ export default function UserProfilePage() {
               </span>
             </div>
 
-            {/* Метрики отдельной строкой во всю ширину — как в своём профиле. */}
-            <div className="flex items-start gap-1 border-y border-[var(--border)] py-1.5">
-              <Stat value={posts.length} label={t('profile.stat.posts')} />
-              <Stat
+            {/* Люди отдельно, цифры про профиль — отдельно, как в своём. */}
+            <div className="flex items-center gap-4">
+              <PeopleStat
                 value={person?.followers ?? 0}
                 label={t('profile.stat.followers')}
                 onClick={() => setPeopleTab('followers')}
               />
-              <Stat
+              <PeopleStat
                 value={person?.following ?? 0}
                 label={t('profile.stat.following')}
                 onClick={() => setPeopleTab('following')}
               />
-              <Stat value={person?.karma ?? influence} label={t('profile.stat.influence')} />
+            </div>
+
+            <div className="flex items-center gap-1.5 text-[13px] text-[var(--text-muted)]">
+              <span>
+                <span className="font-num text-[var(--text)]">{posts.length}</span>{' '}
+                {t('profile.stat.posts')}
+              </span>
+              <span aria-hidden>·</span>
+              <span>
+                <span className="font-num text-[var(--text)]">{person?.karma ?? influence}</span>{' '}
+                {t('profile.stat.influence')}
+              </span>
             </div>
 
             {!isMe && (
               <div className="flex items-center gap-2">
+                {/* Знак и подпись: одни знаки читались загадкой — «конверт» и
+                    «плюс» без слов приходится разгадывать. */}
                 <Link
                   href={`/messages/${userId}`}
-                  className="flex-1 rounded-full border py-2 text-center text-[14px] font-medium transition-colors"
-                  style={{ borderColor: 'var(--glass-border)', color: 'var(--text)' }}
+                  className="flex flex-1 items-center justify-center gap-2 rounded-full py-2.5 text-[14px] font-semibold transition-transform active:scale-[0.98]"
+                  style={{ background: 'var(--accent-soft)', color: 'var(--accent)' }}
                 >
-                  Написать
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M14 9a2 2 0 0 1-2 2H6l-4 3.5V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2Z" />
+                    <path d="M18 9h2a2 2 0 0 1 2 2v10.5L18 18h-6a2 2 0 0 1-2-2v-1" />
+                  </svg>
+                  {t('profile.write')}
                 </Link>
                 <FollowButton
                   userId={userId}
                   initiallyFollowing={person?.isFollowing}
-                  className="h-9 w-9"
+                  withLabel
+                  className="flex-1"
                 />
               </div>
             )}
           </div>
         </section>
 
-        {postsResult.loading && (
-          <p className="px-2 text-[var(--text-muted)]">{t('common.loading')}</p>
-        )}
+        <section className="glass rounded-2xl px-4 pb-2">
+          <div className="py-3">
+            <SegmentedControl
+              value={tab}
+              onChange={setTab}
+              options={[
+                ['posts', `${t('profile.posts')} ${posts.length}`],
+                ['comments', t('profile.comments')],
+                ['reposts', t('profile.reposts')],
+              ]}
+            />
+          </div>
 
-        <div className="glass flex flex-col divide-y divide-[var(--border)] rounded-2xl px-4">
-          {posts.map((post) => (
-            <PostCard key={post.id} post={post} />
-          ))}
-          {!postsResult.loading && posts.length === 0 && (
-            <p className="py-12 text-center text-[var(--text-muted)]">
-              {t('profile.emptyPosts')}
-            </p>
+          {/* Без разделителей: в профиле все записи одного автора, и черта между
+              ними ничего не разделяла — только дробила карточку на полоски. */}
+          {tab === 'posts' && (
+            <div className="flex flex-col">
+              {posts.map((post) => (
+                <PostCard key={post.id} post={post} />
+              ))}
+              {!postsResult.loading && posts.length === 0 && (
+                <p className="py-12 text-center text-[var(--text-muted)]">
+                  {t('profile.emptyPostsOther')}
+                </p>
+              )}
+            </div>
           )}
-        </div>
+
+          {tab === 'comments' && (
+            <div className="flex flex-col">
+              {comments.map((comment) => (
+                <article key={comment.id} className="flex flex-col gap-2 py-4">
+                  {comment.post && (
+                    <Link
+                      href={`/posts/${comment.post.id}#comment-${comment.id}`}
+                      className="flex items-center gap-2 rounded-xl px-3 py-2 text-left transition-transform active:scale-[0.99]"
+                      style={{ background: 'var(--surface-2)' }}
+                    >
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" className="flex-none">
+                        <path d="M20 11.5a7.5 7.5 0 0 1-7.5 7.5c-1 0-2-.2-2.9-.6L4.5 20l1.2-4.4A7.5 7.5 0 1 1 20 11.5Z" />
+                      </svg>
+                      <span className="min-w-0 flex-1 truncate text-[13px] text-[var(--text-muted)]">
+                        {comment.post.title}
+                      </span>
+                    </Link>
+                  )}
+                  <p className="text-[14.5px] leading-relaxed text-[var(--text)]">{comment.body}</p>
+                  <div className="flex items-center gap-2">
+                    <VoteBlock
+                      id={comment.id}
+                      score={comment.score}
+                      myVote={comment.myVote}
+                      kind="comment"
+                      compact
+                    />
+                    <span className="text-[12.5px] text-[var(--text-muted)]">
+                      {formatCompactAge(comment.created_at)}
+                    </span>
+                  </div>
+                </article>
+              ))}
+              {!commentsResult.loading && comments.length === 0 && (
+                <p className="py-12 text-center text-[var(--text-muted)]">
+                  {t('profile.emptyCommentsOther')}
+                </p>
+              )}
+            </div>
+          )}
+
+          {tab === 'reposts' && (
+            <div className="flex flex-col">
+              {reposts.map((post) => (
+                <PostCard key={post.id} post={post} />
+              ))}
+              {!repostsResult.loading && reposts.length === 0 && (
+                <p className="py-12 text-center text-[var(--text-muted)]">
+                  {t('profile.emptyReposts')}
+                </p>
+              )}
+            </div>
+          )}
+        </section>
       </main>
 
       <PeopleSheet

@@ -213,7 +213,12 @@
   --color-accent-contrast: var(--accent-contrast);
   --color-up: var(--up);
   --color-down: var(--down);
-  --font-sans: var(--font-body);
+  /* Эмодзи-шрифты в общей стопке, первым — Apple: на Windows иначе рисуется
+     плоский Segoe UI Emoji, а нужны объёмные, как на телефоне. Раньше это
+     работало только там, где вручную ставили класс .emoji, — то есть в трёх
+     местах из тридцати. */
+  --font-sans: var(--font-body), 'Apple Color Emoji', 'Noto Color Emoji',
+    'Segoe UI Emoji';
   --font-pixel: var(--font-pixel);
 }
 
@@ -260,6 +265,7 @@ button,
 a,
 input,
 textarea,
+label,
 .control-pill,
 .tab-blob,
 .nav-blob {
@@ -267,7 +273,22 @@ textarea,
     background-color 0.2s ease,
     border-color 0.2s ease,
     color 0.2s ease,
-    opacity 0.2s ease;
+    opacity 0.2s ease,
+    transform 0.18s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+/* Отклик на нажатие — везде, где нажимают. Через :where(), поэтому
+   специфичность нулевая: любой элемент со своим масштабом (кнопки бара,
+   пузыри переписки) перебивает это правило, а всё остальное получает отклик
+   даром — раньше половина кнопок нажималась «в пустоту». */
+:where(button, a[href], label[for], [role='button']):active {
+  transform: scale(0.97);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :where(button, a[href], label[for], [role='button']):active {
+    transform: none;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -645,11 +666,16 @@ textarea,
    Маска не рисует ничего, она убирает пиксели самого текста — краю взяться
    неоткуда, и переход выходит по-настоящему плавным. */
 .sheet-scroll {
+  /* Полям равна длина растворения: без них верхняя и нижняя строки стояли прямо
+     в зоне маски и выглядели притушёнными — будто панель эмодзи и заголовок
+     наползают на текст. Теперь под маской остаётся пустое поле, а гасить она
+     начинает только то, что реально уезжает за кромку при прокрутке. */
+  padding-block: 16px;
   mask-image: linear-gradient(
     to bottom,
     transparent 0,
-    #000 24px,
-    #000 calc(100% - 24px),
+    #000 16px,
+    #000 calc(100% - 16px),
     transparent 100%
   );
 }
@@ -709,6 +735,54 @@ textarea,
    clip, а не hidden: hidden сделал бы список полем прокрутки. */
 .comment-list {
   overflow-x: clip;
+}
+
+/* Пузырь переписки. Появляется коротким подъёмом с лёгким увеличением —
+   отправленное сообщение «прилетает», а не возникает готовым. Нажатие
+   отзывается уменьшением: пузырь и есть кнопка, открывающая меню. */
+@keyframes chat-bubble-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.chat-bubble {
+  border-radius: 18px;
+  animation: chat-bubble-in 0.24s cubic-bezier(0.32, 0.72, 0, 1);
+  transition: transform 0.16s ease;
+}
+
+.chat-bubble:active {
+  transform: scale(0.97);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-bubble {
+    animation: none;
+  }
+}
+
+/* Разделитель строк в списке переписок. Начинается за аватаром, как принято в
+   мессенджерах: черта во всю ширину рубила бы список на равные полосы и
+   мешала бы читать его сверху вниз одним движением. */
+.message-list > * + * {
+  position: relative;
+}
+
+.message-list > * + *::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 64px;
+  right: 8px;
+  height: 1px;
+  background: color-mix(in srgb, var(--border) 55%, transparent);
+  pointer-events: none;
 }
 
 /* Разделитель постов в ленте. Рисуем подложкой, а не рамкой: рамка обрывается
@@ -1031,11 +1105,11 @@ textarea,
   line-height: 0;
 }
 
-/* Подсказка про influence-очки: плавно раскрывается, ширина ограничена
-   шириной карточки, чтобы не вылезать за её правый край на узких экранах. */
+/* Подсказка про influence-очки. Ширину и края задаёт разметка: подсказка
+   висит на месте относительно экрана, а не знака, поэтому за кромку уехать
+   не может — на это она уже дважды попадалась. */
 .influence-tip {
-  width: min(224px, calc(100vw - 48px));
-  transform-origin: top right;
+  transform-origin: top center;
   transition:
     opacity 0.18s ease,
     transform 0.18s cubic-bezier(0.22, 0.61, 0.36, 1),

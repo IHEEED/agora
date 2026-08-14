@@ -52,12 +52,16 @@ export default function MessagesPage() {
           </p>
         )}
 
-        <section className="glass flex flex-col divide-y divide-[var(--border)] rounded-2xl px-4">
+        {/* Строки, а не карточки: список переписок читают сверху вниз одним
+            движением глаз, и обойма вокруг каждой строки только сбивает ритм.
+            Разделяет их волосяная черта под текстом, начинающаяся за аватаром —
+            так же, как в любом мессенджере. */}
+        <section className="message-list flex flex-col">
           {threads.map((thread) => (
             <Link
               key={thread.user.id}
               href={`/messages/${thread.user.id}`}
-              className="flex items-center gap-3 py-3.5"
+              className="flex items-center gap-3 px-2 py-3 transition-colors active:bg-[var(--surface-2)]"
             >
               <DefaultAvatar name={thread.user.username} size={48} />
               <div className="flex min-w-0 flex-1 flex-col gap-0.5">

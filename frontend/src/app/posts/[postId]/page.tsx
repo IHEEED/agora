@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { apiFetch } from '@/lib/api';
 import { useT } from '@/lib/i18n';
 import { useSession } from '@/lib/useSession';
-import { useExpandedComments } from '@/lib/useExpandedComments';
+import { useCollapsedComments } from '@/lib/useCollapsedComments';
 import { markPostViewed } from '@/lib/viewedPosts';
 import { Post, Comment, CommentSort } from '@/lib/types';
 import { PostCard } from '@/components/PostCard';
@@ -24,7 +24,7 @@ export default function PostPage() {
   const { t } = useT();
   const { session } = useSession();
   const { requestVerification } = usePhoneGate();
-  const { isExpanded, toggle } = useExpandedComments(postId);
+  const { isCollapsed, toggle } = useCollapsedComments(postId);
 
   const [post, setPost] = useState<Post | null>(null);
   const [comments, setComments] = useState<Comment[]>([]);
@@ -184,8 +184,8 @@ export default function PostPage() {
                 comment={comment}
                 postId={postId}
                 onAdded={loadComments}
-                isExpanded={isExpanded}
-                onToggleExpand={toggle}
+                isCollapsed={isCollapsed}
+                onToggleCollapse={toggle}
                 highlightId={highlightId}
               />
             ))}

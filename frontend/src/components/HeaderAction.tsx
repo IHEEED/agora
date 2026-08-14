@@ -1,6 +1,7 @@
 'use client';
 
 import { usePathname, useRouter } from 'next/navigation';
+import { requestScreenExit } from '@/lib/screenExit';
 
 /**
  * Правая часть шапки, зависит от экрана:
@@ -70,7 +71,9 @@ export function HeaderAction() {
   const glyph: Glyph = closes ? 'cross' : pathname === '/profile' ? 'gear' : 'search';
 
   function handleClick() {
-    if (closes) return router.back();
+    // Экран может захотеть закрыться сам — погаснуть, уехать вниз — и только
+    // потом отдать навигацию. Если такого желания нет, уходим назад сразу.
+    if (closes) return requestScreenExit(() => router.back());
     router.push(glyph === 'gear' ? '/settings' : '/search');
   }
 

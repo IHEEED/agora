@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { apiFetch } from '@/lib/api';
 import { Comment } from '@/lib/types';
-import { useExpandedComments } from '@/lib/useExpandedComments';
+import { useCollapsedComments } from '@/lib/useCollapsedComments';
 import { isPhoneNotVerifiedError, usePhoneGate } from '@/components/PhoneGateContext';
 import { BottomSheet } from '@/components/BottomSheet';
 import { CommentThread } from '@/components/CommentThread';
@@ -34,7 +34,7 @@ export function CommentSheet({
   // Кому отвечаем. Бэкенд принимает parent_comment_id — дерево он уже умеет,
   // а вот собрать ответ было неоткуда.
   const [replyTo, setReplyTo] = useState<Comment | null>(null);
-  const { isExpanded, toggle } = useExpandedComments(postId);
+  const { isCollapsed, toggle } = useCollapsedComments(postId);
   // Счётчик перезагрузок: отправленный ответ должен попасть в дерево, а собрать
   // его на клиенте сложнее, чем перечитать — комментариев на пост немного.
   const [reloads, setReloads] = useState(0);
@@ -199,8 +199,8 @@ export function CommentSheet({
             comment={comment}
             postId={postId}
             onAdded={reload}
-            isExpanded={isExpanded}
-            onToggleExpand={toggle}
+            isCollapsed={isCollapsed}
+            onToggleCollapse={toggle}
             highlightId={highlightId}
           />
         ))}

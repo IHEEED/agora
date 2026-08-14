@@ -38,6 +38,9 @@ export interface Message {
   body: string;
   created_at: string;
   read_at: string | null;
+  /** Когда сообщение поправили. null — не правили. */
+  edited_at?: string | null;
+  reactions?: { emoji: string; userId: string }[];
 }
 
 /** Строка в списке переписок: собеседник и последнее письмо. */

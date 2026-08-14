@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState, SubmitEvent } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState, SubmitEvent } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { apiFetch } from '@/lib/api';
 import { invalidate, useApiData } from '@/lib/useApiData';
 import { BottomSheet } from '@/components/BottomSheet';
+import { useScreenExit } from '@/lib/screenExit';
 import { supabase } from '@/lib/supabase';
 import { useSession } from '@/lib/useSession';
 import { Community, Post } from '@/lib/types';
@@ -39,7 +40,19 @@ function describeUploadError(message: string): string {
   return message;
 }
 
+/**
+ * Suspense обязателен: useSearchParams читает адрес во время отрисовки, и без
+ * границы ожидания Next не может отдать страницу заранее.
+ */
 export default function CreatePostPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen" />}>
+      <CreatePost />
+    </Suspense>
+  );
+}
+
+function CreatePost() {
   const router = useRouter();
   const { session } = useSession();
   const { requestVerification } = usePhoneGate();
@@ -47,10 +60,17 @@ export default function CreatePostPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
 
+  // Пришли со страницы сообщества — оно уже выбрано, и спрашивать «куда
+  // опубликовать» значит переспрашивать очевидное: человек стоял на его
+  // странице и нажал «Опубликовать пост» именно там.
+  const presetCommunity = useSearchParams().get('community');
+
   // Два шага: сначала выбор сообщества, потом сам текст.
-  const [step, setStep] = useState<'community' | 'compose'>('community');
+  const [step, setStep] = useState<'community' | 'compose'>(
+    presetCommunity ? 'compose' : 'community'
+  );
   const [communityQuery, setCommunityQuery] = useState('');
-  const [asCommunity, setAsCommunity] = useState(false);
+  const [asCommunity, setAsCommunity] = useState(Boolean(presetCommunity));
 
   // Открываем шторку через кадр после монтирования: если выставить open сразу,
   // разметка приедет на место в том же кадре и анимации нечего проигрывать.
@@ -59,6 +79,17 @@ export default function CreatePostPage() {
     const frame = requestAnimationFrame(() => setSheetOpen(true));
     return () => cancelAnimationFrame(frame);
   }, []);
+
+  // Закрытие: сначала шторка уезжает вниз, и только потом меняется маршрут.
+  // Уход по router.back() снимал разметку в тот же кадр — экран исчезал рывком,
+  // хотя приезжал плавно.
+  const closeSheet = useCallback(() => {
+    setSheetOpen(false);
+    window.setTimeout(() => router.back(), 300);
+  }, [router]);
+
+  // Крестик в шапке закрывает этот экран его же способом, а не своим.
+  useScreenExit(closeSheet);
   // id выбранной карточки на время ухода экрана — она подсвечивается,
   // пока остальные гаснут, поэтому нажатие не выглядит проглоченным.
   const [leavingTo, setLeavingTo] = useState<string | null>(null);
@@ -86,7 +117,19 @@ export default function CreatePostPage() {
       setLeavingTo(null);
     }, 190);
   }
-  const [communityId, setCommunityId] = useState('');
+
+  /** Назад к выбору — с той же паузой на затухание, что и вперёд. */
+  function backToPicker() {
+    if (composeLeaving) return;
+    setComposeLeaving(true);
+    stepTimeout.current = setTimeout(() => {
+      setStep('community');
+      setComposeLeaving(false);
+    }, 190);
+  }
+
+  const [composeLeaving, setComposeLeaving] = useState(false);
+  const [communityId, setCommunityId] = useState(presetCommunity ?? '');
   const [title, setTitle] = useState('');
 
   const [imageUrl, setImageUrl] = useState<string | null>(null);
@@ -257,7 +300,7 @@ export default function CreatePostPage() {
   const sheet = (title: string, children: React.ReactNode, footer?: React.ReactNode) => (
     <BottomSheet
       open={sheetOpen}
-      onClose={() => router.back()}
+      onClose={closeSheet}
       title={title}
       height="90vh"
       footer={footer}
@@ -412,10 +455,17 @@ export default function CreatePostPage() {
       id="create-post"
       onSubmit={handleSubmit}
       className="step-enter flex flex-col gap-4 py-3"
+      style={{
+        opacity: composeLeaving ? 0 : 1,
+        transform: composeLeaving ? 'translateY(10px) scale(0.985)' : 'none',
+        transition: 'opacity 0.19s ease, transform 0.19s cubic-bezier(0.32, 0.72, 0, 1)',
+      }}
     >
+        {/* Возврат к выбору тоже с паузой: экран написания успевает погаснуть,
+            и шаги не меняются встык, одним кадром. */}
         <button
           type="button"
-          onClick={() => setStep('community')}
+          onClick={backToPicker}
           className="flex w-fit items-center gap-2 rounded-full px-2 py-1.5 text-[15px] text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-2)]"
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -449,12 +499,81 @@ export default function CreatePostPage() {
         <textarea
           autoFocus
           required
-          rows={10}
+          rows={5}
           placeholder={t('create.placeholder')}
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           className="resize-none border-none bg-transparent px-1 text-[16px] leading-relaxed text-[var(--text)] outline-none"
         />
+
+        {/* Панель вложений сразу под строкой, а не у нижней кромки шторки:
+            внизу она стояла в обнимку с кнопкой «Опубликовать», и до неё
+            приходилось тянуться через полэкрана пустоты. Только знаки —
+            подписи к ним и так узнаваемы. */}
+        <div className="flex items-center gap-3 px-1">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleFile}
+            className="hidden"
+            id="post-media"
+          />
+          <label
+            htmlFor="post-media"
+            aria-label={t('create.image')}
+            title="Изображение"
+            className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-full border border-[var(--border)] text-[var(--text)] transition-colors hover:bg-[var(--surface-2)]"
+          >
+            <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="4.5" width="18" height="15" rx="3" />
+              <circle cx="8.5" cy="10" r="1.6" />
+              <path d="m4 17 5-4.5 4.5 4 3-2.5L20 18" />
+            </svg>
+          </label>
+
+          {/* capture просит систему открыть камеру, а не галерею. */}
+          <input
+            ref={cameraInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            onChange={handleFile}
+            className="hidden"
+            id="post-camera"
+          />
+          <label
+            htmlFor="post-camera"
+            aria-label={t('create.camera')}
+            title="Камера"
+            className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-full border border-[var(--border)] text-[var(--text)] transition-colors hover:bg-[var(--surface-2)]"
+          >
+            <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 8.5a2 2 0 0 1 2-2h2l1.4-2h7.2L17 6.5h2a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" />
+              <circle cx="12" cy="12.5" r="3.4" />
+            </svg>
+          </label>
+
+          <button
+            type="button"
+            onClick={togglePoll}
+            aria-label={t('create.poll')}
+            aria-pressed={pollShown}
+            title="Опрос"
+            className="flex h-11 w-11 items-center justify-center rounded-full border transition-colors"
+            style={{
+              borderColor: pollShown ? 'var(--accent)' : 'var(--border)',
+              color: pollShown ? 'var(--accent)' : 'var(--text)',
+              background: pollShown ? 'var(--accent-soft)' : 'transparent',
+            }}
+          >
+            <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="5" width="18" height="4" rx="2" />
+              <rect x="3" y="12" width="12" height="4" rx="2" />
+              <rect x="3" y="19" width="7" height="1.2" rx="0.6" />
+            </svg>
+          </button>
+        </div>
 
         {(preview || imageUrl) && (
           <div className="relative overflow-hidden rounded-2xl border border-[var(--border)]">
@@ -569,72 +688,6 @@ export default function CreatePostPage() {
           </div>
         )}
           </div>
-        </div>
-
-        {/* Панель вложений: только иконки, подписи убраны — они и так узнаваемы. */}
-        <div className="flex items-center gap-3">
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            onChange={handleFile}
-            className="hidden"
-            id="post-media"
-          />
-          <label
-            htmlFor="post-media"
-            aria-label={t('create.image')}
-            title="Изображение"
-            className="flex h-12 w-12 cursor-pointer items-center justify-center rounded-full border border-[var(--border)] text-[var(--text)] transition-colors hover:bg-[var(--surface-2)]"
-          >
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="3" y="4.5" width="18" height="15" rx="3" />
-              <circle cx="8.5" cy="10" r="1.6" />
-              <path d="m4 17 5-4.5 4.5 4 3-2.5L20 18" />
-            </svg>
-          </label>
-
-          {/* capture просит систему открыть камеру, а не галерею. */}
-          <input
-            ref={cameraInputRef}
-            type="file"
-            accept="image/*"
-            capture="environment"
-            onChange={handleFile}
-            className="hidden"
-            id="post-camera"
-          />
-          <label
-            htmlFor="post-camera"
-            aria-label={t('create.camera')}
-            title="Камера"
-            className="flex h-12 w-12 cursor-pointer items-center justify-center rounded-full border border-[var(--border)] text-[var(--text)] transition-colors hover:bg-[var(--surface-2)]"
-          >
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M3 8.5a2 2 0 0 1 2-2h2l1.4-2h7.2L17 6.5h2a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" />
-              <circle cx="12" cy="12.5" r="3.4" />
-            </svg>
-          </label>
-
-          <button
-            type="button"
-            onClick={togglePoll}
-            aria-label={t('create.poll')}
-            aria-pressed={pollShown}
-            title="Опрос"
-            className="flex h-12 w-12 items-center justify-center rounded-full border transition-colors"
-            style={{
-              borderColor: pollShown ? 'var(--accent)' : 'var(--border)',
-              color: pollShown ? 'var(--accent)' : 'var(--text)',
-              background: pollShown ? 'var(--accent-soft)' : 'transparent',
-            }}
-          >
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="3" y="5" width="18" height="4" rx="2" />
-              <rect x="3" y="12" width="12" height="4" rx="2" />
-              <rect x="3" y="19" width="7" height="1.2" rx="0.6" />
-            </svg>
-          </button>
         </div>
 
         {error && <p className="text-[14px]" style={{ color: 'var(--down)' }}>{error}</p>}
