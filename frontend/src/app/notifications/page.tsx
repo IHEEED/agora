@@ -47,11 +47,10 @@ export default function NotificationsPage() {
 
         {/* Список людей, а не карточек постов: лента постов здесь дублировала
             бы главный экран, а знакомства — то, чего на нём нет. */}
-        <SuggestedPeople
-          storageKey="parafraz-suggest-notifications"
-          layout="list"
-          dismissible={false}
-        />
+        {/* Лентой вбок, а не столбцом: список во всю высоту отжимал сообщества
+            за нижнюю кромку, и вкладка снова выглядела состоящей из одного
+            блока. */}
+        <SuggestedPeople storageKey="parafraz-suggest-notifications" />
 
         {communities.length > 0 && (
           <section>

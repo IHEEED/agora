@@ -22,7 +22,7 @@ import { useT } from '@/lib/i18n';
 export function BottomNav() {
   const pathname = usePathname();
   const { t } = useT();
-  const [hiddenByPage, setHiddenByPage] = useNavHiddenRequest();
+  const hiddenByPage = useNavHiddenRequest();
   const [hiddenByScroll, setHiddenByScroll] = useState(false);
 
   // Капля повторяет геометрию активного слота, поэтому её приходится измерять:
@@ -57,10 +57,12 @@ export function BottomNav() {
   // Уход на другой экран снимает обе причины прятать бар. Правку делаем прямо
   // в рендере — это тот случай «состояние зависит от пропса», для которого
   // React рекомендует такой приём: лишнего кадра со старым значением не будет.
+  // Просьбу спрятать бар снимает сам экран, когда уходит: она живёт в общем
+  // хранилище, и сбрасывать её отсюда значило бы менять чужое состояние прямо
+  // во время отрисовки. Здесь остаётся только своё — скрытие при листании.
   const [renderedPath, setRenderedPath] = useState(pathname);
   if (renderedPath !== pathname) {
     setRenderedPath(pathname);
-    setHiddenByPage(false);
     setHiddenByScroll(false);
   }
 

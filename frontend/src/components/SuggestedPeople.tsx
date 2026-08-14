@@ -23,18 +23,11 @@ export function SuggestedPeople({
   title,
   className,
   layout = 'row',
-  dismissible = true,
 }: {
   storageKey: string;
   title?: string;
   className?: string;
   layout?: 'row' | 'list';
-  /**
-   * Можно ли закрыть блок крестиком. На экране уведомлений — нельзя: закрытые
-   * однажды рекомендации оставляли вкладку пустой навсегда, и она выглядела
-   * сломанной, хотя всё работало.
-   */
-  dismissible?: boolean;
 }) {
   const { t } = useT();
   const [people, setPeople] = useState<UserSummary[]>([]);
@@ -43,6 +36,8 @@ export function SuggestedPeople({
   // из разметки. Одним setState это не сделать — узел пропал бы мгновенно.
   const [collapsing, setCollapsing] = useState(false);
   const [gone, setGone] = useState(false);
+  // Кого сейчас убирают: карточка ещё в разметке, но уже схлопывается.
+  const [hiding, setHiding] = useState<string[]>([]);
   const collapseTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Читаем localStorage через снимок, а не через setState в эффекте: у сервера
@@ -52,7 +47,7 @@ export function SuggestedPeople({
     () => window.localStorage.getItem(storageKey) === '1',
     () => true
   );
-  const storedDismissed = dismissible && stored;
+  const storedDismissed = stored;
 
   useEffect(() => {
     return () => {
@@ -83,6 +78,19 @@ export function SuggestedPeople({
     collapseTimeout.current = setTimeout(() => setGone(true), COLLAPSE_MS);
   }
 
+  /**
+   * Убрать одного человека из подсказок. Сначала карточка схлопывается по
+   * ширине, и только потом уходит из списка — иначе соседи прыгают на её место
+   * в тот же кадр.
+   */
+  function dismissPerson(id: string) {
+    setHiding((prev) => [...prev, id]);
+    window.setTimeout(() => {
+      setPeople((prev) => prev.filter((person) => person.id !== id));
+      setHiding((prev) => prev.filter((hidden) => hidden !== id));
+    }, 260);
+  }
+
   if (storedDismissed || gone || people.length === 0) return null;
 
   // Общая кнопка вместо своей копии: она умеет и подписку, и отписку.
@@ -99,32 +107,31 @@ export function SuggestedPeople({
   }
 
   return (
+    // Схлопывание через grid-rows, а не max-height. С max-height приходится
+    // называть высоту наперёд, и заявленные 520px против настоящих двухсот
+    // означали, что первые две трети анимации ничего не происходит, а потом
+    // блок исчезает рывком. 1fr → 0fr едет ровно по фактической высоте.
     <section
-      className={className}
+      className={`grid ${className ?? ''}`}
       style={{
-        // Схлопываем по высоте и прозрачности разом — блок «уезжает», а не
-        // выдёргивается, и соседний контент подтягивается плавно.
-        maxHeight: collapsing ? 0 : 520,
+        gridTemplateRows: collapsing ? '0fr' : '1fr',
         opacity: collapsing ? 0 : 1,
-        overflow: 'hidden',
-        transition: `max-height ${COLLAPSE_MS}ms cubic-bezier(0.32, 0.72, 0, 1), opacity ${COLLAPSE_MS - 120}ms ease`,
+        transition: `grid-template-rows ${COLLAPSE_MS}ms cubic-bezier(0.32, 0.72, 0, 1), opacity ${COLLAPSE_MS - 120}ms ease`,
       }}
     >
+      <div className="overflow-hidden">
       <div className="mb-2 flex items-center justify-between gap-3 px-0.5">
         <h2 className="text-[14px] font-semibold text-[var(--text)]">
           {title ?? t('suggest.title')}
         </h2>
-        {dismissible && (
-          <button
-            onClick={close}
-            aria-label={t('suggest.hide')}
-            className="flex h-7 w-7 items-center justify-center rounded-full text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-2)]"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-              <path d="M6 6l12 12M18 6 6 18" />
-            </svg>
-          </button>
-        )}
+        {/* Словом, а не крестиком: крестик рядом с такими же крестиками у
+            карточек читался как «убрать ещё одного», а не «убрать блок». */}
+        <button
+          onClick={close}
+          className="rounded-full px-2 py-1 text-[13px] font-medium text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-2)]"
+        >
+          {t('suggest.hide')}
+        </button>
       </div>
 
       {layout === 'row' ? (
@@ -134,16 +141,37 @@ export function SuggestedPeople({
           {people.map((person) => (
             <div
               key={person.id}
-              className="glass flex w-[148px] flex-none flex-col items-center gap-2 rounded-2xl p-3 text-center"
+              className="flex-none overflow-hidden"
+              style={{
+                // Схлопываем по ширине: карточка уходит вбок, а соседи
+                // подтягиваются на её место, а не прыгают туда одним кадром.
+                width: hiding.includes(person.id) ? 0 : 148,
+                opacity: hiding.includes(person.id) ? 0 : 1,
+                transition:
+                  'width 0.26s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.2s ease',
+              }}
             >
-              <DefaultAvatar name={person.username} size={56} />
-              <span className="w-full truncate text-[13.5px] font-medium text-[var(--text)]">
-                {person.username}
-              </span>
-              <span className="text-[11.5px] text-[var(--text-muted)]">
-                <span className="font-num">{person.karma}</span> influence
-              </span>
-              {followButton(person, true)}
+              <div className="glass relative flex w-[148px] flex-col items-center gap-2 rounded-2xl p-3 text-center">
+                <button
+                  type="button"
+                  onClick={() => dismissPerson(person.id)}
+                  aria-label={`Убрать ${person.username}`}
+                  className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full text-[var(--text-muted)] transition-transform active:scale-90"
+                >
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+                    <path d="M6 6l12 12M18 6 6 18" />
+                  </svg>
+                </button>
+
+                <DefaultAvatar name={person.username} size={56} />
+                <span className="w-full truncate text-[13.5px] font-medium text-[var(--text)]">
+                  {person.username}
+                </span>
+                <span className="text-[11.5px] text-[var(--text-muted)]">
+                  <span className="font-num">{person.karma}</span> influence
+                </span>
+                {followButton(person, true)}
+              </div>
             </div>
           ))}
         </div>
@@ -165,6 +193,7 @@ export function SuggestedPeople({
           ))}
         </div>
       )}
+      </div>
     </section>
   );
 }

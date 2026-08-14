@@ -8,7 +8,7 @@ import { useSession } from '@/lib/useSession';
 import { useApiData } from '@/lib/useApiData';
 import { Message, UserProfile } from '@/lib/types';
 import { DefaultAvatar } from '@/components/DefaultAvatar';
-import { BottomSheet } from '@/components/BottomSheet';
+import { MessageActions } from '@/components/MessageActions';
 import { setNavHidden } from '@/lib/navVisibility';
 
 /** Как часто перечитываем переписку, пока она открыта. */
@@ -55,8 +55,9 @@ export default function ChatPage() {
   const [body, setBody] = useState('');
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // Какое сообщение открыто в меню и какое сейчас правим.
+  // Какое сообщение открыто в меню, где оно лежит на экране и что сейчас правим.
   const [menuFor, setMenuFor] = useState<Message | null>(null);
+  const [menuAnchor, setMenuAnchor] = useState<DOMRect | null>(null);
   const [editing, setEditing] = useState<Message | null>(null);
 
   const person = useApiData<UserProfile>(`/users/${userId}`).data;
@@ -88,6 +89,72 @@ export default function ChatPage() {
     setNavHidden(true);
     return () => setNavHidden(false);
   }, []);
+
+  /**
+   * Выход свайпом от левого края — тем же жестом, что и в системной навигации.
+   * Экран едет за пальцем, и если утащить его дальше трети ширины, переписка
+   * закрывается; иначе возвращается на место.
+   *
+   * Жест ловим только у самой кромки: начнись он посреди экрана — и любое
+   * горизонтальное движение по списку сообщений закрывало бы чат.
+   */
+  /**
+   * Удержание пузыря открывает меню действий. Полсекунды — привычный порог:
+   * короче, и меню выскакивает при обычном касании во время прокрутки.
+   * Любое движение пальцем отменяет удержание по той же причине.
+   */
+  const HOLD_MS = 480;
+  const holdTimer = useRef<number | undefined>(undefined);
+
+  function openMenu(message: Message, rect: DOMRect) {
+    setMenuAnchor(rect);
+    setMenuFor(message);
+  }
+
+  function holdStart(event: React.PointerEvent<HTMLButtonElement>, message: Message) {
+    const rect = event.currentTarget.getBoundingClientRect();
+    window.clearTimeout(holdTimer.current);
+    holdTimer.current = window.setTimeout(() => openMenu(message, rect), HOLD_MS);
+  }
+
+  function holdCancel() {
+    window.clearTimeout(holdTimer.current);
+  }
+
+  useEffect(() => () => window.clearTimeout(holdTimer.current), []);
+
+  const EDGE_ZONE = 28;
+  const dragFrom = useRef<number | null>(null);
+  const [dragX, setDragX] = useState(0);
+  // Отдельный флаг вместо чтения ref в разметке: ref для отрисовки не годится,
+  // React о его изменении не знает.
+  const [dragging, setDragging] = useState(false);
+  const [leaving, setLeaving] = useState(false);
+
+  const leave = useCallback(() => {
+    setLeaving(true);
+    window.setTimeout(() => router.back(), 260);
+  }, [router]);
+
+  function onPointerDown(event: React.PointerEvent) {
+    if (event.clientX > EDGE_ZONE || leaving) return;
+    dragFrom.current = event.clientX;
+    setDragging(true);
+  }
+
+  function onPointerMove(event: React.PointerEvent) {
+    if (dragFrom.current === null) return;
+    setDragX(Math.max(0, event.clientX - dragFrom.current));
+  }
+
+  function onPointerUp() {
+    if (dragFrom.current === null) return;
+    const far = dragX > window.innerWidth / 3;
+    dragFrom.current = null;
+    setDragging(false);
+    setDragX(0);
+    if (far) leave();
+  }
 
   // Переписку открываем на последнем письме — прокручивать снизу вверх
   // никто не станет.
@@ -178,11 +245,29 @@ export default function ChatPage() {
   });
 
   return (
-    <div className="flex flex-1 flex-col items-center">
+    <div
+      className="flex flex-1 flex-col items-center"
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerCancel={onPointerUp}
+      style={{
+        // Уезжает вправо — тем же движением, каким пришёл слева.
+        // В покое transform именно none, а не translateX(0): любой transform
+        // создаёт слой, из которого дочернему пузырю не подняться над
+        // размытием меню — сообщение оставалось замыленным вместе с фоном.
+        transform: leaving ? 'translateX(100%)' : dragX ? `translateX(${dragX}px)` : 'none',
+        opacity: leaving ? 0 : 1,
+        // Пока тянут пальцем — без перехода, иначе экран отстаёт от руки.
+        transition: dragging
+          ? 'none'
+          : 'transform 0.28s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.24s ease',
+      }}
+    >
       <main className="below-header flex w-full max-w-2xl flex-1 flex-col px-2.5 pb-28">
         <div className="mb-2 flex items-center gap-2 px-1">
           <button
-            onClick={() => router.back()}
+            onClick={leave}
             aria-label="Назад"
             className="-ml-1 flex h-10 w-10 flex-none items-center justify-center rounded-full text-[var(--text)] transition-transform active:scale-90"
           >
@@ -227,10 +312,23 @@ export default function ChatPage() {
 
                 <button
                   type="button"
-                  onClick={() => setMenuFor(message)}
+                  onPointerDown={(event) => holdStart(event, message)}
+                  onPointerUp={holdCancel}
+                  onPointerLeave={holdCancel}
+                  onPointerMove={holdCancel}
+                  onContextMenu={(event) => {
+                    // Правая кнопка — то же самое удержание, только на настольном
+                    // экране, где держать нечем.
+                    event.preventDefault();
+                    openMenu(message, event.currentTarget.getBoundingClientRect());
+                  }}
                   className="chat-bubble max-w-[80%] px-3.5 py-2 text-left"
                   style={{
                     alignSelf: mine ? 'flex-end' : 'flex-start',
+                    // Открытое сообщение остаётся поверх размытия — меню
+                    // относится к нему, и оно должно читаться.
+                    zIndex: menuFor?.id === message.id ? 72 : undefined,
+                    position: menuFor?.id === message.id ? 'relative' : undefined,
                     background: mine ? 'var(--accent)' : 'var(--surface-2)',
                     color: mine ? 'var(--accent-contrast)' : 'var(--text)',
                     marginTop: groupStart ? 6 : 0,
@@ -375,80 +473,57 @@ export default function ChatPage() {
         </div>
       </form>
 
-      <BottomSheet
+      <MessageActions
         open={menuFor !== null}
+        anchor={menuAnchor}
+        reactions={QUICK_REACTIONS}
+        activeReaction={menuFor?.reactions?.find((r) => r.userId === me)?.emoji}
+        onReact={(emoji) => menuFor && react(menuFor, emoji)}
         onClose={() => setMenuFor(null)}
-        title="Сообщение"
-        height="auto"
-      >
-        <div
-          className="flex flex-col gap-1 py-1"
-          style={{ paddingBottom: 'calc(18px + env(safe-area-inset-bottom))' }}
-        >
-          <div className="flex items-center justify-between gap-1 pb-2">
-            {QUICK_REACTIONS.map((emoji) => (
-              <button
-                key={emoji}
-                type="button"
-                onClick={() => menuFor && react(menuFor, emoji)}
-                className="emoji flex h-11 w-11 items-center justify-center rounded-full text-[24px] transition-transform active:scale-90"
-                style={{
-                  background:
-                    menuFor?.reactions?.find((r) => r.userId === me)?.emoji === emoji
-                      ? 'var(--accent-soft)'
-                      : 'transparent',
-                }}
-              >
-                {emoji}
-              </button>
-            ))}
-          </div>
-
-          <button
-            type="button"
-            onClick={() => {
+        actions={[
+          {
+            key: 'copy',
+            label: 'Скопировать',
+            icon: (
+              <>
+                <rect x="9" y="9" width="11" height="11" rx="2.5" />
+                <path d="M15 5.5A2.5 2.5 0 0 0 12.5 3h-7A2.5 2.5 0 0 0 3 5.5v7A2.5 2.5 0 0 0 5.5 15" />
+              </>
+            ),
+            onSelect: () => {
               if (menuFor) navigator.clipboard?.writeText(menuFor.body).catch(() => undefined);
               setMenuFor(null);
-            }}
-            className="flex items-center gap-3 rounded-xl px-1 py-3.5 text-left text-[15px] text-[var(--text)] transition-colors hover:bg-[var(--surface-2)]"
-          >
-            <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="flex-none">
-              <rect x="9" y="9" width="11" height="11" rx="2.5" />
-              <path d="M15 5.5A2.5 2.5 0 0 0 12.5 3h-7A2.5 2.5 0 0 0 3 5.5v7A2.5 2.5 0 0 0 5.5 15" />
-            </svg>
-            Скопировать текст
-          </button>
-
-          {menuFor?.sender_id === me && (
-            <button
-              type="button"
-              onClick={() => menuFor && startEditing(menuFor)}
-              className="flex items-center gap-3 rounded-xl px-1 py-3.5 text-left text-[15px] text-[var(--text)] transition-colors hover:bg-[var(--surface-2)]"
-            >
-              <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="flex-none">
-                <path d="M4 20h4L19 9a2.1 2.1 0 0 0-3-3L5 17v3Z" />
-                <path d="m14.5 7.5 2 2" />
-              </svg>
-              Редактировать
-            </button>
-          )}
-
-          {menuFor?.sender_id === me && (
-            <button
-              type="button"
-              onClick={() => menuFor && remove(menuFor)}
-              className="flex items-center gap-3 rounded-xl px-1 py-3.5 text-left text-[15px] transition-colors hover:bg-[var(--surface-2)]"
-              style={{ color: 'var(--down)' }}
-            >
-              <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="flex-none">
-                <path d="M5 7h14M10 7V5h4v2M6.5 7l.8 12.2h9.4L17.5 7" />
-                <path d="M10.5 11v5M13.5 11v5" />
-              </svg>
-              Удалить
-            </button>
-          )}
-        </div>
-      </BottomSheet>
+            },
+          },
+          ...(menuFor?.sender_id === me
+            ? [
+                {
+                  key: 'edit',
+                  label: 'Редактировать',
+                  icon: (
+                    <>
+                      <path d="M4 20h4L19 9a2.1 2.1 0 0 0-3-3L5 17v3Z" />
+                      <path d="m14.5 7.5 2 2" />
+                    </>
+                  ),
+                  onSelect: () => menuFor && startEditing(menuFor),
+                },
+                {
+                  key: 'delete',
+                  label: 'Удалить',
+                  danger: true,
+                  icon: (
+                    <>
+                      <path d="M5 7h14M10 7V5h4v2M6.5 7l.8 12.2h9.4L17.5 7" />
+                      <path d="M10.5 11v5M13.5 11v5" />
+                    </>
+                  ),
+                  onSelect: () => menuFor && remove(menuFor),
+                },
+              ]
+            : []),
+        ]}
+      />
     </div>
   );
 }

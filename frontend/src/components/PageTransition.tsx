@@ -10,9 +10,13 @@ import { usePathname } from 'next/navigation';
 export function PageTransition({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
-  // Пост — вложенный экран, а не соседняя вкладка: он въезжает справа налево,
-  // как в системной навигации. Остальные экраны просто проявляются.
-  const isDetail = pathname.startsWith('/posts/') || pathname.startsWith('/u/');
+  // Пост, чужой профиль и переписка — вложенные экраны, а не соседние вкладки:
+  // они въезжают справа налево, как в системной навигации, и тем же движением
+  // уходят обратно. Остальные экраны просто проявляются.
+  const isDetail =
+    pathname.startsWith('/posts/') ||
+    pathname.startsWith('/u/') ||
+    /^\/messages\/.+/.test(pathname);
 
   return (
     <div
