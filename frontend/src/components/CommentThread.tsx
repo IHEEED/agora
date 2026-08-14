@@ -59,13 +59,13 @@ export function CommentThread({
   const holdsTarget = Boolean(highlightId) && contains(comment, highlightId!);
   const collapsed = hasReplies && !isExpanded(comment.id) && !holdsTarget;
 
-  // Первые два ответа видны сразу, остальные — по кнопке. Полностью свёрнутая
-  // ветка прячет самое живое в обсуждении: чтобы прочитать разговор,
-  // приходилось раскрывать каждую по очереди. Два — компромисс между
-  // «видно, что отвечали» и «лента не тонет в ответах».
-  const PREVIEW_REPLIES = 2;
+  // Первый ответ виден сразу, остальные — по кнопке. Полностью свёрнутая ветка
+  // прячет самое живое в обсуждении: чтобы прочитать разговор, приходилось
+  // раскрывать каждую по очереди. Один — компромисс между «видно, что
+  // отвечали» и «лента не тонет в ответах»; при двух кнопка не появлялась
+  // почти нигде, потому что веток длиннее двух ответов в обсуждении мало.
+  const PREVIEW_REPLIES = 1;
   const shownReplies = collapsed ? comment.replies.slice(0, PREVIEW_REPLIES) : comment.replies;
-  const hiddenReplies = comment.replies.length - shownReplies.length;
   // Сколько ответов вообще прячется под кнопкой — величина постоянная, не
   // зависящая от того, раскрыта ветка сейчас или нет.
   const restCount = Math.max(comment.replies.length - PREVIEW_REPLIES, 0);
@@ -193,7 +193,7 @@ export function CommentThread({
               Подписи лежат друг на друге в одной клетке грида и меняются
               перекрёстным затуханием: смена текста в один кадр дёргала
               ширину кнопки. */}
-          {(hiddenReplies > 0 || (!collapsed && comment.replies.length > PREVIEW_REPLIES)) && (
+          {restCount > 0 && (
             <button
               onClick={() => onToggleExpand(comment.id)}
               className="grid self-start text-[13px] font-medium"

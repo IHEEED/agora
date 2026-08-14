@@ -12,6 +12,7 @@ import { BottomSheet } from '@/components/BottomSheet';
 import { ImageAdjustDialog } from '@/components/ImageAdjustDialog';
 import { DEFAULT_FIT, Fit } from '@/components/ImageFitter';
 import { ScreenTitle } from '@/components/ScreenTitle';
+import { SegmentedControl } from '@/components/SegmentedControl';
 import { useT } from '@/lib/i18n';
 
 export default function CommunitiesPage() {
@@ -263,54 +264,26 @@ export default function CommunitiesPage() {
 
             <div className="flex flex-col gap-2">
               <span className="text-[13px] text-[var(--text-muted)]">{t('communities.whoPosts')}</span>
-              <div className="flex gap-1 rounded-full border border-[var(--border)] p-1">
-                {(
-                  [
-                    ['all', t('communities.whoPostsAll')],
-                    ['picked', t('communities.whoPostsPicked')],
-                  ] as const
-                ).map(([value, label]) => (
-                  <button
-                    key={value}
-                    type="button"
-                    onClick={() => setWhoPosts(value)}
-                    className="flex-1 rounded-full px-3 py-1.5 text-[13.5px] font-medium transition-colors"
-                    style={
-                      whoPosts === value
-                        ? { background: 'var(--accent)', color: 'var(--accent-contrast)' }
-                        : { color: 'var(--text-muted)' }
-                    }
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
+              <SegmentedControl
+                value={whoPosts}
+                onChange={setWhoPosts}
+                options={[
+                  ['all', t('communities.whoPostsAll')],
+                  ['picked', t('communities.whoPostsPicked')],
+                ]}
+              />
             </div>
 
             <div className="flex flex-col gap-2">
               <span className="text-[13px] text-[var(--text-muted)]">{t('communities.access')}</span>
-              <div className="flex gap-1 rounded-full border border-[var(--border)] p-1">
-                {(
-                  [
-                    ['open', t('communities.accessOpen')],
-                    ['closed', t('communities.accessClosed')],
-                  ] as const
-                ).map(([value, label]) => (
-                  <button
-                    key={value}
-                    type="button"
-                    onClick={() => setAccess(value)}
-                    className="flex-1 rounded-full px-3 py-1.5 text-[13.5px] font-medium transition-colors"
-                    style={
-                      access === value
-                        ? { background: 'var(--accent)', color: 'var(--accent-contrast)' }
-                        : { color: 'var(--text-muted)' }
-                    }
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
+              <SegmentedControl
+                value={access}
+                onChange={setAccess}
+                options={[
+                  ['open', t('communities.accessOpen')],
+                  ['closed', t('communities.accessClosed')],
+                ]}
+              />
             </div>
 
             <p className="text-[12.5px] leading-relaxed text-[var(--text-muted)]">
@@ -330,16 +303,15 @@ export default function CommunitiesPage() {
           <Link
             key={community.id}
             href={`/c/${community.id}`}
-            className="glass glass-sheen relative flex min-h-[104px] items-center overflow-hidden rounded-2xl transition-transform active:scale-[0.99]"
+            className="glass glass-sheen relative flex items-center gap-3.5 overflow-hidden rounded-2xl p-4 transition-transform active:scale-[0.99]"
           >
-            {/* Аватар во всю высоту карточки у правого края и растворяется
-                маской к середине: получается не иконка рядом с текстом, а фон,
-                из которого текст выходит. */}
-            <span className="community-card-art" aria-hidden>
-              <CommunityAvatar name={community.name} size={220} />
-            </span>
+            {/* Знак обычного размера слева. Раньше он занимал полкарточки и
+                растворялся маской — это работало, пока у каждого сообщества был
+                свой цвет и своя буква. Знак стал общим, и полкарточки одного и
+                того же силуэта превратились в шум. */}
+            <CommunityAvatar name={community.name} size={52} />
 
-            <div className="relative z-10 flex min-w-0 flex-1 flex-col gap-1 p-4 pr-[45%]">
+            <div className="relative z-10 flex min-w-0 flex-1 flex-col gap-1">
               <h2 className="truncate text-[16px] font-semibold text-[var(--text)]">
                 {community.name}
               </h2>

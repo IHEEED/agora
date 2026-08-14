@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useSyncExternalStore } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
 
 /**
@@ -28,6 +28,16 @@ export function CenterDialog({
     () => true,
     () => false
   );
+
+  // Открытое состояние включаем через кадр после того, как окно попало в
+  // разметку. Без этого окно, которое монтируется уже открытым (а так и
+  // происходит, когда его вызывают сразу после выбора файла), приезжает на
+  // место в том же кадре — анимации нечего проигрывать, и оно просто возникает.
+  const [shown, setShown] = useState(false);
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => setShown(open));
+    return () => cancelAnimationFrame(frame);
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -57,9 +67,11 @@ export function CenterDialog({
         // видно, откуда пришёл человек, но читать это уже не тянет.
         backdropFilter: `blur(calc(14px * var(--glass-strength)))`,
         background: 'rgba(0, 0, 0, 0.42)',
-        opacity: open ? 1 : 0,
+        opacity: shown ? 1 : 0,
         pointerEvents: open ? 'auto' : 'none',
-        visibility: open ? 'visible' : 'hidden',
+        // Пока окно уезжает, оно ещё должно быть видно — прячем только когда
+        // и запрос закрыт, и анимация ухода отыграла.
+        visibility: open || shown ? 'visible' : 'hidden',
         transition: 'opacity 0.24s ease, visibility 0.24s',
       }}
       onClick={onClose}
@@ -74,8 +86,8 @@ export function CenterDialog({
           // Короткий подъём с лёгким увеличением — окно «приходит», а не
           // возникает. Масштаб начинается не с нуля: рост из точки читается
           // мультяшно.
-          transform: open ? 'scale(1) translateY(0)' : 'scale(0.94) translateY(12px)',
-          opacity: open ? 1 : 0,
+          transform: shown ? 'scale(1) translateY(0)' : 'scale(0.94) translateY(12px)',
+          opacity: shown ? 1 : 0,
           transition:
             'transform 0.28s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.2s ease',
           boxShadow: 'var(--glass-shadow)',

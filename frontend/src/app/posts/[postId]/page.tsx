@@ -11,10 +11,11 @@ import { Post, Comment, CommentSort } from '@/lib/types';
 import { PostCard } from '@/components/PostCard';
 import { CommentThread } from '@/components/CommentThread';
 import { isPhoneNotVerifiedError, usePhoneGate } from '@/components/PhoneGateContext';
+import { SegmentedControl } from '@/components/SegmentedControl';
 
-const COMMENT_SORT_OPTIONS: { value: CommentSort; label: string }[] = [
-  { value: 'best', label: 'По рейтингу' },
-  { value: 'new', label: 'Новые' },
+const COMMENT_SORT_OPTIONS: ReadonlyArray<readonly [CommentSort, string]> = [
+  ['best', 'По рейтингу'],
+  ['new', 'Новые'],
 ];
 
 export default function PostPage() {
@@ -138,22 +139,12 @@ export default function PostPage() {
         <div className="flex flex-col gap-4 border-t border-[var(--border)] pt-5">
           <div className="flex items-center justify-between gap-3">
             <h2 className="text-[17px] font-semibold text-[var(--text)]">Комментарии</h2>
-            <div className="flex gap-1 rounded-full border border-[var(--border)] p-1">
-              {COMMENT_SORT_OPTIONS.map((option) => (
-                <button
-                  key={option.value}
-                  onClick={() => setCommentSort(option.value)}
-                  className="whitespace-nowrap rounded-full px-3 py-1 text-[12.5px] font-medium transition-colors"
-                  style={
-                    commentSort === option.value
-                      ? { background: 'var(--accent)', color: 'var(--accent-contrast)' }
-                      : { color: 'var(--text-muted)' }
-                  }
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
+            <SegmentedControl
+              value={commentSort}
+              onChange={setCommentSort}
+              options={COMMENT_SORT_OPTIONS}
+              className="flex-none"
+            />
           </div>
 
           {/* Одна строка с кнопкой внутри — как в шторке комментариев. Блок в

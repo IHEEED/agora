@@ -672,10 +672,11 @@ textarea,
   }
 }
 
-/* Полоса рисуется подложкой, а не фоном самого блока: у вложенного ответа
-   блок узкий и со скруглениями, и подсветка выходила яркой таблеткой вокруг
-   текста. Подложка уезжает далеко за края и обрезается списком — получается
-   ровная полоса во всю ширину колонки на любой глубине ветки. */
+/* Полоса начинается ровно у своего комментария и уходит вправо за край
+   колонки. Влево она не лезет вовсе: там проходит линия ветки ответов, и
+   заливка поверх неё стирала родство — становилось непонятно, чей это ответ.
+   Слева вместо этого тонкая акцентная черта: она и отмечает начало нужного
+   комментария, и не спорит с линией ветки. */
 .comment-highlight {
   position: relative;
 }
@@ -685,15 +686,23 @@ textarea,
   position: absolute;
   top: -7px;
   bottom: -7px;
-  /* С запасом на любую вложенность: обрезает .comment-list. */
-  left: -600px;
+  left: -8px;
+  /* С запасом до правого края колонки: обрезает .comment-list. */
   right: -600px;
   pointer-events: none;
   z-index: -1;
-  background: color-mix(in srgb, var(--text) 7%, transparent);
+  background: linear-gradient(
+    to right,
+    color-mix(in srgb, var(--accent) 12%, transparent),
+    color-mix(in srgb, var(--accent) 5%, transparent) 55%,
+    transparent 92%
+  );
+  border-left: 2px solid var(--accent);
+  border-top-left-radius: 3px;
+  border-bottom-left-radius: 3px;
   /* Задержка — на время прокрутки: без неё подсветка успевала отыграть,
      пока экран ещё ехал, и до места добираешься уже к погасшему фону. */
-  animation: comment-highlight 1.1s ease-out 0.3s both;
+  animation: comment-highlight 1.4s ease-out 0.3s both;
 }
 
 /* Список комментариев обрезает подложку подсветки по своей ширине. Именно
@@ -1114,6 +1123,44 @@ textarea,
 }
 .no-scrollbar::-webkit-scrollbar {
   display: none;
+}
+
+/* Подтверждение действия: кружок вырастает с лёгким перелётом, а галочка
+   прочерчивается линией. Готовая галочка, возникающая в кадре, читается как
+   подмена экрана; прочерк — как «сделано только что». */
+@keyframes check-pop {
+  0% {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+  55% {
+    transform: scale(1.08);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes check-draw {
+  from {
+    stroke-dashoffset: 26;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.check-pop {
+  animation: check-pop 0.42s cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+
+.check-draw {
+  /* 26 — длина ломаной с запасом: точное значение меняется от кегля, а лишнее
+     смещение всё равно доводится до нуля. */
+  stroke-dasharray: 26;
+  animation: check-draw 0.36s cubic-bezier(0.65, 0, 0.35, 1) 0.16s both;
 }
 
 /* Новый вариант опроса раскрывается сверху вниз. Переходом это не сделать:

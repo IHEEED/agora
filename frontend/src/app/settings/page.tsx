@@ -21,6 +21,7 @@ import {
   readWallpaper,
 } from '@/lib/appearance';
 import { ScreenTitle } from '@/components/ScreenTitle';
+import { SegmentedControl } from '@/components/SegmentedControl';
 import { LOCALES, Locale, TranslationKey, applyLocale, useT } from '@/lib/i18n';
 
 const THEMES: ReadonlyArray<readonly [ThemePreference, TranslationKey]> = [
@@ -162,12 +163,14 @@ export default function SettingsPage() {
     <div className="flex flex-1 flex-col items-center">
       <main className="below-header flex w-full max-w-2xl flex-col gap-2.5 px-2.5 pb-6">
         <div className="flex items-center gap-3 px-2 py-1">
+          {/* Кружок с подложкой, а не голая стрелка: без фона она читалась
+              украшением рядом с заголовком, и на неё просто не жали. */}
           <button
             onClick={() => router.back()}
             aria-label="Назад"
-            className="flex h-9 w-9 items-center justify-center rounded-full text-[var(--text)] transition-colors hover:bg-[var(--surface)]"
+            className="glass flex h-11 w-11 flex-none items-center justify-center rounded-full text-[var(--text)] transition-transform active:scale-95"
           >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
               <path d="M15 5l-7 7 7 7" />
             </svg>
           </button>
@@ -181,22 +184,13 @@ export default function SettingsPage() {
 
           <div className="flex flex-col gap-2 pb-4">
             <span className="text-[15px] text-[var(--text)]">{t('settings.theme')}</span>
-            <div className="flex gap-1 rounded-full border border-[var(--border)] p-1">
-              {THEMES.map(([value, labelKey]) => (
-                <button
-                  key={value}
-                  onClick={() => chooseTheme(value)}
-                  className="flex-1 whitespace-nowrap rounded-full px-3 py-1.5 text-[13px] font-medium transition-colors"
-                  style={
-                    theme === value
-                      ? { background: 'var(--accent)', color: 'var(--accent-contrast)' }
-                      : { color: 'var(--text-muted)' }
-                  }
-                >
-                  {t(labelKey)}
-                </button>
-              ))}
-            </div>
+            {/* До первого чтения localStorage тема неизвестна — пока капля
+                стоит на «системной», а не прыгает с придуманного значения. */}
+            <SegmentedControl
+              value={theme ?? 'system'}
+              onChange={chooseTheme}
+              options={THEMES.map(([value, labelKey]) => [value, t(labelKey)] as const)}
+            />
           </div>
 
           <div className="border-t border-[var(--border)] pt-4">
@@ -221,7 +215,7 @@ export default function SettingsPage() {
                     }}
                   >
                     {selected && (
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M5 13l4 4L19 7" />
                       </svg>
                     )}
@@ -373,10 +367,16 @@ export default function SettingsPage() {
         </Section>
 
         <section className="glass rounded-2xl p-5">
+          {/* Заливка, а не одна рамка: обведённая строка на стеклянной карточке
+              читалась подписью, и понять, что это кнопка, можно было только
+              нажав. */}
           <button
             onClick={() => supabase.auth.signOut()}
-            className="w-full rounded-full border border-[var(--border)] py-2.5 text-[15px] font-medium transition-colors hover:bg-[var(--surface-2)]"
-            style={{ color: 'var(--down)' }}
+            className="w-full rounded-full py-3 text-[15px] font-semibold transition-transform active:scale-[0.98]"
+            style={{
+              background: 'color-mix(in srgb, var(--down) 14%, transparent)',
+              color: 'var(--down)',
+            }}
           >
             {t('settings.signOut')}
           </button>

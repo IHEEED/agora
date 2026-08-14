@@ -23,11 +23,18 @@ export function SuggestedPeople({
   title,
   className,
   layout = 'row',
+  dismissible = true,
 }: {
   storageKey: string;
   title?: string;
   className?: string;
   layout?: 'row' | 'list';
+  /**
+   * Можно ли закрыть блок крестиком. На экране уведомлений — нельзя: закрытые
+   * однажды рекомендации оставляли вкладку пустой навсегда, и она выглядела
+   * сломанной, хотя всё работало.
+   */
+  dismissible?: boolean;
 }) {
   const { t } = useT();
   const [people, setPeople] = useState<UserSummary[]>([]);
@@ -40,11 +47,12 @@ export function SuggestedPeople({
 
   // Читаем localStorage через снимок, а не через setState в эффекте: у сервера
   // и браузера разные снимки, поэтому расхождения разметки не возникает.
-  const storedDismissed = useSyncExternalStore(
+  const stored = useSyncExternalStore(
     () => () => {},
     () => window.localStorage.getItem(storageKey) === '1',
     () => true
   );
+  const storedDismissed = dismissible && stored;
 
   useEffect(() => {
     return () => {
@@ -106,15 +114,17 @@ export function SuggestedPeople({
         <h2 className="text-[14px] font-semibold text-[var(--text)]">
           {title ?? t('suggest.title')}
         </h2>
-        <button
-          onClick={close}
-          aria-label={t('suggest.hide')}
-          className="flex h-7 w-7 items-center justify-center rounded-full text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-2)]"
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-            <path d="M6 6l12 12M18 6 6 18" />
-          </svg>
-        </button>
+        {dismissible && (
+          <button
+            onClick={close}
+            aria-label={t('suggest.hide')}
+            className="flex h-7 w-7 items-center justify-center rounded-full text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-2)]"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <path d="M6 6l12 12M18 6 6 18" />
+            </svg>
+          </button>
+        )}
       </div>
 
       {layout === 'row' ? (

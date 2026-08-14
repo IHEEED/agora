@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import Script from "next/script";
 import { Inter, Newsreader, Pixelify_Sans } from "next/font/google";
 import { BottomNav } from "@/components/BottomNav";
 import { DesktopSidebar } from "@/components/DesktopSidebar";
@@ -70,7 +71,14 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <head>
-        <script dangerouslySetInnerHTML={{ __html: APPEARANCE_INIT_SCRIPT }} />
+        {/* next/script, а не голый <script>: React ругался на тег скрипта
+            внутри компонента и зажигал в разработке значок ошибки. Стратегия
+            beforeInteractive оставляет поведение прежним — код уходит в
+            изначальную разметку и выполняется до гидратации, поэтому тема
+            по-прежнему не успевает мигнуть. */}
+        <Script id="parafraz-appearance" strategy="beforeInteractive">
+          {APPEARANCE_INIT_SCRIPT}
+        </Script>
       </head>
       <body className="min-h-full bg-[var(--bg)] text-[var(--text)]">
         {/* Пока нет сессии, AppGate рендерит только экран входа — ни шапки,

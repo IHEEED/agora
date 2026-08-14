@@ -41,7 +41,12 @@ export function ImageAdjustDialog({
     if (open) setFit(initialFit ?? DEFAULT_FIT);
   }
 
-  if (!src) return null;
+  // Последнюю картинку держим и после закрытия: иначе окно вылетает из
+  // разметки вместе с ней, и уход проиграть уже нечему — оно просто исчезает.
+  const [lastSrc, setLastSrc] = useState(src);
+  if (src && src !== lastSrc) setLastSrc(src);
+
+  if (!lastSrc) return null;
 
   return (
     <CenterDialog open={open} onClose={onCancel} title={t('profile.adjustTitle')}>
@@ -52,7 +57,7 @@ export function ImageAdjustDialog({
 
         <div className="flex justify-center">
           <ImageFitter
-            src={src}
+            src={lastSrc}
             fit={fit}
             onChange={setFit}
             className={

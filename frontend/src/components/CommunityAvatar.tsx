@@ -1,6 +1,8 @@
-// Палитра для аватаров сообществ. Цвет выбирается детерминированно по имени,
-// поэтому одно и то же сообщество всегда выглядит одинаково — и на сервере,
-// и на клиенте, без расхождения при гидратации.
+import { DefaultAvatar } from '@/components/DefaultAvatar';
+
+// Палитра сообщества. Цвет выбирается детерминированно по имени, поэтому одно
+// и то же сообщество всегда выглядит одинаково — и на сервере, и на клиенте,
+// без расхождения при гидратации.
 const PALETTE = [
   ['#5b3ad6', '#a880ff'],
   ['#2563eb', '#7ba6ff'],
@@ -31,21 +33,13 @@ export function communityPalette(name: string): readonly [string, string] {
   return PALETTE[paletteIndex(name)];
 }
 
+/**
+ * Знак сообщества — общий для всех, как и аватарка человека.
+ *
+ * Буква на цветном квадрате читалась как поставленная картинка, и сообщество
+ * с настоящим логотипом ничем не выделялось бы среди тех, у кого его нет.
+ * Цвет сообщества никуда не делся: им красится обложка на его странице.
+ */
 export function CommunityAvatar({ name, size = 44 }: { name: string; size?: number }) {
-  const [from, to] = PALETTE[paletteIndex(name)];
-
-  return (
-    <span
-      aria-hidden
-      className="flex flex-none items-center justify-center rounded-2xl font-semibold text-white"
-      style={{
-        width: size,
-        height: size,
-        fontSize: size * 0.42,
-        background: `linear-gradient(135deg, ${from}, ${to})`,
-      }}
-    >
-      {name.trim()[0]?.toUpperCase() ?? '#'}
-    </span>
-  );
+  return <DefaultAvatar name={name} size={size} kind="community" />;
 }

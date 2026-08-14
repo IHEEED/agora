@@ -50,16 +50,19 @@ export function MessagesButton() {
     <Link
       href="/messages"
       aria-label="Сообщения"
-      className="relative flex h-11 w-11 items-center justify-center rounded-full border transition-colors"
-      style={{
-        background: active ? 'var(--accent)' : 'var(--accent-soft)',
-        borderColor: 'var(--glass-border)',
-        color: active ? 'var(--accent-contrast)' : 'var(--accent)',
-      }}
+      // Без подложки и обводки — как у кнопки справа. Знак различает состояние
+      // заливкой: на самом экране переписок он залит, снаружи — контурный.
+      className="relative flex h-11 w-11 items-center justify-center rounded-full transition-transform active:scale-90"
+      style={{ color: 'var(--accent)' }}
     >
-      <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M4 6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v11a2.5 2.5 0 0 1-2.5 2.5H9l-5 3Z" />
-        <path d="M8.5 9.5h7M8.5 13.5h4.5" />
+      {/* Два пузыря внахлёст: одиночный пузырь с полосками — знак комментариев
+          под записью, и в шапке он обещал совсем не то. */}
+      <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+        <path
+          d="M14 9a2 2 0 0 1-2 2H6l-4 3.5V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2Z"
+          fill={active ? 'currentColor' : 'none'}
+        />
+        <path d="M18 9h2a2 2 0 0 1 2 2v10.5L18 18h-6a2 2 0 0 1-2-2v-1" />
       </svg>
 
       {unread > 0 && (

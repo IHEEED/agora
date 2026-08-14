@@ -79,7 +79,9 @@ export default function CreatePostPage() {
     // встык, одним кадром, и переход выглядел рубленым.
     stepTimeout.current = setTimeout(() => {
       setCommunityId(id ?? '');
-      setAsCommunity(false);
+      // Выбрал сообщество — значит пишет от его имени: отдельного вопроса об
+      // этом на следующем шаге больше нет.
+      setAsCommunity(id !== null);
       setStep('compose');
       setLeavingTo(null);
     }, 190);
@@ -422,30 +424,21 @@ export default function CreatePostPage() {
           {chosenCommunity?.name ?? t('create.personal')}
         </button>
 
-        {/* Выбор подписи есть только у постов в сообществе: у личного подписывать
-            нечем. Поэтому при пустом communityId переключатель не рисуется. */}
+        {/* Сообщество уже выбрано шагом раньше — второй раз спрашивать «от чьего
+            имени» незачем: человек ответил на этот вопрос, когда выбирал, куда
+            пишет. Осталось напомнить, чьей подписью уйдёт запись. */}
         {chosenCommunity && (
-          <div className="flex gap-1 rounded-full border border-[var(--border)] p-1">
-            {(
-              [
-                [false, t('create.asMe')],
-                [true, t('create.asCommunity')],
-              ] as const
-            ).map(([value, label]) => (
-              <button
-                key={String(value)}
-                type="button"
-                onClick={() => setAsCommunity(value)}
-                className="flex-1 truncate rounded-full px-3 py-1.5 text-[13.5px] font-medium transition-colors"
-                style={
-                  asCommunity === value
-                    ? { background: 'var(--accent)', color: 'var(--accent-contrast)' }
-                    : { color: 'var(--text-muted)' }
-                }
-              >
-                {value ? `${label} ${chosenCommunity.name}`.trim() : label}
-              </button>
-            ))}
+          <div
+            className="flex items-center gap-2.5 rounded-2xl px-3 py-2.5"
+            style={{ background: 'var(--accent-soft)' }}
+          >
+            <CommunityAvatar name={chosenCommunity.name} size={30} />
+            <span className="min-w-0 text-[13.5px] leading-snug text-[var(--text)]">
+              {t('create.asCommunityNote')}{' '}
+              <span className="font-semibold" style={{ color: 'var(--accent)' }}>
+                {chosenCommunity.name}
+              </span>
+            </span>
           </div>
         )}
 

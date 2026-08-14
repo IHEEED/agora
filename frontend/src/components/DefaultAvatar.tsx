@@ -1,120 +1,66 @@
-'use client';
-
-import { useId } from 'react';
-
 /**
- * Дефолтная аватарка — на случай, когда человек не поставил своё фото.
+ * Аватарка по умолчанию — одна на всех, кто не поставил своё фото.
  *
- * Не буква на сером кружке: у половины людей ник начинается с одной и той же
- * буквы, и в ленте они становятся неразличимы. Здесь из имени выводится
- * собственный градиент и собственный узор из точек, так что два аккаунта
- * совпадут только при полном совпадении имени.
+ * Раньше здесь из имени выводился собственный градиент, узор из точек и буква.
+ * Выглядело нарядно, но врало: пёстрый кружок читается как поставленная
+ * аватарка, и человек с фотографией ничем не выделялся среди тех, у кого её
+ * нет. Общий силуэт честно говорит «фото нет» и не спорит с лентой.
  *
- * Всё считается детерминированно, без random(): серверный и клиентский рендер
- * обязаны совпасть, иначе React ругается на расхождение разметки.
+ * Сообществу — свой знак: два силуэта. Отличить человека от сообщества нужно
+ * с одного взгляда, а не по форме скругления.
  */
-
-/** Двенадцать пар оттенков по кругу — фон аватарки. */
-const PAIRS: ReadonlyArray<readonly [string, string]> = [
-  ['#6366f1', '#a855f7'],
-  ['#8b5cf6', '#ec4899'],
-  ['#d946ef', '#f43f5e'],
-  ['#f43f5e', '#fb923c'],
-  ['#f97316', '#facc15'],
-  ['#eab308', '#84cc16'],
-  ['#22c55e', '#14b8a6'],
-  ['#10b981', '#06b6d4'],
-  ['#06b6d4', '#3b82f6'],
-  ['#0ea5e9', '#6366f1'],
-  ['#64748b', '#94a3b8'],
-  ['#475569', '#0ea5e9'],
-];
-
-function hash(seed: string) {
-  // FNV-1a: короткая, стабильная и хорошо перемешивает даже близкие строки
-  // вроде «anna» и «anno» — соседние ники не должны получать один вид.
-  let value = 0x811c9dc5;
-  for (let i = 0; i < seed.length; i += 1) {
-    value ^= seed.charCodeAt(i);
-    value = Math.imul(value, 0x01000193) >>> 0;
-  }
-  return value;
-}
-
-export function DefaultAvatar({ name, size = 48 }: { name: string; size?: number }) {
-  const gradientId = useId();
-  const clipId = `${gradientId}-clip`;
-
-  const seed = hash(name.toLowerCase() || '?');
-  const [from, to] = PAIRS[seed % PAIRS.length];
-  // Наклон градиента и раскладка точек — тоже из хеша, разными его частями.
-  const angle = (seed >> 4) % 360;
-  const layout = (seed >> 12) % 6;
-
-  const letter = (name[0] ?? '?').toUpperCase();
-
-  // Точки по сетке 3×3: какие из них горит, решает битовая маска из хеша.
-  const dots = Array.from({ length: 9 }, (_, i) => ((seed >> i) & 1) === 1);
+export function DefaultAvatar({
+  name,
+  size = 48,
+  kind = 'person',
+}: {
+  /** Только для подписи скринридеру: на вид аватарки имя больше не влияет. */
+  name: string;
+  size?: number;
+  kind?: 'person' | 'community';
+}) {
+  const community = kind === 'community';
 
   return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 48 48"
-      className="flex-none"
+    <span
       role="img"
       aria-label={`Аватар ${name}`}
+      className="flex flex-none items-center justify-center"
+      style={{
+        width: size,
+        height: size,
+        // Сообщества — скруглённый квадрат, люди — круг. Та же разница, что и
+        // между профилем человека и страницей сообщества.
+        borderRadius: community ? size * 0.28 : '9999px',
+        background: 'color-mix(in srgb, var(--accent) 20%, transparent)',
+        color: 'var(--accent)',
+      }}
     >
-      <defs>
-        {/* Радиальный, а не линейный: у линейного видно направление, и рядом
-            стоящие аватарки читаются одинаково «косыми». Смещаем центр по
-            хешу — тогда у каждого свой блик. */}
-        <radialGradient
-          id={gradientId}
-          cx={`${25 + (angle % 50)}%`}
-          cy={`${20 + (angle % 40)}%`}
-          r="95%"
-        >
-          <stop offset="0%" stopColor={to} />
-          <stop offset="100%" stopColor={from} />
-        </radialGradient>
-        <clipPath id={clipId}>
-          <circle cx="24" cy="24" r="24" />
-        </clipPath>
-      </defs>
-
-      <g clipPath={`url(#${clipId})`}>
-        <rect width="48" height="48" fill={`url(#${gradientId})`} />
-
-        {/* Узор из точек: тихий слой поверх градиента, добавляет различимости
-            там, где два имени случайно попали в одну цветовую пару. */}
-        <g fill="#ffffff" opacity="0.18">
-          {dots.map((on, i) =>
-            on ? (
-              <circle
-                key={i}
-                cx={9 + (i % 3) * 15}
-                cy={9 + Math.floor(i / 3) * 15}
-                r={layout % 2 === 0 ? 3.2 : 2.2}
-              />
-            ) : null
-          )}
-        </g>
-
-        <text
-          x="24"
-          y="24"
-          textAnchor="middle"
-          dominantBaseline="central"
-          fill="#ffffff"
-          fontSize="21"
-          fontWeight="600"
-          fontFamily="var(--font-body), system-ui, sans-serif"
-          style={{ paintOrder: 'stroke' }}
-        >
-          {letter}
-        </text>
-      </g>
-    </svg>
+      <svg
+        width={size * 0.62}
+        height={size * 0.62}
+        viewBox="0 0 24 24"
+        fill="currentColor"
+        aria-hidden
+      >
+        {community ? (
+          <>
+            {/* Двое: тот, что ближе, крупнее и перекрывает второго. */}
+            <circle cx="9" cy="8.5" r="3.6" />
+            <path d="M2.6 19.4c0-3.1 2.9-5.2 6.4-5.2s6.4 2.1 6.4 5.2c0 .6-.5 1.1-1.1 1.1H3.7c-.6 0-1.1-.5-1.1-1.1Z" />
+            <circle cx="17.2" cy="9.6" r="2.7" opacity="0.55" />
+            <path
+              d="M17.2 13.6c2.6 0 4.5 1.6 4.5 3.9 0 .5-.4.9-.9.9h-3.4c.2-.4.3-.9.3-1.4 0-1.4-.5-2.6-1.4-3.4Z"
+              opacity="0.55"
+            />
+          </>
+        ) : (
+          <>
+            <circle cx="12" cy="8.2" r="4.1" />
+            <path d="M3.8 20.2c0-3.6 3.4-6 8.2-6s8.2 2.4 8.2 6c0 .7-.6 1.3-1.3 1.3H5.1c-.7 0-1.3-.6-1.3-1.3Z" />
+          </>
+        )}
+      </svg>
+    </span>
   );
 }

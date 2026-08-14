@@ -103,6 +103,7 @@ const DICTIONARY = {
     'create.pollAdd': '+ Добавить вариант',
     'create.asMe': 'От своего имени',
     'create.asCommunity': 'От имени',
+    'create.asCommunityNote': 'Вы пишете от имени сообщества',
     'create.personal': 'От своего имени',
     'create.personalHint': 'Запись появится в вашем профиле и в ленте подписчиков',
     'create.orInCommunity': 'или в сообществе',
@@ -148,7 +149,8 @@ const DICTIONARY = {
     'profile.verifyAction': 'Подтвердить телефон',
 
     'notifications.title': 'Уведомления',
-    'notifications.empty': 'Уведомлений пока нет.',
+    'notifications.empty': 'Новых уведомлений нет. Пока тихо — вот кого можно почитать.',
+    'notifications.communities': 'Сообщества, куда стоит заглянуть',
 
     'settings.title': 'Настройки',
     'settings.appearance': 'Оформление',
@@ -282,6 +284,7 @@ const DICTIONARY = {
     'create.pollAdd': '+ Add option',
     'create.asMe': 'As myself',
     'create.asCommunity': 'As',
+    'create.asCommunityNote': 'You are posting as the community',
     'create.personal': 'As myself',
     'create.personalHint': 'The post appears in your profile and followers feed',
     'create.orInCommunity': 'or in a community',
@@ -327,7 +330,8 @@ const DICTIONARY = {
     'profile.verifyAction': 'Verify phone',
 
     'notifications.title': 'Notifications',
-    'notifications.empty': 'No notifications yet.',
+    'notifications.empty': 'Nothing new yet. Meanwhile, here are people worth reading.',
+    'notifications.communities': 'Communities worth a look',
 
     'settings.title': 'Settings',
     'settings.appearance': 'Appearance',
@@ -461,6 +465,7 @@ const DICTIONARY = {
     'create.pollAdd': '+ Añadir opción',
     'create.asMe': 'Como yo',
     'create.asCommunity': 'Como',
+    'create.asCommunityNote': 'Publicas en nombre de la comunidad',
     'create.personal': 'A mi nombre',
     'create.personalHint': 'La publicación aparece en tu perfil y en el feed de seguidores',
     'create.orInCommunity': 'o en una comunidad',
@@ -506,7 +511,8 @@ const DICTIONARY = {
     'profile.verifyAction': 'Verificar teléfono',
 
     'notifications.title': 'Notificaciones',
-    'notifications.empty': 'Aún no hay notificaciones.',
+    'notifications.empty': 'Nada nuevo por ahora. Mientras tanto, gente para leer.',
+    'notifications.communities': 'Comunidades que vale la pena ver',
 
     'settings.title': 'Ajustes',
     'settings.appearance': 'Apariencia',
