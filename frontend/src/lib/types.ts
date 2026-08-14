@@ -30,6 +30,23 @@ export interface UserSummary {
   isFollowing?: boolean;
 }
 
+/** Одно письмо в переписке. */
+export interface Message {
+  id: string;
+  sender_id: string;
+  recipient_id: string;
+  body: string;
+  created_at: string;
+  read_at: string | null;
+}
+
+/** Строка в списке переписок: собеседник и последнее письмо. */
+export interface MessageThread {
+  user: { id: string; username: string };
+  unread: number;
+  lastMessage: { body: string; created_at: string; mine: boolean };
+}
+
 /** Профиль со счётчиками — то, что показывает шапка профиля. */
 export interface UserProfile extends UserSummary {
   followers: number;

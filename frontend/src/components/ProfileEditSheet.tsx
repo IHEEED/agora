@@ -56,7 +56,20 @@ export function ProfileEditSheet({
   const [pendingAvatar, setPendingAvatar] = useState<string | null>(null);
   const [adjusting, setAdjusting] = useState(false);
 
-  function pickAvatar(event: React.ChangeEvent<HTMLInputElement>) {
+  // Обложка редактируется здесь же. Раньше кнопки её замены висели поверх
+  // самой обложки и закрывали ровно то, ради чего её ставят; правильное место
+  // для них — экран редактирования, вместе с аватаром и именем.
+  const coverInputRef = useRef<HTMLInputElement>(null);
+  const [cover, setCover] = useState<string | null>(null);
+  const [coverFit, setCoverFit] = useState<Fit>(DEFAULT_FIT);
+  const [pendingCover, setPendingCover] = useState<string | null>(null);
+  const [adjustingCover, setAdjustingCover] = useState(false);
+
+  /** Файл читаем в data-URL и сразу отдаём в окно подгонки. */
+  function pickImage(
+    event: React.ChangeEvent<HTMLInputElement>,
+    onReady: (dataUrl: string) => void
+  ) {
     const file = event.target.files?.[0];
     if (!file) return;
 
@@ -64,15 +77,25 @@ export function ProfileEditSheet({
     // страницы и в localStorage бесполезен — картинка «сбрасывалась» именно
     // поэтому. Бакета под аватары пока нет, так что храним само изображение.
     const reader = new FileReader();
-    reader.onload = () => {
-      // Свежий файл сразу отправляем в окно подгонки: кадрировать миниатюру
-      // в 96px пальцем невозможно, а в окне превью крупное.
-      setPendingAvatar(String(reader.result));
-      setAdjusting(true);
-    };
+    reader.onload = () => onReady(String(reader.result));
     reader.readAsDataURL(file);
     // Сбрасываем значение: иначе повторный выбор того же файла не вызовет change.
     event.target.value = '';
+  }
+
+  function pickAvatar(event: React.ChangeEvent<HTMLInputElement>) {
+    // Кадрировать миниатюру в 96px пальцем невозможно, а в окне превью крупное.
+    pickImage(event, (dataUrl) => {
+      setPendingAvatar(dataUrl);
+      setAdjusting(true);
+    });
+  }
+
+  function pickCover(event: React.ChangeEvent<HTMLInputElement>) {
+    pickImage(event, (dataUrl) => {
+      setPendingCover(dataUrl);
+      setAdjustingCover(true);
+    });
   }
 
   // Значения подтягиваем на открытии, а не при монтировании: шторка живёт
@@ -88,10 +111,16 @@ export function ProfileEditSheet({
       setBio(readProfileField(PROFILE_BIO_KEY, defaultBio));
       setUsername(readProfileField(PROFILE_USERNAME_KEY, defaultUsername));
       setAvatarPreview(readProfileField(PROFILE_AVATAR_KEY) || null);
+      setCover(readProfileField(PROFILE_COVER_KEY) || null);
       try {
         setAvatarFit({ ...DEFAULT_FIT, ...JSON.parse(readProfileField(PROFILE_AVATAR_FIT_KEY, '{}')) });
       } catch {
         setAvatarFit(DEFAULT_FIT);
+      }
+      try {
+        setCoverFit({ ...DEFAULT_FIT, ...JSON.parse(readProfileField(PROFILE_COVER_FIT_KEY, '{}')) });
+      } catch {
+        setCoverFit(DEFAULT_FIT);
       }
     }
   }
@@ -103,6 +132,12 @@ export function ProfileEditSheet({
     if (avatarPreview) {
       window.localStorage.setItem(PROFILE_AVATAR_KEY, avatarPreview);
       window.localStorage.setItem(PROFILE_AVATAR_FIT_KEY, JSON.stringify(avatarFit));
+    }
+    if (cover) {
+      window.localStorage.setItem(PROFILE_COVER_KEY, cover);
+      window.localStorage.setItem(PROFILE_COVER_FIT_KEY, JSON.stringify(coverFit));
+    } else {
+      window.localStorage.removeItem(PROFILE_COVER_KEY);
     }
     window.dispatchEvent(new CustomEvent(PROFILE_CHANGED_EVENT));
     onClose();
@@ -124,6 +159,66 @@ export function ProfileEditSheet({
       }
     >
       <div className="flex flex-col gap-4 py-3">
+        {/* Обложка полосой над аватаром — ровно так, как она стоит в профиле,
+            поэтому понятно, что именно меняешь. */}
+        <div className="flex flex-col gap-2">
+          <button
+            type="button"
+            onClick={() => coverInputRef.current?.click()}
+            className="profile-cover flex h-[104px] w-full items-center justify-center rounded-2xl"
+            style={
+              cover
+                ? {
+                    backgroundImage: `url(${cover})`,
+                    backgroundSize: `${coverFit.zoom * 100}%`,
+                    backgroundPosition: `${coverFit.x}% ${coverFit.y}%`,
+                    backgroundRepeat: 'no-repeat',
+                  }
+                : undefined
+            }
+          >
+            <span
+              className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12.5px] font-medium backdrop-blur-md"
+              style={{ background: 'color-mix(in srgb, #000000 38%, transparent)', color: '#ffffff' }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 8.5a2 2 0 0 1 2-2h2l1.4-2h7.2L17 6.5h2a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" />
+                <circle cx="12" cy="12.5" r="3.4" />
+              </svg>
+              {cover ? t('profile.changeCover') : t('profile.addCover')}
+            </span>
+          </button>
+          <input
+            ref={coverInputRef}
+            type="file"
+            accept="image/*"
+            onChange={pickCover}
+            className="hidden"
+          />
+
+          {cover && (
+            <div className="flex justify-center gap-4">
+              <button
+                type="button"
+                onClick={() => {
+                  setPendingCover(cover);
+                  setAdjustingCover(true);
+                }}
+                className="text-[12.5px] text-[var(--text-muted)] underline-offset-2 hover:underline"
+              >
+                {t('profile.adjustTitle')}
+              </button>
+              <button
+                type="button"
+                onClick={() => setCover(null)}
+                className="text-[12.5px] text-[var(--text-muted)] underline-offset-2 hover:underline"
+              >
+                {t('profile.removeCover')}
+              </button>
+            </div>
+          )}
+        </div>
+
         {/* Аватар первым: это первое, что человек хочет поменять, зайдя сюда. */}
         <div className="flex flex-col items-center gap-2 pb-1">
           <button
@@ -245,6 +340,19 @@ export function ProfileEditSheet({
           setAvatarPreview(pendingAvatar);
           setAvatarFit(fit);
           setAdjusting(false);
+        }}
+      />
+
+      <ImageAdjustDialog
+        open={adjustingCover}
+        src={pendingCover}
+        shape="cover"
+        initialFit={coverFit}
+        onCancel={() => setAdjustingCover(false)}
+        onApply={(fit) => {
+          setCover(pendingCover);
+          setCoverFit(fit);
+          setAdjustingCover(false);
         }}
       />
     </BottomSheet>

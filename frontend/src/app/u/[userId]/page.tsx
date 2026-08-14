@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useApiData } from '@/lib/useApiData';
 import { useSession } from '@/lib/useSession';
@@ -108,11 +109,20 @@ export default function UserProfilePage() {
             </div>
 
             {!isMe && (
-              <FollowButton
-                userId={userId}
-                initiallyFollowing={person?.isFollowing}
-                className="w-full max-w-none"
-              />
+              <div className="flex items-center gap-2">
+                <Link
+                  href={`/messages/${userId}`}
+                  className="flex-1 rounded-full border py-2 text-center text-[14px] font-medium transition-colors"
+                  style={{ borderColor: 'var(--glass-border)', color: 'var(--text)' }}
+                >
+                  Написать
+                </Link>
+                <FollowButton
+                  userId={userId}
+                  initiallyFollowing={person?.isFollowing}
+                  className="h-9 w-9"
+                />
+              </div>
             )}
           </div>
         </section>

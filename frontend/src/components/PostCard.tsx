@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { Post } from '@/lib/types';
 import { apiFetch } from '@/lib/api';
+import { invalidate } from '@/lib/useApiData';
 import { CommentSheet } from '@/components/CommentSheet';
 import { ShareSheet } from '@/components/ShareSheet';
 import { FollowButton } from '@/components/FollowButton';
@@ -12,6 +13,8 @@ import { formatCompactAge } from '@/lib/formatDate';
 import { RollingNumber } from '@/components/RollingNumber';
 import { VoteBlock } from '@/components/VoteBlock';
 import { PollBlock } from '@/components/PollBlock';
+import { PostMenuSheet } from '@/components/PostMenuSheet';
+import { useSession } from '@/lib/useSession';
 
 export function PostCard({
   post,
@@ -31,6 +34,21 @@ export function PostCard({
   // сразу отразиться на кнопке, не дожидаясь перезагрузки ленты.
   const [commentCount, setCommentCount] = useState(post.commentCount);
   const [shareOpen, setShareOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  // Удалённая запись убирается из ленты сразу: ждать перезагрузки списка,
+  // глядя на то, что уже удалил, — странно.
+  const [removed, setRemoved] = useState(false);
+  const { session } = useSession();
+
+  async function remove() {
+    setRemoved(true);
+    try {
+      await apiFetch(`/posts/${post.id}`, { method: 'DELETE' });
+      invalidate('/posts');
+    } catch {
+      setRemoved(false);
+    }
+  }
 
   async function handleRepost() {
     // Считаем от текущего значения, а не изнутри апдейтера setReposted:
@@ -50,6 +68,8 @@ export function PostCard({
     }
   }
 
+
+  if (removed) return null;
 
   return (
     // Ни рамки, ни фона: пост отделяется от соседа полоской, которую рисует
@@ -112,6 +132,21 @@ export function PostCard({
             className="text-[12.5px]"
           />
         )}
+
+        {/* Три точки — общее место для всего, что делают с чужой записью и
+            что не заслуживает своей кнопки в строке действий. */}
+        <button
+          onClick={() => setMenuOpen(true)}
+          aria-label="Ещё"
+          className="-mr-2 flex h-8 w-8 flex-none items-center justify-center rounded-full transition-colors hover:bg-[var(--surface-2)]"
+          style={{ color: 'var(--control)' }}
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+            <circle cx="5" cy="12" r="1.7" />
+            <circle cx="12" cy="12" r="1.7" />
+            <circle cx="19" cy="12" r="1.7" />
+          </svg>
+        </button>
       </div>
 
       {/* Заголовок и текст одним потоком, одним кеглем и одной яркостью:
@@ -209,6 +244,14 @@ export function PostCard({
         onClose={() => setShareOpen(false)}
         url={typeof window === 'undefined' ? '' : `${window.location.origin}/posts/${post.id}`}
         text={post.title}
+      />
+
+      <PostMenuSheet
+        open={menuOpen}
+        onClose={() => setMenuOpen(false)}
+        url={typeof window === 'undefined' ? '' : `${window.location.origin}/posts/${post.id}`}
+        isMine={Boolean(post.author.id) && post.author.id === session?.user.id}
+        onDelete={remove}
       />
     </article>
   );

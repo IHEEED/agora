@@ -434,4 +434,31 @@ router.get('/:id', optionalAuth, async (req, res) => {
   res.json(post);
 });
 
+/**
+ * Удаление своей записи.
+ *
+ * Право проверяем здесь, а не полагаемся на политики: запросы идут сервисным
+ * ключом, который RLS не касается, — без этой проверки удалить можно было бы
+ * что угодно чужое.
+ */
+router.delete('/:id', requireAuth, async (req, res) => {
+  const { id } = req.params;
+
+  const { data, error } = await supabase.from('posts').select('author_id').eq('id', id).single();
+
+  if (error || !data) return res.status(404).json({ error: 'Запись не найдена' });
+  if (data.author_id !== req.user!.id) {
+    return res.status(403).json({ error: 'Удалить можно только свою запись' });
+  }
+
+  const { error: deleteError } = await supabase.from('posts').delete().eq('id', id);
+
+  if (deleteError) {
+    console.error('posts: delete failed', deleteError);
+    return res.status(500).json({ error: 'Не удалось удалить запись' });
+  }
+
+  res.status(204).send();
+});
+
 export default router;

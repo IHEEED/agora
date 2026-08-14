@@ -66,6 +66,9 @@ export function CommentThread({
   const PREVIEW_REPLIES = 2;
   const shownReplies = collapsed ? comment.replies.slice(0, PREVIEW_REPLIES) : comment.replies;
   const hiddenReplies = comment.replies.length - shownReplies.length;
+  // Сколько ответов вообще прячется под кнопкой — величина постоянная, не
+  // зависящая от того, раскрыта ветка сейчас или нет.
+  const restCount = Math.max(comment.replies.length - PREVIEW_REPLIES, 0);
 
   async function submitReply(e: SubmitEvent) {
     e.preventDefault();
@@ -95,7 +98,7 @@ export function CommentThread({
   return (
     <div
       id={`comment-${comment.id}`}
-      className={`flex flex-col gap-2 rounded-xl ${highlighted ? 'comment-highlight' : ''}`}
+      className={`flex flex-col gap-2 ${highlighted ? 'comment-highlight' : ''}`}
     >
       <div className="flex gap-2.5">
         <Link href={authorHref} className="flex-none">
@@ -185,13 +188,38 @@ export function CommentThread({
             />
           ))}
 
-          {hiddenReplies > 0 && (
+          {/* Кнопка не исчезает после раскрытия, а становится «Свернуть»:
+              раньше развернуть ветку было можно, а свернуть обратно — нет.
+              Подписи лежат друг на друге в одной клетке грида и меняются
+              перекрёстным затуханием: смена текста в один кадр дёргала
+              ширину кнопки. */}
+          {(hiddenReplies > 0 || (!collapsed && comment.replies.length > PREVIEW_REPLIES)) && (
             <button
               onClick={() => onToggleExpand(comment.id)}
-              className="self-start text-[13px] font-medium"
+              className="grid self-start text-[13px] font-medium"
               style={{ color: 'var(--accent)' }}
             >
-              Ещё {hiddenReplies} {pluralizeReplies(hiddenReplies)}
+              {[
+                // Число считаем от постоянной величины, а не от hiddenReplies:
+                // после раскрытия та обнуляется, и подпись успевала мигнуть
+                // «Ещё 0 ответов», пока затухала.
+                { key: 'more', show: collapsed, text: `Ещё ${restCount} ${pluralizeReplies(restCount)}` },
+                { key: 'less', show: !collapsed, text: 'Свернуть' },
+              ].map((label) => (
+                <span
+                  key={label.key}
+                  aria-hidden={!label.show}
+                  className="col-start-1 row-start-1 whitespace-nowrap text-left"
+                  style={{
+                    opacity: label.show ? 1 : 0,
+                    transform: label.show ? 'none' : 'translateY(-3px)',
+                    pointerEvents: label.show ? 'auto' : 'none',
+                    transition: 'opacity 0.22s ease, transform 0.22s cubic-bezier(0.32, 0.72, 0, 1)',
+                  }}
+                >
+                  {label.text}
+                </span>
+              ))}
             </button>
           )}
         </div>

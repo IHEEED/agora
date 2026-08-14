@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Inter, Pixelify_Sans } from "next/font/google";
+import { Inter, Newsreader, Pixelify_Sans } from "next/font/google";
 import { BottomNav } from "@/components/BottomNav";
 import { DesktopSidebar } from "@/components/DesktopSidebar";
 import { PageTransition } from "@/components/PageTransition";
 import { HeaderAction } from "@/components/HeaderAction";
+import { MessagesButton } from "@/components/MessagesButton";
 import { AppGate } from "@/components/AppGate";
 import { Wallpaper } from "@/components/Wallpaper";
 import "./globals.css";
@@ -21,6 +22,18 @@ const pixelFont = Pixelify_Sans({
   variable: "--font-pixel",
   weight: ["400", "500", "600", "700"],
   subsets: ["latin", "cyrillic"],
+});
+
+// Знак приложения набран старой газетной антиквой: Newsreader — переменный
+// шрифт того же семейства форм, что и наборные шрифты газет, и держит светлые
+// начертания, не рассыпаясь. Пиксельный остался для обоев: там он к месту,
+// а в шапке читался жирной перемычкой поперёк экрана.
+// Кириллицы у Newsreader нет — и не нужно: этим шрифтом набрано одно слово
+// латиницей. Всё остальное в интерфейсе остаётся на Inter.
+const markFont = Newsreader({
+  variable: "--font-mark",
+  weight: ["200", "300", "400"],
+  subsets: ["latin"],
 });
 
 export const metadata: Metadata = {
@@ -51,7 +64,7 @@ export default function RootLayout({
   return (
     <html
       lang="ru"
-      className={`${bodyFont.variable} ${pixelFont.variable} h-full antialiased`}
+      className={`${bodyFont.variable} ${pixelFont.variable} ${markFont.variable} h-full antialiased`}
       // data-theme проставляется инлайн-скриптом ниже до гидратации — специально
       // расходится с серверной разметкой, чтобы не было мигания темы при загрузке.
       suppressHydrationWarning
@@ -82,16 +95,18 @@ export default function RootLayout({
                   на устройствах с монобровью отдаёт её высоту, на остальных — ноль,
                   поэтому одна и та же строчка работает и там, и там. */}
               <div
-                className="app-header-inner relative flex items-center justify-end px-4 pb-4"
+                className="app-header-inner relative flex items-center justify-between px-4 pb-4"
                 style={{ paddingTop: 'calc(14px + env(safe-area-inset-top))' }}
               >
-                {/* Трекинг не переопределяем: отрицательный сплющивал пиксельные
-                    буквы в сплошную полосу. Кегль крупнее по той же причине. */}
+                <MessagesButton />
+                {/* Разрядка обязательна: у антиквы в капители буквы иначе
+                    слипаются в слово, а знак должен читаться по буквам. */}
                 <Link
                   href="/"
-                  className="font-pixel absolute left-1/2 -translate-x-1/2 text-[27px] text-[var(--text)]"
+                  aria-label="PARAFRAZ"
+                  className="wordmark absolute left-1/2 -translate-x-1/2"
                 >
-                  PARAFRAZ
+                  PARAFRA<span style={{ color: 'var(--accent)' }}>Z</span>
                 </Link>
                 <HeaderAction />
               </div>

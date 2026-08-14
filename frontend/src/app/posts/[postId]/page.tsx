@@ -60,7 +60,17 @@ export default function PostPage() {
   // при рендере, а не ставим состоянием из эффекта: от неё зависит, какая ветка
   // раскроется, и лишний кадр со свёрнутой веткой был бы виден.
   const highlightId = useSyncExternalStore(
-    () => () => {},
+    (notify) => {
+      // Сервер рисует разметку, не зная адресной строки, поэтому его снимок
+      // всегда пуст. Без толчка после гидратации React так с ним и остаётся —
+      // и при прямом заходе по ссылке цель терялась: подсвечивать было нечего.
+      const frame = requestAnimationFrame(notify);
+      window.addEventListener('hashchange', notify);
+      return () => {
+        cancelAnimationFrame(frame);
+        window.removeEventListener('hashchange', notify);
+      };
+    },
     () => {
       const hash = window.location.hash;
       return hash.startsWith('#comment-') ? hash.slice('#comment-'.length) : null;
@@ -107,11 +117,14 @@ export default function PostPage() {
     // единственным, куда редизайн не дошёл, — отсюда и вид «чёрного листа».
     <div className="flex flex-1 flex-col items-center">
       <main className="below-header flex w-full max-w-2xl flex-col gap-5 px-4 pb-10">
+        {/* Отрицательный отступ ставит стрелку по одной линии с текстом поста:
+            собственные поля кнопки иначе сдвигали её вправо, и колонка
+            начиналась в двух разных местах. */}
         <button
           onClick={() => router.back()}
-          className="flex w-fit items-center gap-2 rounded-full px-2 py-1.5 text-[15px] text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-2)]"
+          className="-ml-2.5 flex w-fit items-center gap-1.5 rounded-full py-2 pl-2 pr-3.5 text-[16px] font-medium text-[var(--text)] transition-colors hover:bg-[var(--surface-2)]"
         >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M15 5l-7 7 7 7" />
           </svg>
           {t('common.back')}
@@ -143,29 +156,37 @@ export default function PostPage() {
             </div>
           </div>
 
+          {/* Одна строка с кнопкой внутри — как в шторке комментариев. Блок в
+              три ряда с отдельной кнопкой снизу занимал четверть экрана под
+              действие, которое чаще всего умещается в одну фразу. */}
           {session && (
             <form onSubmit={handleSubmit} className="flex flex-col gap-2">
-              <textarea
-                required
-                rows={3}
-                value={body}
-                onChange={(e) => setBody(e.target.value)}
-                placeholder="Поделитесь своим мнением"
-                className="resize-none rounded-2xl border border-[var(--border)] bg-[var(--surface-2)] px-4 py-3 text-[15px] leading-relaxed text-[var(--text)] outline-none focus:border-[var(--accent)]"
-              />
+              <div className="field-line flex w-full items-center gap-2 pl-1">
+                <input
+                  required
+                  value={body}
+                  onChange={(e) => setBody(e.target.value)}
+                  placeholder="Поделитесь своим мнением"
+                  enterKeyHint="send"
+                  className="min-w-0 flex-1 border-none bg-transparent py-2.5 text-[15px] text-[var(--text)] outline-none"
+                />
+                <button
+                  type="submit"
+                  disabled={submitting || !body.trim()}
+                  aria-label="Отправить"
+                  className="flex h-8 w-8 flex-none items-center justify-center rounded-full transition-opacity disabled:opacity-30"
+                  style={{ color: 'var(--accent)' }}
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M4 12h15M13 6l6 6-6 6" />
+                  </svg>
+                </button>
+              </div>
               {formError && <p className="text-[13px]" style={{ color: 'var(--down)' }}>{formError}</p>}
-              <button
-                type="submit"
-                disabled={submitting || !body.trim()}
-                className="self-start rounded-full px-5 py-2 text-[14px] font-medium transition-opacity disabled:opacity-40"
-                style={{ background: 'var(--accent)', color: 'var(--accent-contrast)' }}
-              >
-                Отправить
-              </button>
             </form>
           )}
 
-          <div className="flex flex-col gap-5">
+          <div className="comment-list flex flex-col gap-5">
             {comments.map((comment) => (
               <CommentThread
                 key={comment.id}

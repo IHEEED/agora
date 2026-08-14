@@ -38,8 +38,10 @@ export default function FeedPage() {
         <Link
           href="/create"
           // Строка, а не плашка: скруглённая обойма читалась кнопкой,
-          // а не местом, куда пишут.
-          className="field-line mt-3 flex items-center gap-3 px-1 py-3 text-left"
+          // а не местом, куда пишут. Отрицательные поля выводят черту за
+          // поля колонки — она идёт от края до края, а не обрубается
+          // на ширине текста.
+          className="field-line -mx-4 mt-3 flex items-center gap-3 px-5 py-3 text-left"
         >
           <DefaultAvatar name={(session?.user.email ?? '?').split('@')[0]} size={32} />
           <span className="text-[15px] text-[var(--text-muted)]">{t('feed.whatsNew')}</span>
@@ -53,7 +55,7 @@ export default function FeedPage() {
             под поля; полоска отделяет ровно настолько, насколько нужно. */}
         <SuggestedPeople storageKey="parafraz-suggest-feed" />
 
-        <div className="flex flex-col divide-y divide-[var(--border)]">
+        <div className="feed-list flex flex-col">
           {posts.map((post) => (
             <PostCard
               key={post.id}

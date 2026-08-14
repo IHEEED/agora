@@ -192,7 +192,7 @@ export function CommentSheet({
           список был причиной, по которой переход «к нужному комментарию» не
           работал: если искомый комментарий — ответ, его просто не было
           в разметке, и прокручивать было не к чему. */}
-      <div className="flex flex-col gap-5 py-1">
+      <div className="comment-list flex flex-col gap-5 py-1">
         {comments.map((comment) => (
           <CommentThread
             key={comment.id}
