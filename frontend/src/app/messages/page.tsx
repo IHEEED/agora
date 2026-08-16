@@ -7,6 +7,7 @@ import { MessageThread, UserSummary } from '@/lib/types';
 import { DefaultAvatar } from '@/components/DefaultAvatar';
 import { BottomSheet } from '@/components/BottomSheet';
 import { formatCompactAge } from '@/lib/formatDate';
+import { useT } from '@/lib/i18n';
 
 /**
  * Список переписок.
@@ -16,6 +17,7 @@ import { formatCompactAge } from '@/lib/formatDate';
  * это ещё один экран значило бы разложить одно действие по трём.
  */
 export default function MessagesPage() {
+  const { t } = useT();
   const [picking, setPicking] = useState(false);
 
   const threadsResult = useApiData<MessageThread[]>('/messages/threads');
@@ -29,7 +31,9 @@ export default function MessagesPage() {
     <div className="flex flex-1 flex-col items-center">
       <main className="below-header flex w-full max-w-2xl flex-col gap-2.5 px-2.5 pb-10">
         <div className="flex items-center justify-between gap-3 px-2">
-          <h1 className="display-type text-[26px] text-[var(--text)]">Сообщения</h1>
+          {/* «Сообщения» — это то, что внутри переписок, а заголовок называет
+              сам раздел. Мессенджер и есть раздел. */}
+          <h1 className="display-type text-[26px] text-[var(--text)]">{t('messenger.title')}</h1>
           <button
             type="button"
             onClick={() => setPicking(true)}

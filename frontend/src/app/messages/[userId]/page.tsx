@@ -6,9 +6,10 @@ import { useParams, useRouter } from 'next/navigation';
 import { apiFetch } from '@/lib/api';
 import { useSession } from '@/lib/useSession';
 import { useApiData } from '@/lib/useApiData';
-import { Message, UserProfile } from '@/lib/types';
+import { Message, UserProfile, UserSummary } from '@/lib/types';
 import { DefaultAvatar } from '@/components/DefaultAvatar';
 import { MessageActions } from '@/components/MessageActions';
+import { BottomSheet } from '@/components/BottomSheet';
 import { setNavHidden } from '@/lib/navVisibility';
 
 /** Как часто перечитываем переписку, пока она открыта.
@@ -62,8 +63,18 @@ export default function ChatPage() {
   const [menuFor, setMenuFor] = useState<Message | null>(null);
   const [menuAnchor, setMenuAnchor] = useState<DOMRect | null>(null);
   const [editing, setEditing] = useState<Message | null>(null);
+  // Кому отвечаем. Ссылка на сообщение, а не копия текста: оригинал могут
+  // поправить, и цитата обязана поправиться вместе с ним.
+  const [replyTo, setReplyTo] = useState<Message | null>(null);
+  // Режим выбора: пока он включён, нажатие по пузырю не открывает меню, а
+  // отмечает сообщение. Так же ведут себя списки в почте и мессенджерах.
+  const [selected, setSelected] = useState<string[] | null>(null);
+  // Что пересылаем. Список получателей открывается шторкой.
+  const [forwarding, setForwarding] = useState<Message[] | null>(null);
 
   const person = useApiData<UserProfile>(`/users/${userId}`).data;
+  // Кому можно переслать. Запрос уходит только когда шторку открыли.
+  const people = useApiData<UserSummary[]>(forwarding ? '/users' : null);
   const me = session?.user.id;
 
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -183,9 +194,24 @@ export default function ChatPage() {
       } else {
         const created = await apiFetch<Message>('/messages', {
           method: 'POST',
-          body: JSON.stringify({ recipient_id: userId, body: text }),
+          body: JSON.stringify({
+            recipient_id: userId,
+            body: text,
+            reply_to_id: replyTo?.id ?? null,
+          }),
         });
-        setMessages((prev) => [...prev, created]);
+        // Цитату дорисовываем на месте: сервер вернул само сообщение, а
+        // оригинал у нас уже есть — перечитывать переписку ради него незачем.
+        setMessages((prev) => [
+          ...prev,
+          replyTo
+            ? {
+                ...created,
+                replyTo: { id: replyTo.id, body: replyTo.body, mine: replyTo.sender_id === me },
+              }
+            : created,
+        ]);
+        setReplyTo(null);
       }
       setBody('');
     } catch (err) {
@@ -232,6 +258,86 @@ export default function ChatPage() {
     requestAnimationFrame(() => inputRef.current?.focus());
   }
 
+  function startReply(message: Message) {
+    setMenuFor(null);
+    setReplyTo(message);
+    setEditing(null);
+    requestAnimationFrame(() => inputRef.current?.focus());
+  }
+
+  /** Закрепить или снять закрепление. Общее на переписку, не личное. */
+  async function togglePin(message: Message) {
+    setMenuFor(null);
+    const pinned = !message.pinned_at;
+    const stamp = pinned ? new Date().toISOString() : null;
+    setMessages((prev) =>
+      prev.map((m) => (m.id === message.id ? { ...m, pinned_at: stamp } : m))
+    );
+
+    try {
+      await apiFetch(`/messages/${message.id}/pin`, {
+        method: 'PUT',
+        body: JSON.stringify({ pinned }),
+      });
+    } catch {
+      load();
+    }
+  }
+
+  /** Включить режим выбора, сразу отметив то сообщение, с которого начали. */
+  function startSelecting(message: Message) {
+    setMenuFor(null);
+    setSelected([message.id]);
+  }
+
+  function toggleSelected(id: string) {
+    setSelected((prev) => {
+      if (!prev) return prev;
+      return prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id];
+    });
+  }
+
+  /** Разослать выбранное другому человеку. Копией, а не ссылкой: переписки
+      независимы, и удаление оригинала не должно стирать пересланное. */
+  async function forwardTo(recipientId: string) {
+    const list = forwarding ?? [];
+    setForwarding(null);
+    setSelected(null);
+    try {
+      // По очереди, а не разом: сервер принимает по одному сообщению, а
+      // порядок пересланного должен совпасть с порядком в переписке.
+      for (const message of list) {
+        await apiFetch('/messages', {
+          method: 'POST',
+          body: JSON.stringify({ recipient_id: recipientId, body: message.body }),
+        });
+      }
+      // Переслал самому себе — пусть увидит их сразу.
+      if (recipientId === userId) load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Не удалось переслать');
+    }
+  }
+
+  async function removeSelected() {
+    const ids = selected ?? [];
+    setSelected(null);
+    setMessages((prev) => prev.filter((m) => !ids.includes(m.id)));
+    try {
+      await Promise.all(
+        ids.map((id) => apiFetch(`/messages/${id}`, { method: 'DELETE' }))
+      );
+    } catch {
+      load();
+    }
+  }
+
+  // Закреплённые — в порядке закрепления: последнее закреплённое показывается
+  // в полоске под шапкой, остальные считаются счётчиком рядом.
+  const pinned = messages
+    .filter((message) => message.pinned_at)
+    .sort((a, b) => String(a.pinned_at).localeCompare(String(b.pinned_at)));
+
   // Дату ставим перед первым письмом дня, а подряд идущие реплики одного
   // человека склеиваем: хвостик рисуется только у последней в цепочке.
   const rows = messages.map((message, index) => {
@@ -262,29 +368,116 @@ export default function ChatPage() {
         transform: leaving ? 'translateX(100%)' : dragX ? `translateX(${dragX}px)` : 'none',
         opacity: leaving ? 0 : 1,
         // Пока тянут пальцем — без перехода, иначе экран отстаёт от руки.
+        // Уход резкий и короткий: решение уже принято, тянуть его незачем.
         transition: dragging
           ? 'none'
-          : 'transform 0.28s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.24s ease',
+          : leaving
+            ? 'transform var(--exit-ms) var(--exit-ease), opacity var(--exit-ms) var(--exit-ease)'
+            : 'transform 0.3s var(--enter-ease), opacity 0.24s ease',
       }}
     >
-      <main className="below-header flex w-full max-w-2xl flex-1 flex-col px-2.5 pb-28">
-        <div className="mb-2 flex items-center gap-2 px-1">
-          <button
-            onClick={leave}
-            aria-label="Назад"
-            className="-ml-1 flex h-10 w-10 flex-none items-center justify-center rounded-full text-[var(--text)] transition-transform active:scale-90"
-          >
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M15 5l-7 7 7 7" />
-            </svg>
-          </button>
-          <Link href={`/u/${userId}`} className="flex min-w-0 flex-1 items-center gap-2.5">
-            <DefaultAvatar name={person?.username ?? '?'} size={38} />
-            <span className="min-w-0 truncate text-[16px] font-semibold text-[var(--text)]">
-              {person?.username ?? '…'}
+      {/* Обои: фон одного этого экрана. Absolute, а не fixed, — у страницы при
+          свайпе появляется transform, и fixed привязался бы к ней в середине
+          жеста, дав скачок. */}
+      <div className="chat-wallpaper" aria-hidden />
+
+      <main className="below-header relative flex w-full max-w-2xl flex-1 flex-col px-2.5 pb-28">
+        {/* Шапка переписки в двух видах. Пока ничего не выбрано — собеседник и
+            выход; как только включён режим выбора, она превращается в панель
+            действий над отмеченным. Так же ведут себя списки в почте: панель
+            занимает место заголовка, а не появляется третьей полосой. */}
+        {selected ? (
+          <div className="mb-2 flex items-center gap-1 px-1">
+            <button
+              onClick={() => setSelected(null)}
+              aria-label="Отменить выбор"
+              className="-ml-1 flex h-10 w-10 flex-none items-center justify-center rounded-full text-[var(--text)] transition-transform active:scale-90"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+                <path d="M6 6l12 12M18 6 6 18" />
+              </svg>
+            </button>
+            <span className="min-w-0 flex-1 text-[15px] font-semibold text-[var(--text)]">
+              <span className="font-num">{selected.length}</span>
             </span>
-          </Link>
-        </div>
+
+            <button
+              onClick={() =>
+                setForwarding(messages.filter((m) => selected.includes(m.id)))
+              }
+              disabled={selected.length === 0}
+              aria-label="Переслать"
+              className="flex h-10 w-10 flex-none items-center justify-center rounded-full transition-transform active:scale-90 disabled:opacity-30"
+              style={{ color: 'var(--accent)' }}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M13 5.5 20 12l-7 6.5V15c-4 0-7 1.2-9 4 .6-4.8 3.6-8.4 9-9Z" />
+              </svg>
+            </button>
+            <button
+              onClick={removeSelected}
+              disabled={
+                selected.length === 0 ||
+                // Удалять можно только свои: сервер всё равно откажет, и
+                // предлагать заведомо провальное действие нечестно.
+                messages.some((m) => selected.includes(m.id) && m.sender_id !== me)
+              }
+              aria-label="Удалить"
+              className="flex h-10 w-10 flex-none items-center justify-center rounded-full transition-transform active:scale-90 disabled:opacity-30"
+              style={{ color: 'var(--down)' }}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M5 7h14M10 7V5h4v2M6.5 7l.8 12.2h9.4L17.5 7" />
+              </svg>
+            </button>
+          </div>
+        ) : (
+          <div className="mb-2 flex items-center gap-2 px-1">
+            <button
+              onClick={leave}
+              aria-label="Назад"
+              className="-ml-1 flex h-10 w-10 flex-none items-center justify-center rounded-full text-[var(--text)] transition-transform active:scale-90"
+            >
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M15 5l-7 7 7 7" />
+              </svg>
+            </button>
+            <Link href={`/u/${userId}`} className="flex min-w-0 flex-1 items-center gap-2.5">
+              <DefaultAvatar name={person?.username ?? '?'} size={38} />
+              <span className="min-w-0 truncate text-[16px] font-semibold text-[var(--text)]">
+                {person?.username ?? '…'}
+              </span>
+            </Link>
+          </div>
+        )}
+
+        {/* Закреплённое — полоской под шапкой, как в мессенджерах: оно должно
+            быть на виду, не занимая места в самой переписке. */}
+        {pinned.length > 0 && !selected && (
+          <button
+            type="button"
+            onClick={() => {
+              document
+                .getElementById(`msg-${pinned[pinned.length - 1].id}`)
+                ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }}
+            className="mb-2 flex items-center gap-2.5 rounded-xl px-3 py-2 text-left transition-colors active:bg-[var(--surface-2)]"
+            style={{ background: 'var(--surface-2)' }}
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" className="flex-none">
+              <path d="M9 4h6l-1 6 4 3v2H6v-2l4-3Z" />
+              <path d="M12 15v5" />
+            </svg>
+            <span className="min-w-0 flex-1 truncate text-[13px] text-[var(--text-muted)]">
+              {pinned[pinned.length - 1].body}
+            </span>
+            {pinned.length > 1 && (
+              <span className="font-num flex-none text-[12px] text-[var(--text-muted)]">
+                {pinned.length}
+              </span>
+            )}
+          </button>
+        )}
 
         {/* Ни карточки, ни стекла: в переписке фон — это фон, а не лист бумаги
             во весь экран. Белый прямоугольник под пузырями только отбирал у них
@@ -315,15 +508,22 @@ export default function ChatPage() {
 
                 <button
                   type="button"
-                  onPointerDown={(event) => holdStart(event, message)}
+                  id={`msg-${message.id}`}
+                  onPointerDown={(event) => {
+                    // В режиме выбора удержание не нужно: нажатие и так что-то
+                    // делает, а меню поверх выбора — два способа управления
+                    // одним и тем же.
+                    if (!selected) holdStart(event, message);
+                  }}
                   onPointerUp={holdCancel}
                   onPointerLeave={holdCancel}
                   onPointerMove={holdCancel}
+                  onClick={() => selected && toggleSelected(message.id)}
                   onContextMenu={(event) => {
                     // Правая кнопка — то же самое удержание, только на настольном
                     // экране, где держать нечем.
                     event.preventDefault();
-                    openMenu(message, event.currentTarget.getBoundingClientRect());
+                    if (!selected) openMenu(message, event.currentTarget.getBoundingClientRect());
                   }}
                   className="chat-bubble max-w-[80%] px-3.5 py-2 text-left"
                   style={{
@@ -335,6 +535,11 @@ export default function ChatPage() {
                     background: mine ? 'var(--accent)' : 'var(--surface-2)',
                     color: mine ? 'var(--accent-contrast)' : 'var(--text)',
                     marginTop: groupStart ? 6 : 0,
+                    // Отмеченное обводится акцентом снаружи, а не заливается:
+                    // заливка спорила бы с собственным цветом пузыря.
+                    boxShadow: selected?.includes(message.id)
+                      ? '0 0 0 2px var(--bg), 0 0 0 4px var(--accent)'
+                      : undefined,
                     // Хвостик — у последнего пузыря цепочки: у всех подряд он
                     // превращал столбик реплик в частокол.
                     borderTopRightRadius: mine && !groupStart ? 8 : 18,
@@ -343,6 +548,27 @@ export default function ChatPage() {
                     borderBottomLeftRadius: !mine && !groupEnd ? 8 : !mine ? 6 : 18,
                   }}
                 >
+                  {/* Цитата над ответом. Полоска слева и приглушённый текст —
+                      она подпись к реплике, а не сама реплика. */}
+                  {message.replyTo && (
+                    <span
+                      className="mb-1 flex flex-col gap-0.5 rounded-md py-0.5 pl-2 pr-1"
+                      style={{
+                        borderLeft: '2px solid currentColor',
+                        background: mine
+                          ? 'color-mix(in srgb, var(--accent-contrast) 14%, transparent)'
+                          : 'color-mix(in srgb, var(--text) 7%, transparent)',
+                      }}
+                    >
+                      <span className="text-[11.5px] font-semibold" style={{ opacity: 0.85 }}>
+                        {message.replyTo.mine ? 'Вы' : (person?.username ?? '…')}
+                      </span>
+                      <span className="line-clamp-2 text-[12.5px]" style={{ opacity: 0.75 }}>
+                        {message.replyTo.body}
+                      </span>
+                    </span>
+                  )}
+
                   <p className="whitespace-pre-wrap break-words text-[15px] leading-relaxed">
                     {message.body}
                   </p>
@@ -351,6 +577,12 @@ export default function ChatPage() {
                     className="mt-0.5 flex items-center justify-end gap-1 text-[10.5px]"
                     style={{ opacity: 0.7 }}
                   >
+                    {message.pinned_at && (
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-label="Закреплено">
+                        <path d="M9 4h6l-1 6 4 3v2H6v-2l4-3Z" />
+                        <path d="M12 15v5" />
+                      </svg>
+                    )}
                     {message.edited_at && <span>изменено</span>}
                     <span className="font-num">{timeLabel(message.created_at)}</span>
                     {/* Галочки только у своих: чужие сообщения о своём
@@ -399,15 +631,16 @@ export default function ChatPage() {
         className="fixed inset-x-0 bottom-0 z-40 flex flex-col items-center px-3 md:pl-20"
         style={{ paddingBottom: 'calc(10px + env(safe-area-inset-bottom))' }}
       >
-        {/* Полоска правки — как в мессенджерах: видно, что именно правишь,
-            и видно, чем это отменить. */}
+        {/* Полоска над строкой ввода — одна на правку и на ответ: и то и другое
+            отвечает на вопрос «что сейчас происходит с этим полем», и две
+            полосы подряд означали бы, что можно править и отвечать разом. */}
         <div
           className="grid w-full max-w-2xl"
           style={{
-            gridTemplateRows: editing ? '1fr' : '0fr',
-            opacity: editing ? 1 : 0,
+            gridTemplateRows: editing || replyTo ? '1fr' : '0fr',
+            opacity: editing || replyTo ? 1 : 0,
             transition:
-              'grid-template-rows 0.26s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.2s ease',
+              'grid-template-rows 0.26s var(--enter-ease), opacity 0.2s ease',
           }}
         >
           <div className="overflow-hidden">
@@ -415,19 +648,31 @@ export default function ChatPage() {
               className="mb-1.5 flex items-center gap-2 rounded-2xl px-3 py-2"
               style={{ background: 'var(--surface-2)' }}
             >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-none">
-                <path d="M4 20h4L19 9a2.1 2.1 0 0 0-3-3L5 17v3Z" />
-              </svg>
-              <span className="min-w-0 flex-1 truncate text-[13px] text-[var(--text-muted)]">
-                {editing?.body}
+              {editing ? (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-none">
+                  <path d="M4 20h4L19 9a2.1 2.1 0 0 0-3-3L5 17v3Z" />
+                </svg>
+              ) : (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-none">
+                  <path d="M11 5.5 4 12l7 6.5V15c4 0 7 1.2 9 4-.6-4.8-3.6-8.4-9-9Z" />
+                </svg>
+              )}
+              <span className="flex min-w-0 flex-1 flex-col">
+                <span className="text-[11.5px] font-semibold" style={{ color: 'var(--accent)' }}>
+                  {editing ? 'Правка' : `Ответ ${person?.username ?? ''}`.trim()}
+                </span>
+                <span className="min-w-0 truncate text-[13px] text-[var(--text-muted)]">
+                  {(editing ?? replyTo)?.body}
+                </span>
               </span>
               <button
                 type="button"
                 onClick={() => {
                   setEditing(null);
-                  setBody('');
+                  setReplyTo(null);
+                  if (editing) setBody('');
                 }}
-                aria-label="Отменить правку"
+                aria-label={editing ? 'Отменить правку' : 'Отменить ответ'}
                 className="flex h-6 w-6 flex-none items-center justify-center rounded-full text-[var(--text-muted)] transition-transform active:scale-90"
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
@@ -485,6 +730,43 @@ export default function ChatPage() {
         onClose={() => setMenuFor(null)}
         actions={[
           {
+            key: 'reply',
+            label: 'Ответить',
+            icon: <path d="M11 5.5 4 12l7 6.5V15c4 0 7 1.2 9 4-.6-4.8-3.6-8.4-9-9Z" />,
+            onSelect: () => menuFor && startReply(menuFor),
+          },
+          {
+            key: 'forward',
+            label: 'Переслать',
+            icon: <path d="M13 5.5 20 12l-7 6.5V15c-4 0-7 1.2-9 4 .6-4.8 3.6-8.4 9-9Z" />,
+            onSelect: () => {
+              if (menuFor) setForwarding([menuFor]);
+              setMenuFor(null);
+            },
+          },
+          {
+            key: 'pin',
+            label: menuFor?.pinned_at ? 'Открепить' : 'Закрепить',
+            icon: (
+              <>
+                <path d="M9 4h6l-1 6 4 3v2H6v-2l4-3Z" />
+                <path d="M12 15v5" />
+              </>
+            ),
+            onSelect: () => menuFor && togglePin(menuFor),
+          },
+          {
+            key: 'select',
+            label: 'Выбрать',
+            icon: (
+              <>
+                <rect x="3.5" y="3.5" width="17" height="17" rx="4.5" />
+                <path d="m8 12 3 3 5-6" />
+              </>
+            ),
+            onSelect: () => menuFor && startSelecting(menuFor),
+          },
+          {
             key: 'copy',
             label: 'Скопировать',
             icon: (
@@ -527,6 +809,35 @@ export default function ChatPage() {
             : []),
         ]}
       />
+
+      {/* Кому переслать. Список тянем только когда шторку открыли: он нужен
+          раз в сотню открытий переписки. */}
+      <BottomSheet
+        open={forwarding !== null}
+        onClose={() => setForwarding(null)}
+        title={
+          forwarding && forwarding.length > 1
+            ? `Переслать ${forwarding.length}`
+            : 'Переслать'
+        }
+      >
+        <div className="flex flex-col divide-y divide-[var(--border)]">
+          {(people.data ?? []).map((person) => (
+            <button
+              key={person.id}
+              type="button"
+              onClick={() => forwardTo(person.id)}
+              className="flex items-center gap-3 py-3 text-left transition-colors active:bg-[var(--surface-2)]"
+            >
+              <DefaultAvatar name={person.username} size={44} />
+              <span className="min-w-0 flex-1 truncate text-[15px] font-medium text-[var(--text)]">
+                {person.username}
+              </span>
+            </button>
+          ))}
+          {people.loading && <p className="py-6 text-[var(--text-muted)]">Загрузка…</p>}
+        </div>
+      </BottomSheet>
     </div>
   );
 }

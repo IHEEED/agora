@@ -7,7 +7,7 @@ import { apiFetch } from '@/lib/api';
 import { invalidate } from '@/lib/useApiData';
 import { CommentSheet } from '@/components/CommentSheet';
 import { ShareSheet } from '@/components/ShareSheet';
-import { FollowButton } from '@/components/FollowButton';
+import { AvatarFollow } from '@/components/AvatarFollow';
 import { DefaultAvatar } from '@/components/DefaultAvatar';
 import { formatCompactAge } from '@/lib/formatDate';
 import { RollingNumber } from '@/components/RollingNumber';
@@ -75,8 +75,22 @@ export function PostCard({
     // Ни рамки, ни фона: пост отделяется от соседа полоской, которую рисует
     // список. Горизонтальных полей тоже нет — текст идёт во всю ширину колонки.
     <article className="flex flex-col gap-2 py-4">
-      <div className="relative flex items-center gap-2 text-[14px]">
-        <DefaultAvatar name={post.author.username} size={30} />
+      <div className="relative flex items-center gap-2.5 text-[14px]">
+        {/* Подписка значком на аватарке, а не отдельной кнопкой у правого края.
+            Там она стояла между ником и тремя точками и на длинных никах
+            зажималась в щель; здесь она пришита к тому, на кого подписываются.
+            Аватарка ради этого подросла с 30 до 38: на тридцати значок был бы
+            мельче пальца. */}
+        {canFollow && post.author.id ? (
+          <AvatarFollow
+            userId={post.author.id}
+            username={post.author.username}
+            initiallyFollowing={post.author.isFollowing}
+            size={38}
+          />
+        ) : (
+          <DefaultAvatar name={post.author.username} size={38} />
+        )}
 
         {/* min-w-0 на контейнере и truncate на нике: без первого флекс не даёт
             элементу сжаться ниже содержимого, и длинный ник выдавливал кнопку
@@ -124,14 +138,6 @@ export function PostCard({
           )}
 
         </div>
-
-        {canFollow && post.author.id && (
-          <FollowButton
-            userId={post.author.id}
-            initiallyFollowing={post.author.isFollowing}
-            className="text-[12.5px]"
-          />
-        )}
 
         {/* Три точки — общее место для всего, что делают с чужой записью и
             что не заслуживает своей кнопки в строке действий. */}

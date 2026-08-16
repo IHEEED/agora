@@ -50,7 +50,7 @@ export default function NotificationsPage() {
         {/* Лентой вбок, а не столбцом: список во всю высоту отжимал сообщества
             за нижнюю кромку, и вкладка снова выглядела состоящей из одного
             блока. */}
-        <SuggestedPeople storageKey="parafraz-suggest-notifications" />
+        <SuggestedPeople />
 
         {communities.length > 0 && (
           <section>

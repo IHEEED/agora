@@ -1,6 +1,6 @@
 'use client';
 
-import { useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { useSession } from '@/lib/useSession';
 import { useApiData } from '@/lib/useApiData';
 import { CommentWithPost, Post, UserProfile } from '@/lib/types';
@@ -9,6 +9,7 @@ import { PostCard } from '@/components/PostCard';
 import { ProfileAvatar } from '@/components/ProfileAvatar';
 import { InfluenceInfo } from '@/components/InfluenceInfo';
 import { SuggestedPeople } from '@/components/SuggestedPeople';
+import { SegmentedControl } from '@/components/SegmentedControl';
 import { DEFAULT_FIT, Fit } from '@/components/ImageFitter';
 import { ImageAdjustDialog } from '@/components/ImageAdjustDialog';
 import Link from 'next/link';
@@ -178,10 +179,6 @@ export default function ProfilePage() {
     () => ''
   );
 
-  const tabsRef = useRef<HTMLDivElement>(null);
-  const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
-  const [tabBlob, setTabBlob] = useState<{ x: number; width: number; height: number } | null>(null);
-
   const userId = session?.user.id;
 
   // Из общего кеша: возврат в профиль рисует его мгновенно, свежие данные
@@ -208,26 +205,6 @@ export default function ProfilePage() {
     comments: comments.length,
     reposts: reposts.length,
   };
-
-  const activeTabIndex = TABS.findIndex(([value]) => value === tab);
-
-  useLayoutEffect(() => {
-    function measure() {
-      const element = tabRefs.current[activeTabIndex];
-      if (!element) return;
-      setTabBlob({
-        x: element.offsetLeft,
-        width: element.offsetWidth,
-        height: element.offsetHeight,
-      });
-    }
-
-    measure();
-    const observer = new ResizeObserver(measure);
-    if (tabsRef.current) observer.observe(tabsRef.current);
-    return () => observer.disconnect();
-    // Ширина вкладок зависит от подписей со счётчиками — пересчитываем и при их смене.
-  }, [activeTabIndex, counts.posts, counts.comments, counts.reposts]);
 
   // AppGate уже гарантировал сессию раньше, чем эта страница смонтировалась —
   // отдельный экран «войдите» здесь не нужен, разве что на миг до первого рендера.
@@ -374,44 +351,22 @@ export default function ProfilePage() {
           </div>
         </section>
 
-        <SuggestedPeople storageKey="parafraz-suggest-profile" className="px-1.5" />
+        <SuggestedPeople className="px-1.5" />
 
         {/* Блок 2 — что вы написали */}
         <section className="glass rounded-2xl px-4 pb-2">
-          {/* Вкладки собраны к центру: у крайней («Репосты») капля упиралась
-              в край карточки и вылезала за скругление. */}
-          <div
-            ref={tabsRef}
-            // Вкладки распределены по ширине, а не сбиты к центру: капля под
-            // крайней вкладкой прижималась к кромке карточки, и отступы слева
-            // и справа выходили разными.
-            className="relative flex items-center justify-between gap-1 border-b border-[var(--border)] px-1 py-2"
-          >
-            {tabBlob && (
-              <span
-                aria-hidden
-                className="tab-blob"
-                style={{
-                  transform: `translate(${tabBlob.x}px, -50%)`,
-                  width: tabBlob.width,
-                  height: tabBlob.height,
-                }}
-              />
-            )}
-
-            {TABS.map(([value, labelKey], index) => (
-              <button
-                key={value}
-                onClick={() => setTab(value)}
-                ref={(node) => {
-                  tabRefs.current[index] = node;
-                }}
-                className="relative z-10 flex-1 whitespace-nowrap rounded-full px-2 py-2 text-center text-[13.5px] font-medium transition-colors"
-                style={{ color: tab === value ? 'var(--accent)' : 'var(--text-muted)' }}
-              >
-                {t(labelKey)} <span className="font-num">{counts[value]}</span>
-              </button>
-            ))}
+          {/* Тот же переключатель, что и в чужом профиле. Здесь стояли свои
+              вкладки с полупрозрачной каплей и чертой под ними — те же три
+              раздела, но нарисованные иначе, и переход между своим и чужим
+              профилем выглядел переходом между двумя приложениями. */}
+          <div className="py-3">
+            <SegmentedControl
+              value={tab}
+              onChange={setTab}
+              options={TABS.map(
+                ([value, labelKey]) => [value, `${t(labelKey)} ${counts[value]}`] as const
+              )}
+            />
           </div>
 
           {loading && <p className="py-6 text-[var(--text-muted)]">{t('common.loading')}</p>}

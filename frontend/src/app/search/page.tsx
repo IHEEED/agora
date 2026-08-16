@@ -249,7 +249,7 @@ export default function SearchPage() {
               </section>
             )}
 
-            <SuggestedPeople storageKey="parafraz-suggest-search" />
+            <SuggestedPeople />
           </>
         )}
 

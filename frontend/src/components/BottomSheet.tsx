@@ -98,7 +98,9 @@ export function BottomSheet({
           background: 'var(--sheet-scrim)',
           opacity: open ? 1 : 0,
           pointerEvents: open ? 'auto' : 'none',
-          transition: 'opacity 0.26s ease',
+          // Затемнение уходит быстрее, чем приходит: возвращаясь к ленте,
+          // человек хочет увидеть её, а не смотреть, как расходится вуаль.
+          transition: open ? 'opacity 0.26s ease' : 'opacity var(--exit-ms) var(--exit-ease)',
         }}
       />
 
@@ -120,10 +122,15 @@ export function BottomSheet({
           // в ленте их десяток, тени складываются и дают чёрное пятно внизу.
           // Скрытый элемент не рисует ничего, включая тень.
           visibility: open ? 'visible' : 'hidden',
+          // Выезд длинный и с торможением — за ним следят; уход короткий и с
+          // разгоном — он уже решён. Пока тянут пальцем, перехода нет вовсе,
+          // иначе шторка отстаёт от руки.
           transition:
-            drag === null
-              ? 'transform 0.34s cubic-bezier(0.32, 0.72, 0, 1), visibility 0.34s'
-              : 'none',
+            drag !== null
+              ? 'none'
+              : open
+                ? 'transform 0.36s var(--enter-ease), visibility 0.36s'
+                : 'transform var(--exit-ms) var(--exit-ease), visibility var(--exit-ms)',
         }}
       >
         <div

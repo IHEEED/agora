@@ -35,6 +35,12 @@ function describeError(error: { code?: string; message?: string }, fallback: str
   if (error.code === '42P01' || error.code === 'PGRST205') {
     return 'Личные сообщения ещё не включены в базе — выполните миграцию 007_messages.sql в Supabase → SQL Editor.';
   }
+  // PGRST204 — «в схеме нет такой колонки». Единственное, чего может не хватать
+  // сверх 007, — поля из 009: ответы и закрепление. Отправлять человека чинить
+  // приложение вместо базы здесь так же бессмысленно, как и выше.
+  if (error.code === 'PGRST204') {
+    return 'Ответы и закреплённые сообщения ещё не включены в базе — выполните миграцию 009_message_replies_and_pins.sql в Supabase → SQL Editor.';
+  }
   return fallback;
 }
 
@@ -117,6 +123,7 @@ router.post('/', requireAuth, async (req, res) => {
   const me = req.user!.id;
   const recipientId = String(req.body?.recipient_id ?? '');
   const body = String(req.body?.body ?? '').trim();
+  const replyToId = req.body?.reply_to_id ? String(req.body.reply_to_id) : null;
 
   if (!recipientId || recipientId === me) {
     return res.status(400).json({ error: 'Некому отправлять' });
@@ -127,7 +134,16 @@ router.post('/', requireAuth, async (req, res) => {
 
   const { data, error } = await supabase
     .from('messages')
-    .insert({ sender_id: me, recipient_id: recipientId, body })
+    // reply_to_id подставляем только когда отвечают. Колонка появляется
+    // миграцией 009, и упоминать её в каждой вставке значило бы сломать
+    // отправку вообще у всех, кто выполнил только 007: PostgREST отвергает
+    // запрос с неизвестной колонкой целиком, даже если значение в ней null.
+    .insert({
+      sender_id: me,
+      recipient_id: recipientId,
+      body,
+      ...(replyToId ? { reply_to_id: replyToId } : null),
+    })
     // Звёздочка, а не перечисление колонок: edited_at появляется миграцией 008, и
     // явное имя ломало бы переписку у тех, кто выполнил только 007.
     .select('*')
@@ -139,6 +155,42 @@ router.post('/', requireAuth, async (req, res) => {
   }
 
   res.status(201).json(data);
+});
+
+/**
+ * Закрепить или открепить сообщение.
+ *
+ * Закрепление общее на переписку, а не личное: в разговоре двоих «важное»
+ * важно обоим. Поэтому закрепить можно и чужую реплику — достаточно быть
+ * участником переписки, что и проверяем.
+ */
+router.put('/:id/pin', requireAuth, async (req, res) => {
+  const me = req.user!.id;
+  const id = String(req.params.id);
+  const pinned = Boolean(req.body?.pinned);
+
+  const { data: message } = await supabase
+    .from('messages')
+    .select('sender_id, recipient_id')
+    .eq('id', id)
+    .maybeSingle();
+
+  if (!message) return res.status(404).json({ error: 'Сообщение не найдено' });
+  if (message.sender_id !== me && message.recipient_id !== me) {
+    return res.status(403).json({ error: 'Это не ваша переписка' });
+  }
+
+  const { error } = await supabase
+    .from('messages')
+    .update({ pinned_at: pinned ? new Date().toISOString() : null })
+    .eq('id', id);
+
+  if (error) {
+    console.error('messages: pin failed', error);
+    return res.status(500).json({ error: describeError(error, 'Не удалось закрепить сообщение') });
+  }
+
+  res.status(204).send();
 });
 
 /** Реакции на пачку сообщений — одним запросом, а не по одному на сообщение. */
@@ -186,11 +238,29 @@ router.get('/:userId', requireAuth, async (req, res) => {
 
   const reactions = await reactionsByMessageId(data.map((row) => row.id));
 
+  // Цитата над ответом собирается из самой переписки, а не отдельным запросом:
+  // отвечают почти всегда на то, что рядом, и оригинал уже в этой же выборке.
+  // Отдельный запрос понадобился бы ради редкого случая, когда ответили на
+  // реплику старше трёхсот сообщений, — там цитата просто не покажется.
+  // Пока миграции 009 нет, колонки reply_to_id в ответе просто не будет —
+  // цитат не появится, но переписка откроется как раньше.
+  const byId = new Map(data.map((row) => [row.id, row]));
+
   res.json(
-    data.map((message) => ({
-      ...message,
-      reactions: reactions.get(message.id) ?? [],
-    }))
+    data.map((message) => {
+      const original = message.reply_to_id ? byId.get(message.reply_to_id) : undefined;
+      return {
+        ...message,
+        reactions: reactions.get(message.id) ?? [],
+        replyTo: original
+          ? {
+              id: original.id,
+              body: original.body,
+              mine: original.sender_id === me,
+            }
+          : null,
+      };
+    })
   );
 });
 

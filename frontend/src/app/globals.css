@@ -50,7 +50,6 @@
   --display-tracking: -0.022em;
   --display-weight: 650;
 
-  --grain: 0;
   --glow: 8%;
 }
 
@@ -73,7 +72,6 @@
   --display-tracking: -0.005em;
   --display-weight: 600;
 
-  --grain: 1;
   --glow: 10%;
 }
 
@@ -96,7 +94,6 @@
   --display-tracking: -0.02em;
   --display-weight: 600;
 
-  --grain: 0;
   --glow: 0%;
 }
 
@@ -118,7 +115,6 @@
   --display-tracking: -0.03em;
   --display-weight: 700;
 
-  --grain: 0;
   --glow: 12%;
 }
 
@@ -140,7 +136,6 @@
   --display-tracking: -0.01em;
   --display-weight: 600;
 
-  --grain: 1;
   --glow: 9%;
 }
 
@@ -280,6 +275,51 @@ html {
   scrollbar-gutter: stable;
 }
 
+/* ─── Полосы прокрутки ──────────────────────────────────────────────────────
+   Системная полоса Windows — широкая серая колея с треугольными кнопками на
+   концах. Рядом с интерфейсом, где ничего толще волосяной линии нет, она
+   выглядит деталью от другой программы. Заменяем её на то, что рисует сама
+   система на телефоне: тонкий полупрозрачный штрих без колеи и без кнопок.
+
+   Firefox понимает только пару свойств scrollbar-*, WebKit — только
+   псевдоэлементы, поэтому пишем оба набора. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--text) 22%, transparent) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text) 20%, transparent);
+  /* Прозрачная рамка с background-clip делает штрих уже дорожки, оставляя по
+     краям воздух: без неё ползунок упирается в кромку экрана. */
+  border: 2px solid transparent;
+  background-clip: content-box;
+  transition: background-color 0.2s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--text) 34%, transparent);
+  background-clip: content-box;
+}
+
+/* Те самые треугольники на концах полосы. */
+::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
 body {
   background: var(--bg);
   color: var(--text);
@@ -412,6 +452,79 @@ label,
   box-shadow: var(--panel-shadow);
 }
 
+/* ─── Сгруппированный список ────────────────────────────────────────────────
+   То, что в iOS называется inset grouped table view, и то, чего здесь не
+   хватало сильнее всего. Прежние блоки строились по-андроидному: карточка с
+   заголовком внутри, жирные поля со всех сторон и разделители во всю ширину,
+   рассекающие её на равные полосы.
+
+   Разница в трёх вещах, и все три важны:
+   · заголовок стоит НАД группой, а не внутри неё, — он подписывает список, а
+     не является его первой строкой;
+   · разделитель начинается там же, где текст, и не доходит до правого края —
+     поэтому строки читаются как продолжение друг друга, а не как отдельные
+     плитки;
+   · строка тесная и высокая, значение прижато вправо серым.
+
+   Отступ разделителя слева задаётся на самой группе через --row-inset:
+   у списка с иконками он равен ширине иконки с зазором, у простого — полю. */
+.ios-group {
+  --row-inset: 16px;
+  background: var(--panel-bg);
+  border-radius: var(--radius-card);
+  box-shadow: var(--panel-shadow);
+  overflow: hidden;
+}
+
+.ios-group > * + * {
+  position: relative;
+}
+
+.ios-group > * + *::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: var(--row-inset);
+  right: 0;
+  height: 1px;
+  background: color-mix(in srgb, var(--border) 70%, transparent);
+  pointer-events: none;
+}
+
+/* Подпись над группой: мелкая, разряженная, приглушённая. Полей по бокам
+   ровно столько, чтобы она встала под левый край текста внутри группы. */
+.ios-group-title {
+  padding: 0 16px 7px;
+  font-size: 12.5px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--text-muted);
+}
+
+/* Пояснение под группой — там же, где в iOS живёт мелкий текст про то, что
+   делает переключатель. */
+.ios-group-note {
+  padding: 7px 16px 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+.ios-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 46px;
+  padding: 10px 16px;
+  transition: background-color 0.15s ease;
+}
+
+/* Нажатие подсвечивает строку целиком — в iOS это главный признак того, что
+   строка ведёт куда-то, а не просто показывает значение. */
+.ios-row-tap:active {
+  background: var(--surface-2);
+}
+
 /* Блика по верхней кромке карточек здесь больше нет. Он изображал фаску
    стекла — приём, который держится ровно до тех пор, пока стекло настоящее.
    На плоской поверхности та же белая полоска читается глянцевой плёнкой,
@@ -531,20 +644,68 @@ label,
   );
 }
 
-/* Зерно. Мелкий непрозрачный шум, размноженный плиткой 160×160: на глаз это
-   не узор, а неровность бумаги — ровно то, чего не хватало залитому одним
-   цветом фону. Картинка статичная, поэтому браузер растрирует её один раз. */
-.app-grain {
-  position: fixed;
+/* Зерна здесь больше нет. Задумано оно было как неровность бумаги, а на экране
+   читалось шумом поверх текста: мелкий контрастный крап не даёт глазу
+   зацепиться за букву и всю страницу делает как будто расфокусированной.
+   Тёплую подложку «Хроника» и «Сад» держат цветом, а не фактурой. */
+
+/* ─── Обои переписки ────────────────────────────────────────────────────────
+   Не общий фон приложения, а фон одного экрана — как в Telegram, где обои
+   стоят только под пузырями. Ими и вдохновлено: четыре мягких пятна по углам
+   дают перетекающий цвет без единой видимой границы.
+
+   Плотность разная по темам: на светлой обои показываются почти в полную
+   силу, на тёмной глушатся вдвое — иначе цветной фон перебивает сами
+   сообщения, ради которых экран и открыт. */
+[data-chat-wall='dawn'] { --cw-1: #ffd9a3; --cw-2: #ffb0a0; --cw-3: #e08bbd; --cw-4: #a988e0; }
+[data-chat-wall='sea'] { --cw-1: #a8e6f0; --cw-2: #79c2f2; --cw-3: #6f9ae8; --cw-4: #8ad9c8; }
+[data-chat-wall='dusk'] { --cw-1: #9d9ee8; --cw-2: #7f7ad4; --cw-3: #b58ad4; --cw-4: #6f6bb0; }
+[data-chat-wall='grove'] { --cw-1: #cbe6a4; --cw-2: #93cfa0; --cw-3: #7fbfae; --cw-4: #b7d98c; }
+[data-chat-wall='powder'] { --cw-1: #ffd6dd; --cw-2: #ffc0b4; --cw-3: #f0b3d0; --cw-4: #e5c8f0; }
+[data-chat-wall='graphite'] { --cw-1: #c3c8d2; --cw-2: #9aa2b0; --cw-3: #b0aeb8; --cw-4: #868d9c; }
+
+/* «По стилю» берёт акцент выбранного оформления и разводит его в четыре
+   оттенка — обои остаются частью стиля, а не спорят с ним. */
+[data-chat-wall='style'] {
+  --cw-1: color-mix(in srgb, var(--accent) 70%, #ffffff);
+  --cw-2: var(--accent);
+  --cw-3: color-mix(in srgb, var(--accent) 60%, var(--surface));
+  --cw-4: color-mix(in srgb, var(--accent) 45%, #000000);
+}
+
+.chat-wallpaper {
+  position: absolute;
   inset: 0;
-  z-index: -1;
   pointer-events: none;
-  opacity: calc(var(--grain) * light-dark(0.5, 0.32));
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.42'/%3E%3C/svg%3E");
-  background-size: 160px 160px;
-  /* На светлом зерно должно затемнять, на тёмном — подсвечивать: одна и та же
-     картинка в двух режимах наложения вместо двух разных текстур. */
-  mix-blend-mode: light-dark(multiply, screen);
+  /* Вполсилы на светлой и втрое слабее на тёмной. Полная плотность выглядела
+     заставкой, поверх которой зачем-то написали текст: цвет перетягивал
+     внимание с пузырей, а серые метки времени на нём переставали читаться.
+     У Telegram та же логика — обои там заметно бледнее образца в настройках. */
+  opacity: light-dark(0.45, 0.28);
+  background:
+    radial-gradient(68% 58% at 16% 10%, var(--cw-1), transparent 62%),
+    radial-gradient(64% 56% at 86% 6%, var(--cw-2), transparent 60%),
+    radial-gradient(72% 60% at 10% 86%, var(--cw-3), transparent 62%),
+    radial-gradient(76% 64% at 90% 94%, var(--cw-4), transparent 64%);
+}
+
+/* Без выбора обои не рисуются вовсе — экран остаётся на фоне приложения. */
+:root:not([data-chat-wall]) .chat-wallpaper,
+:root[data-chat-wall='none'] .chat-wallpaper {
+  display: none;
+}
+
+/* Образец обоев в настройках — те же четыре пятна, ужатые до плитки. Плотность
+   здесь полная: на квадрате 60×60 честные проценты дали бы серый прямоугольник. */
+.chat-wall-swatch {
+  aspect-ratio: 1;
+  border-radius: 14px;
+  background:
+    radial-gradient(68% 58% at 16% 10%, var(--cw-1), transparent 62%),
+    radial-gradient(64% 56% at 86% 6%, var(--cw-2), transparent 60%),
+    radial-gradient(72% 60% at 10% 86%, var(--cw-3), transparent 62%),
+    radial-gradient(76% 64% at 90% 94%, var(--cw-4), transparent 64%),
+    var(--surface-2);
 }
 
 /* Кольцо сториз медленно проворачивается, пока истории не просмотрены.
@@ -969,7 +1130,7 @@ label,
 @keyframes page-enter {
   from {
     opacity: 0;
-    transform: translateY(6px) scale(0.995);
+    transform: translateY(8px) scale(0.994);
   }
   to {
     opacity: 1;
@@ -977,15 +1138,17 @@ label,
   }
 }
 
+/* Вход длиннее выхода и с торможением на подлёте: экран должен «приезжать»,
+   а не выскакивать. Выход наоборот — резкий, см. --exit-* ниже. */
 .page-enter {
-  animation: page-enter 0.22s cubic-bezier(0.22, 0.61, 0.36, 1);
+  animation: page-enter 0.3s cubic-bezier(0.16, 0.84, 0.31, 1);
 }
 
 /* Вложенный экран въезжает справа — жест «вглубь», как в системной навигации. */
 @keyframes page-push {
   from {
     opacity: 0;
-    transform: translateX(28px);
+    transform: translateX(30px);
   }
   to {
     opacity: 1;
@@ -993,7 +1156,25 @@ label,
   }
 }
 .page-push {
-  animation: page-push 0.28s cubic-bezier(0.32, 0.72, 0, 1);
+  animation: page-push 0.34s cubic-bezier(0.16, 0.84, 0.31, 1);
+}
+
+/* ─── Уходы ─────────────────────────────────────────────────────────────────
+   Вход и выход не зеркальны, и это намеренно.
+
+   Приезд экрана глаз читает как событие: ему нужно время, чтобы за ним
+   уследить, поэтому вход длинный и с торможением в конце. Уход — уже принятое
+   решение, и тянуть его значит держать человека перед тем, что он закрыл.
+   Раньше и то и другое шло одной кривой в 0.28s, и выходы ощущались вязкими:
+   первую половину анимации экран почти не двигался.
+
+   Отсюда ease-in на уходе — старт медленный, конец резкий, — и вдвое меньшее
+   время. Оба значения вынесены сюда, чтобы уход из шторки, из чата и из
+   поиска шёл одинаково, а не тремя разными числами по файлам. */
+:root {
+  --exit-ms: 180ms;
+  --exit-ease: cubic-bezier(0.5, 0, 0.9, 0.35);
+  --enter-ease: cubic-bezier(0.16, 0.84, 0.31, 1);
 }
 @media (prefers-reduced-motion: reduce) {
   .page-push {
@@ -1007,13 +1188,15 @@ label,
   }
 }
 
-/* Кнопка «i»: чётный размер — круг и глиф не размываются на дробных пикселях. */
+/* Кнопка «i». Размер задаёт сама картинка — коробка лишь снимает с неё
+   строчные метрики, из-за которых знак съезжал вниз относительно цифры,
+   рядом с которой стоит. */
 .influence-i {
-  width: 14px;
-  height: 14px;
+  display: inline-flex;
   flex: none;
   padding: 0;
   line-height: 0;
+  vertical-align: middle;
 }
 
 /* Подсказка про influence-очки. Ширину и края задаёт разметка: подсказка

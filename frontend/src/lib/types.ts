@@ -41,6 +41,12 @@ export interface Message {
   /** Когда сообщение поправили. null — не правили. */
   edited_at?: string | null;
   reactions?: { emoji: string; userId: string }[];
+  /** На какое сообщение это ответ. Появляется миграцией 009. */
+  reply_to_id?: string | null;
+  /** Оригинал ответа, собранный сервером из той же переписки. */
+  replyTo?: { id: string; body: string; mine: boolean } | null;
+  /** Когда сообщение закрепили. null — не закреплено. */
+  pinned_at?: string | null;
 }
 
 /** Строка в списке переписок: собеседник и последнее письмо. */

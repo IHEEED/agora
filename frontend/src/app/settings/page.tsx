@@ -6,11 +6,15 @@ import { supabase } from '@/lib/supabase';
 import { useSession } from '@/lib/useSession';
 import { usePhoneGate } from '@/components/PhoneGateContext';
 import {
+  CHAT_WALLS,
+  ChatWallId,
   STYLES,
   StyleId,
   ThemePreference,
+  applyChatWall,
   applyStyle,
   applyTheme,
+  readChatWall,
   readStyle,
   readThemePreference,
 } from '@/lib/appearance';
@@ -24,13 +28,24 @@ const THEMES: ReadonlyArray<readonly [ThemePreference, TranslationKey]> = [
   ['system', 'settings.theme.system'],
 ];
 
+/**
+ * Группа строк по образцу настроек iOS.
+ *
+ * Раньше это была карточка с заголовком внутри, полями в пять единиц со всех
+ * сторон и разделителями во всю ширину. Так строят списки на Android, и в
+ * приложении, которое целится в айфон, это было заметнее всего: заголовок
+ * читался первой строкой списка, а разделители рубили карточку на равные
+ * плитки вместо того, чтобы связывать строки в одно.
+ *
+ * Здесь заголовок стоит НАД группой, поля отдала каждая строка по
+ * отдельности, а разделитель начинается от текста и не доходит до правого
+ * края — см. .ios-group в globals.css.
+ */
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="glass rounded-2xl p-5">
-      <h2 className="mb-3 text-[13px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">
-        {title}
-      </h2>
-      <div className="flex flex-col divide-y divide-[var(--border)]">{children}</div>
+    <section>
+      <h2 className="ios-group-title">{title}</h2>
+      <div className="ios-group">{children}</div>
     </section>
   );
 }
@@ -45,7 +60,7 @@ function Row({
   children?: React.ReactNode;
 }) {
   return (
-    <div className="flex items-center justify-between gap-4 py-3">
+    <div className="ios-row justify-between">
       <div className="flex min-w-0 flex-col">
         <span className="text-[15px] text-[var(--text)]">{label}</span>
         {hint && <span className="text-[12.5px] leading-snug text-[var(--text-muted)]">{hint}</span>}
@@ -180,6 +195,7 @@ export default function SettingsPage() {
   // иначе серверный рендер разойдётся с localStorage.
   const [theme, setTheme] = useState<ThemePreference | null>(null);
   const [style, setStyle] = useState<StyleId | null>(null);
+  const [chatWall, setChatWall] = useState<ChatWallId | null>(null);
   // Образцы рисуются в той теме, что сейчас на экране, — иначе тёмный стиль
   // предлагался бы светлой плашкой и наоборот. «Системную» для этого
   // приходится разрешить в конкретное значение.
@@ -193,6 +209,7 @@ export default function SettingsPage() {
   useEffect(() => {
     setTheme(readThemePreference());
     setStyle(readStyle());
+    setChatWall(readChatWall());
   }, []);
 
   // При «системной» теме следим за настройкой ОС и переключаемся вместе с ней.
@@ -217,6 +234,11 @@ export default function SettingsPage() {
   function chooseStyle(next: StyleId) {
     setStyle(next);
     applyStyle(next);
+  }
+
+  function chooseChatWall(next: ChatWallId) {
+    setChatWall(next);
+    applyChatWall(next);
   }
 
   const phoneVerified = Boolean(session?.user.phone_confirmed_at);
@@ -290,6 +312,44 @@ export default function SettingsPage() {
                         {option.hint}
                       </span>
                     </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Обои переписки живут здесь, а не в самом чате: это настройка, а не
+              действие, и менять её посреди разговора незачем. */}
+          <div className="mt-4 border-t border-[var(--border)] pt-4">
+            <p className="text-[15px] text-[var(--text)]">{t('settings.chatWall')}</p>
+            <p className="mb-3 text-[12.5px] leading-snug text-[var(--text-muted)]">
+              {t('settings.chatWallHint')}
+            </p>
+            <div className="grid grid-cols-4 gap-2.5">
+              {CHAT_WALLS.map((option) => {
+                const selected = chatWall === option.id;
+                return (
+                  <button
+                    key={option.id}
+                    onClick={() => chooseChatWall(option.id)}
+                    title={option.label}
+                    aria-label={option.label}
+                    aria-pressed={selected}
+                    className="chat-wall-swatch flex items-center justify-center transition-transform active:scale-95"
+                    // Тот же атрибут, что и на <html>: оттенки образец берёт из
+                    // общего правила, а не из второй копии палитры.
+                    data-chat-wall={option.id}
+                    style={{
+                      boxShadow: selected
+                        ? '0 0 0 2px var(--surface), 0 0 0 4px var(--accent)'
+                        : 'none',
+                    }}
+                  >
+                    {option.id === 'none' && (
+                      <span className="text-[11px] text-[var(--text-muted)]">
+                        {t('settings.wallpaperOff')}
+                      </span>
+                    )}
                   </button>
                 );
               })}

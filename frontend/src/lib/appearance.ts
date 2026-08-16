@@ -17,8 +17,43 @@ export type ThemePreference = Theme | 'system';
  */
 export type StyleId = 'chronicle' | 'atelier' | 'midnight' | 'garden' | 'signal';
 
+/**
+ * Обои переписки — фон одного экрана, не всего приложения.
+ *
+ * Приём из Telegram, и взят он оттуда не ради красоты: переписка — почти
+ * единственное место, где интерфейс принадлежит двоим, и фон под пузырями
+ * отличает её от остальных экранов сильнее любой рамки. Общий фон приложения
+ * они при этом не трогают: обои, лезущие в ленту, — это уже не оформление,
+ * а помеха чтению.
+ */
+export type ChatWallId =
+  | 'none'
+  | 'style'
+  | 'dawn'
+  | 'sea'
+  | 'dusk'
+  | 'grove'
+  | 'powder'
+  | 'graphite';
+
 export const THEME_STORAGE_KEY = 'parafraz-theme';
 export const STYLE_STORAGE_KEY = 'parafraz-style';
+export const CHAT_WALL_STORAGE_KEY = 'parafraz-chat-wall';
+
+/**
+ * Только идентификаторы и подписи: сами оттенки живут в globals.css рядом с
+ * градиентом, который их читает, и оттуда же их берёт образец в настройках.
+ */
+export const CHAT_WALLS: ReadonlyArray<{ id: ChatWallId; label: string }> = [
+  { id: 'none', label: 'Без обоев' },
+  { id: 'style', label: 'По стилю' },
+  { id: 'dawn', label: 'Рассвет' },
+  { id: 'sea', label: 'Море' },
+  { id: 'dusk', label: 'Сумерки' },
+  { id: 'grove', label: 'Роща' },
+  { id: 'powder', label: 'Пудра' },
+  { id: 'graphite', label: 'Графит' },
+];
 
 /**
  * Описания для карточек выбора в настройках.
@@ -149,4 +184,19 @@ export function applyStyle(style: StyleId) {
 export function readStyle(): StyleId {
   const stored = window.localStorage.getItem(STYLE_STORAGE_KEY);
   return STYLES.some((s) => s.id === stored) ? (stored as StyleId) : DEFAULT_STYLE;
+}
+
+/**
+ * Обои переписки применяются без кроссфейда: их не видно с экрана настроек,
+ * а анимировать то, чего человек сейчас не видит, — впустую гонять снимок
+ * всей страницы через видеокарту.
+ */
+export function applyChatWall(wall: ChatWallId) {
+  document.documentElement.setAttribute('data-chat-wall', wall);
+  window.localStorage.setItem(CHAT_WALL_STORAGE_KEY, wall);
+}
+
+export function readChatWall(): ChatWallId {
+  const stored = window.localStorage.getItem(CHAT_WALL_STORAGE_KEY);
+  return CHAT_WALLS.some((w) => w.id === stored) ? (stored as ChatWallId) : 'none';
 }

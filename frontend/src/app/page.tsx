@@ -53,7 +53,7 @@ export default function FeedPage() {
         {/* Лента — сплошной список, разделённый полосками, а не набор плиток.
             Отдельные карточки дробили экран на прямоугольники и съедали ширину
             под поля; полоска отделяет ровно настолько, насколько нужно. */}
-        <SuggestedPeople storageKey="parafraz-suggest-feed" />
+        <SuggestedPeople />
 
         <div className="feed-list flex flex-col">
           {posts.map((post) => (

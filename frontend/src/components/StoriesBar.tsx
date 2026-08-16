@@ -5,7 +5,10 @@ import { SegmentRing, segmentsFor } from '@/components/SegmentRing';
 import { DefaultAvatar } from '@/components/DefaultAvatar';
 import { useT } from '@/lib/i18n';
 
-const RING_SIZE = 86;
+/* Было 86 — кружки занимали верхнюю треть экрана и отжимали ленту, ради
+   которой человек сюда и пришёл. 66 достаточно, чтобы узнать лицо, и в ряд
+   помещается на одну историю больше. */
+const RING_SIZE = 66;
 
 function StoryRing({
   name,
@@ -18,9 +21,9 @@ function StoryRing({
 }) {
   return (
     <div className="relative" style={{ width: RING_SIZE, height: RING_SIZE }}>
-      <SegmentRing size={RING_SIZE} segments={segments} viewed={viewed} strokeWidth={3.4} gap={7} />
-      <div className="absolute inset-[7px] overflow-hidden rounded-full">
-        <DefaultAvatar name={name} size={RING_SIZE - 14} />
+      <SegmentRing size={RING_SIZE} segments={segments} viewed={viewed} strokeWidth={2.8} gap={5.5} />
+      <div className="absolute inset-[5px] overflow-hidden rounded-full">
+        <DefaultAvatar name={name} size={RING_SIZE - 10} />
       </div>
     </div>
   );
@@ -98,16 +101,20 @@ export function StoriesBar({
             {/* Пунктир вместо дуг: своей истории ещё нет, показывать нечего —
                 и кружок читается как «место под неё», а не как непросмотренное. */}
             <div
-              className="flex h-[86px] w-[86px] items-center justify-center overflow-hidden rounded-full border-2 border-dashed"
-              style={{ borderColor: 'var(--border)' }}
+              className="flex items-center justify-center overflow-hidden rounded-full border-2 border-dashed"
+              style={{ width: RING_SIZE, height: RING_SIZE, borderColor: 'var(--border)' }}
             >
-              <DefaultAvatar name={currentUserLetter} size={78} />
+              <DefaultAvatar name={currentUserLetter} size={RING_SIZE - 8} />
             </div>
             <span
-              className="absolute bottom-0.5 right-0.5 flex h-7 w-7 items-center justify-center rounded-full border-2"
-              style={{ background: 'var(--accent)', borderColor: 'var(--bg)' }}
+              className="absolute bottom-0 right-0 flex h-[22px] w-[22px] items-center justify-center rounded-full"
+              style={{
+                background: 'var(--accent)',
+                color: 'var(--accent-contrast)',
+                boxShadow: '0 0 0 2px var(--bg)',
+              }}
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="3" strokeLinecap="round">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round">
                 <path d="M12 5v14M5 12h14" />
               </svg>
             </span>

@@ -76,7 +76,7 @@ export function ProfileIcon({ active, size }: IconProps) {
 // всем остальным. label остаётся для aria-label и боковой панели.
 export const TABS = [
   { href: '/', label: 'Главная', labelKey: 'nav.home', Icon: HomeIcon },
-  { href: '/communities', label: 'Сообщества', labelKey: 'nav.communities', Icon: CommunitiesIcon },
+  { href: '/communities', label: 'Клубы', labelKey: 'nav.communities', Icon: CommunitiesIcon },
   { href: '/notifications', label: 'Уведомления', labelKey: 'nav.notifications', Icon: BellIcon },
   { href: '/profile', label: 'Профиль', labelKey: 'nav.profile', Icon: ProfileIcon },
 ] as const;

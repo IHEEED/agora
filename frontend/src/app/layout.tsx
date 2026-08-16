@@ -56,6 +56,7 @@ const APPEARANCE_INIT_SCRIPT = `
         || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
       root.setAttribute('data-theme', theme);
       root.setAttribute('data-style', localStorage.getItem('parafraz-style') || 'chronicle');
+      root.setAttribute('data-chat-wall', localStorage.getItem('parafraz-chat-wall') || 'none');
     } catch (e) {}
   })();
 `;

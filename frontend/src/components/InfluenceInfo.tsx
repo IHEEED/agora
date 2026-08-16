@@ -45,14 +45,23 @@ export function InfluenceInfo() {
         onClick={() => setOpen((v) => !v)}
         aria-label="Что такое influence-очки"
         aria-expanded={open}
-        className="influence-i flex items-center justify-center rounded-full border transition-transform active:scale-90"
-        style={{ borderColor: 'var(--text-muted)', color: 'var(--text-muted)' }}
+        className="influence-i transition-transform active:scale-90"
+        style={{ color: 'var(--text-muted)' }}
       >
-        {/* Глиф вместо буквы: точка и штрих строго по центру круга,
-            текстовая «i» из-за своих метрик всегда стоит криво. */}
-        <svg width="8" height="8" viewBox="0 0 8 8" fill="currentColor" aria-hidden>
-          <circle cx="4" cy="1.5" r="0.85" />
-          <rect x="3.35" y="3.2" width="1.3" height="3.4" rx="0.65" />
+        {/* Знак рисуется одной картинкой, а не кружком-обводкой с глифом внутри.
+            Прежний вариант собирался из двух независимых частей: рамки
+            размером 14×14, которую браузер округлял до целых пикселей, и
+            вложенной svg 8×8 со своей сеткой. Их центры почти никогда не
+            совпадали — оттого «i» и стояла криво, а тонкая рамка на дробном
+            пикселе размывалась в серое кольцо.
+
+            Здесь круг и глиф лежат в одной системе координат, поэтому
+            выравнивание точное при любом кегле. Круг залит, а не обведён:
+            заливка не зависит от плотности пикселей и остаётся ровной. */}
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden>
+          <circle cx="8" cy="8" r="7" fill="currentColor" opacity="0.16" />
+          <circle cx="8" cy="4.6" r="1.05" fill="currentColor" />
+          <rect x="7.05" y="6.7" width="1.9" height="5" rx="0.95" fill="currentColor" />
         </svg>
       </button>
 

@@ -508,9 +508,14 @@ function CreatePost() {
 
         {/* Панель вложений сразу под строкой, а не у нижней кромки шторки:
             внизу она стояла в обнимку с кнопкой «Опубликовать», и до неё
-            приходилось тянуться через полэкрана пустоты. Только знаки —
-            подписи к ним и так узнаваемы. */}
-        <div className="flex items-center gap-3 px-1">
+            приходилось тянуться через полэкрана пустоты.
+
+            Кругляшков вокруг знаков больше нет. Три обведённые таблетки в ряд
+            читались панелью управления от другой программы: обводка обещала
+            кнопку с состоянием, хотя две из трёх просто открывают системный
+            выбор файла. Осталось то, что и было содержанием, — знак и слово
+            под ним; нажимаемость показывает подсветка при касании. */}
+        <div className="-mx-1 flex items-center gap-1">
           <input
             ref={fileInputRef}
             type="file"
@@ -523,13 +528,14 @@ function CreatePost() {
             htmlFor="post-media"
             aria-label={t('create.image')}
             title="Изображение"
-            className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-full border border-[var(--border)] text-[var(--text)] transition-colors hover:bg-[var(--surface-2)]"
+            className="flex cursor-pointer items-center gap-1.5 rounded-xl px-2.5 py-2 text-[13.5px] font-medium text-[var(--text-muted)] transition-colors active:bg-[var(--surface-2)]"
           >
-            <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
               <rect x="3" y="4.5" width="18" height="15" rx="3" />
               <circle cx="8.5" cy="10" r="1.6" />
               <path d="m4 17 5-4.5 4.5 4 3-2.5L20 18" />
             </svg>
+            {t('create.image')}
           </label>
 
           {/* capture просит систему открыть камеру, а не галерею. */}
@@ -546,12 +552,13 @@ function CreatePost() {
             htmlFor="post-camera"
             aria-label={t('create.camera')}
             title="Камера"
-            className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-full border border-[var(--border)] text-[var(--text)] transition-colors hover:bg-[var(--surface-2)]"
+            className="flex cursor-pointer items-center gap-1.5 rounded-xl px-2.5 py-2 text-[13.5px] font-medium text-[var(--text-muted)] transition-colors active:bg-[var(--surface-2)]"
           >
-            <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
               <path d="M3 8.5a2 2 0 0 1 2-2h2l1.4-2h7.2L17 6.5h2a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" />
               <circle cx="12" cy="12.5" r="3.4" />
             </svg>
+            {t('create.camera')}
           </label>
 
           <button
@@ -560,18 +567,21 @@ function CreatePost() {
             aria-label={t('create.poll')}
             aria-pressed={pollShown}
             title="Опрос"
-            className="flex h-11 w-11 items-center justify-center rounded-full border transition-colors"
+            // Единственная из трёх, у которой есть состояние: опрос включён или
+            // нет. Показываем его заливкой и цветом, а не обводкой — обводка
+            // тут же вернула бы кнопке вид отдельного прибора.
+            className="flex items-center gap-1.5 rounded-xl px-2.5 py-2 text-[13.5px] font-medium transition-colors"
             style={{
-              borderColor: pollShown ? 'var(--accent)' : 'var(--border)',
-              color: pollShown ? 'var(--accent)' : 'var(--text)',
+              color: pollShown ? 'var(--accent)' : 'var(--text-muted)',
               background: pollShown ? 'var(--accent-soft)' : 'transparent',
             }}
           >
-            <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
               <rect x="3" y="5" width="18" height="4" rx="2" />
               <rect x="3" y="12" width="12" height="4" rx="2" />
               <rect x="3" y="19" width="7" height="1.2" rx="0.6" />
             </svg>
+            {t('create.poll')}
           </button>
         </div>
 
