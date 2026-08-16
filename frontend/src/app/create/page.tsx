@@ -338,7 +338,7 @@ function CreatePost() {
               а не тем, что находишь, пролистав весь список. */}
           <button
             onClick={() => pickCommunity(null)}
-            className="glass glass-sheen flex items-center gap-3.5 rounded-2xl p-4 text-left"
+            className="glass flex items-center gap-3.5 rounded-2xl p-4 text-left"
             style={{
               transform: leavingTo === PERSONAL ? 'scale(1.015)' : 'none',
               boxShadow: leavingTo === PERSONAL ? '0 0 0 1px var(--accent)' : undefined,
@@ -415,7 +415,7 @@ function CreatePost() {
                   <button
                     key={community.id}
                     onClick={() => pickCommunity(community.id)}
-                    className="glass glass-sheen flex items-center gap-3.5 rounded-2xl p-4 text-left"
+                    className="glass flex items-center gap-3.5 rounded-2xl p-4 text-left"
                     style={{
                       // Выбранная карточка на миг подаётся вперёд и загорается
                       // акцентом, остальные просто уходят вместе с экраном.

@@ -3,12 +3,13 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { apiFetch } from '@/lib/api';
 import { UserSummary } from '@/lib/types';
-import { DefaultAvatar } from '@/components/DefaultAvatar';
-import { FollowButton } from '@/components/FollowButton';
+import { AvatarFollow } from '@/components/AvatarFollow';
 import { useT } from '@/lib/i18n';
 
-/** Сколько длится сворачивание. Должно совпадать с transition в разметке. */
-const COLLAPSE_MS = 320;
+/** Сколько длится сворачивание. Должно совпадать с transition в разметке.
+    Было 320ms — слишком долго. Теперь 260ms, чтобы совпадать с exit-анимацией
+    чата и не перегружать браузер множеством одновременных CSS-транзиций. */
+const COLLAPSE_MS = 260;
 
 /**
  * Рекомендации людей: горизонтальная лента карточек или вертикальный список.
@@ -93,19 +94,6 @@ export function SuggestedPeople({
 
   if (storedDismissed || gone || people.length === 0) return null;
 
-  // Общая кнопка вместо своей копии: она умеет и подписку, и отписку.
-  // Раньше здесь стояла кнопка, которая после нажатия просто блокировалась —
-  // передумать было нельзя.
-  function followButton(person: UserSummary, wide: boolean) {
-    return (
-      <FollowButton
-        userId={person.id}
-        initiallyFollowing={person.isFollowing}
-        className={wide ? 'w-full max-w-none' : ''}
-      />
-    );
-  }
-
   return (
     // Схлопывание через grid-rows, а не max-height. С max-height приходится
     // называть высоту наперёд, и заявленные 520px против настоящих двухсот
@@ -116,7 +104,7 @@ export function SuggestedPeople({
       style={{
         gridTemplateRows: collapsing ? '0fr' : '1fr',
         opacity: collapsing ? 0 : 1,
-        transition: `grid-template-rows ${COLLAPSE_MS}ms cubic-bezier(0.32, 0.72, 0, 1), opacity ${COLLAPSE_MS - 120}ms ease`,
+        transition: `grid-template-rows ${COLLAPSE_MS}ms cubic-bezier(0.32, 0.72, 0, 1), opacity ${COLLAPSE_MS - 80}ms ease`,
       }}
     >
       <div className="overflow-hidden">
@@ -151,6 +139,9 @@ export function SuggestedPeople({
                   'width 0.26s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.2s ease',
               }}
             >
+              {/* Карточка ужалась до лица, имени и счёта: кнопка подписки
+                  переехала значком на саму аватарку и больше не занимает
+                  строку наравне с именем. */}
               <div className="glass relative flex w-[148px] flex-col items-center gap-2 rounded-2xl p-3 text-center">
                 <button
                   type="button"
@@ -163,14 +154,18 @@ export function SuggestedPeople({
                   </svg>
                 </button>
 
-                <DefaultAvatar name={person.username} size={56} />
+                <AvatarFollow
+                  userId={person.id}
+                  username={person.username}
+                  initiallyFollowing={person.isFollowing}
+                  size={60}
+                />
                 <span className="w-full truncate text-[13.5px] font-medium text-[var(--text)]">
                   {person.username}
                 </span>
                 <span className="text-[11.5px] text-[var(--text-muted)]">
                   <span className="font-num">{person.karma}</span> influence
                 </span>
-                {followButton(person, true)}
               </div>
             </div>
           ))}
@@ -179,7 +174,12 @@ export function SuggestedPeople({
         <div className="flex flex-col divide-y divide-[var(--border)]">
           {people.map((person) => (
             <div key={person.id} className="flex items-center gap-3 py-3">
-              <DefaultAvatar name={person.username} size={44} />
+              <AvatarFollow
+                userId={person.id}
+                username={person.username}
+                initiallyFollowing={person.isFollowing}
+                size={46}
+              />
               <div className="flex min-w-0 flex-1 flex-col">
                 <span className="truncate text-[15px] font-medium text-[var(--text)]">
                   {person.username}
@@ -188,7 +188,6 @@ export function SuggestedPeople({
                   <span className="font-num">{person.karma}</span> influence
                 </span>
               </div>
-              {followButton(person, false)}
             </div>
           ))}
         </div>

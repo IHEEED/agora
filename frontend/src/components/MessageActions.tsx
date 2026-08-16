@@ -77,10 +77,10 @@ export function MessageActions({
         onClick={onClose}
         className="fixed inset-0 z-[70]"
         style={{
-          // Размываем, а не гасим: сообщение под меню должно оставаться
-          // читаемым — иначе непонятно, к чему относятся действия.
-          backdropFilter: 'blur(calc(6px * var(--glass-strength)))',
-          background: 'rgba(0, 0, 0, 0.28)',
+          // Размываем легко: тяжёлый blur лагает при exit-анимации.
+          // Контрастный фон уже достаточно выделяет меню.
+          backdropFilter: 'blur(calc(3px * var(--glass-strength)))',
+          background: 'rgba(0, 0, 0, 0.22)',
           opacity: open ? 1 : 0,
           pointerEvents: open ? 'auto' : 'none',
           visibility: open ? 'visible' : 'hidden',

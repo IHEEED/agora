@@ -6,19 +6,13 @@ import { supabase } from '@/lib/supabase';
 import { useSession } from '@/lib/useSession';
 import { usePhoneGate } from '@/components/PhoneGateContext';
 import {
-  ACCENTS,
-  AccentId,
+  STYLES,
+  StyleId,
   ThemePreference,
-  WALLPAPERS,
-  WallpaperId,
-  applyAccent,
-  applyPlainBackground,
+  applyStyle,
   applyTheme,
-  applyWallpaper,
-  readAccent,
-  readPlainBackground,
+  readStyle,
   readThemePreference,
-  readWallpaper,
 } from '@/lib/appearance';
 import { ScreenTitle } from '@/components/ScreenTitle';
 import { SegmentedControl } from '@/components/SegmentedControl';
@@ -58,6 +52,79 @@ function Row({
       </div>
       {children}
     </div>
+  );
+}
+
+/**
+ * Образец стиля — маленький макет экрана, а не кружок с цветом.
+ *
+ * Кружок показывал ровно одну из одиннадцати красок набора, и выбирать по нему
+ * было нечего: фиолетовый кружок ничего не сообщал ни о фоне, ни о шрифте, ни
+ * о том, как всё это уживается вместе. Здесь же видно готовую страницу в
+ * миниатюре: подложка, карточка на ней, заголовок своей гарнитурой и кнопка
+ * акцентом.
+ */
+function StylePreview({
+  swatch,
+  serif,
+  selected,
+}: {
+  swatch: readonly [string, string, string];
+  serif: boolean;
+  selected: boolean;
+}) {
+  const [bg, surface, accent] = swatch;
+
+  return (
+    <span
+      className="flex h-[86px] w-full flex-col justify-end gap-1.5 overflow-hidden rounded-xl p-2.5 transition-transform"
+      style={{
+        background: bg,
+        transform: selected ? 'scale(1)' : 'scale(0.985)',
+        // Кромка образца рисуется его же поверхностью: обводить плашку, которая
+        // и так показывает свой фон, значило бы добавить чужую линию в макет.
+        boxShadow: selected
+          ? `0 0 0 2px var(--surface), 0 0 0 4px ${accent}`
+          : '0 0 0 1px color-mix(in srgb, currentColor 12%, transparent)',
+      }}
+    >
+      {/* Строка заголовка — своей гарнитурой: у половины стилей это антиква,
+          и по образцу это должно быть видно. */}
+      <span
+        aria-hidden
+        className="text-[13px] leading-none"
+        style={{
+          fontFamily: serif ? 'var(--font-display), Georgia, serif' : 'var(--font-body), sans-serif',
+          fontWeight: serif ? 500 : 700,
+          letterSpacing: serif ? '0' : '-0.03em',
+          color: accent,
+        }}
+      >
+        Aa
+      </span>
+
+      {/* Карточка с двумя строками текста и акцентной кнопкой. */}
+      <span
+        aria-hidden
+        className="flex items-center gap-1.5 rounded-md p-1.5"
+        style={{ background: surface }}
+      >
+        <span className="flex flex-1 flex-col gap-1">
+          <span
+            className="block h-[3px] w-full rounded-full"
+            style={{ background: accent, opacity: 0.55 }}
+          />
+          <span
+            className="block h-[3px] w-2/3 rounded-full"
+            style={{ background: accent, opacity: 0.25 }}
+          />
+        </span>
+        <span
+          className="block h-3.5 w-3.5 flex-none rounded-full"
+          style={{ background: accent }}
+        />
+      </span>
+    </span>
   );
 }
 
@@ -112,9 +179,11 @@ export default function SettingsPage() {
   // До монтирования значения неизвестны — читаем их уже в браузере,
   // иначе серверный рендер разойдётся с localStorage.
   const [theme, setTheme] = useState<ThemePreference | null>(null);
-  const [accent, setAccent] = useState<AccentId | null>(null);
-  const [wallpaper, setWallpaper] = useState<WallpaperId | null>(null);
-  const [plainBg, setPlainBg] = useState(false);
+  const [style, setStyle] = useState<StyleId | null>(null);
+  // Образцы рисуются в той теме, что сейчас на экране, — иначе тёмный стиль
+  // предлагался бы светлой плашкой и наоборот. «Системную» для этого
+  // приходится разрешить в конкретное значение.
+  const [darkNow, setDarkNow] = useState(false);
 
   function chooseLocale(next: Locale) {
     setLocale(next);
@@ -123,16 +192,19 @@ export default function SettingsPage() {
 
   useEffect(() => {
     setTheme(readThemePreference());
-    setAccent(readAccent());
-    setWallpaper(readWallpaper());
-    setPlainBg(readPlainBackground());
+    setStyle(readStyle());
   }, []);
 
   // При «системной» теме следим за настройкой ОС и переключаемся вместе с ней.
+  // Заодно это единственное место, где известно, светло сейчас или темно, —
+  // отсюда и значение для образцов.
   useEffect(() => {
-    if (theme !== 'system') return;
     const media = window.matchMedia('(prefers-color-scheme: dark)');
-    const sync = () => applyTheme('system');
+    const sync = () => {
+      setDarkNow(theme === 'dark' || (theme !== 'light' && media.matches));
+      if (theme === 'system') applyTheme('system');
+    };
+    sync();
     media.addEventListener('change', sync);
     return () => media.removeEventListener('change', sync);
   }, [theme]);
@@ -142,19 +214,9 @@ export default function SettingsPage() {
     applyTheme(next);
   }
 
-  function chooseAccent(next: AccentId) {
-    setAccent(next);
-    applyAccent(next);
-  }
-
-  function chooseWallpaper(next: WallpaperId) {
-    setWallpaper(next);
-    applyWallpaper(next);
-  }
-
-  function choosePlainBg(next: boolean) {
-    setPlainBg(next);
-    applyPlainBackground(next);
+  function chooseStyle(next: StyleId) {
+    setStyle(next);
+    applyStyle(next);
   }
 
   const phoneVerified = Boolean(session?.user.phone_confirmed_at);
@@ -193,104 +255,55 @@ export default function SettingsPage() {
             />
           </div>
 
+          {/* Стиль вместо прежней пары «акцент + обои». Двадцать кружков и семь
+              плиток давали три сотни сочетаний, из которых никто не подбирал ни
+              одного; здесь пять готовых наборов, и каждый показан целиком. */}
           <div className="border-t border-[var(--border)] pt-4">
-            <p className="mb-3 text-[15px] text-[var(--text)]">{t('settings.accent')}</p>
-            <div className="flex flex-wrap gap-3">
-              {ACCENTS.map((option) => {
-                const selected = accent === option.id;
+            <p className="text-[15px] text-[var(--text)]">{t('settings.style')}</p>
+            <p className="mb-3 text-[12.5px] leading-snug text-[var(--text-muted)]">
+              {t('settings.styleHint')}
+            </p>
+            <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
+              {STYLES.map((option) => {
+                const selected = style === option.id;
                 return (
                   <button
                     key={option.id}
-                    onClick={() => chooseAccent(option.id)}
-                    title={option.label}
+                    onClick={() => chooseStyle(option.id)}
                     aria-label={option.label}
                     aria-pressed={selected}
-                    className="flex h-10 w-10 items-center justify-center rounded-full transition-transform hover:scale-105"
-                    style={{
-                      background: option.swatch,
-                      // Обводка отбивает кружок от фона и заодно показывает выбор.
-                      boxShadow: selected
-                        ? '0 0 0 2px var(--surface), 0 0 0 4px var(--accent)'
-                        : '0 0 0 1px var(--border)',
-                    }}
+                    className="flex flex-col gap-1.5 text-left transition-transform active:scale-[0.97]"
                   >
-                    {selected && (
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M5 13l4 4L19 7" />
-                      </svg>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="mt-4 border-t border-[var(--border)] pt-4">
-            <p className="mb-3 text-[15px] text-[var(--text)]">{t('settings.wallpaper')}</p>
-            <div className="grid grid-cols-4 gap-2.5">
-              {WALLPAPERS.map((option) => {
-                const selected = wallpaper === option.id;
-                return (
-                  <button
-                    key={option.id}
-                    onClick={() => chooseWallpaper(option.id)}
-                    title={option.label}
-                    aria-label={option.label}
-                    aria-pressed={selected}
-                    className="wallpaper-swatch"
-                    // Тот же атрибут, что и на <html>: набор оттенков образец
-                    // берёт из общего правила, а не из второй копии палитры.
-                    data-wallpaper={option.id}
-                    style={{
-                      boxShadow: selected
-                        ? '0 0 0 2px var(--surface), 0 0 0 4px var(--accent)'
-                        : '0 0 0 1px var(--border)',
-                    }}
-                  >
-                    {option.id === 'none' && (
-                      <span className="text-[12px] text-[var(--text-muted)]">
-                        {t('settings.wallpaperOff')}
+                    <StylePreview
+                      swatch={darkNow ? option.swatchDark : option.swatch}
+                      serif={option.serif}
+                      selected={selected}
+                    />
+                    <span className="flex flex-col px-0.5">
+                      <span
+                        className="text-[13.5px] font-medium"
+                        style={{ color: selected ? 'var(--accent)' : 'var(--text)' }}
+                      >
+                        {option.label}
                       </span>
-                    )}
+                      <span className="text-[11.5px] leading-snug text-[var(--text-muted)]">
+                        {option.hint}
+                      </span>
+                    </span>
                   </button>
                 );
               })}
             </div>
-          </div>
-
-          {/* Отдельно от обоев: «Без обоев» гасит только их, а цветные пятна
-              ауроры лежат своим слоем и остаются. */}
-          <div className="mt-4 flex items-center justify-between gap-4 border-t border-[var(--border)] pt-4">
-            <div className="flex min-w-0 flex-col">
-              <span className="text-[15px] text-[var(--text)]">{t('settings.plainBg')}</span>
-              <span className="text-[12.5px] leading-snug text-[var(--text-muted)]">
-                {t('settings.plainBgHint')}
-              </span>
-            </div>
-            <button
-              onClick={() => choosePlainBg(!plainBg)}
-              role="switch"
-              aria-checked={plainBg}
-              className="relative h-7 w-[52px] flex-none rounded-full border transition-colors"
-              style={{
-                borderColor: plainBg ? 'var(--accent)' : 'var(--border)',
-                background: plainBg ? 'var(--accent-soft)' : 'var(--surface-2)',
-              }}
-            >
-              <span
-                className="absolute left-0 top-1/2 h-[22px] w-[22px] rounded-full transition-transform duration-300"
-                style={{
-                  transform: `translate(${plainBg ? 27 : 2}px, -50%)`,
-                  background: plainBg ? 'var(--accent)' : 'var(--surface)',
-                  boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
-                }}
-              />
-            </button>
           </div>
 
           <div className="mt-4 flex flex-col gap-2 border-t border-[var(--border)] pt-4">
             <span className="text-[15px] text-[var(--text)]">{t('settings.language')}</span>
-            <div className="flex gap-1 rounded-full border border-[var(--border)] p-1">
+            {/* Та же дорожка-заливка, что у SegmentedControl выше: обведённая
+                таблетка рядом с необведённой выглядела бы недоделкой. */}
+            <div
+              className="flex gap-1 rounded-full p-1"
+              style={{ background: 'var(--surface-2)' }}
+            >
               {LOCALES.map((option) => (
                 <button
                   key={option.id}

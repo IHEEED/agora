@@ -303,7 +303,7 @@ export default function CommunitiesPage() {
           <Link
             key={community.id}
             href={`/c/${community.id}`}
-            className="glass glass-sheen relative flex items-center gap-3.5 overflow-hidden rounded-2xl p-4 transition-transform active:scale-[0.99]"
+            className="glass relative flex items-center gap-3.5 overflow-hidden rounded-2xl p-4 transition-transform active:scale-[0.99]"
           >
             {/* Знак обычного размера слева. Раньше он занимал полкарточки и
                 растворялся маской — это работало, пока у каждого сообщества был

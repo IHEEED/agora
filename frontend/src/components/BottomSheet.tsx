@@ -95,7 +95,7 @@ export function BottomSheet({
         className="fixed inset-0"
         style={{
           zIndex: 60 + layer * 10,
-          background: 'rgba(0, 0, 0, 0.55)',
+          background: 'var(--sheet-scrim)',
           opacity: open ? 1 : 0,
           pointerEvents: open ? 'auto' : 'none',
           transition: 'opacity 0.26s ease',
@@ -106,7 +106,10 @@ export function BottomSheet({
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="bottom-sheet fixed inset-x-0 bottom-0 mx-auto flex max-w-2xl flex-col rounded-t-[22px]"
+        // Скругление задаёт сам .bottom-sheet через --radius-sheet: у стиля
+        // оформления должно быть право менять его вместе с остальным, а зашитая
+        // здесь цифра это право отбирала.
+        className="bottom-sheet fixed inset-x-0 bottom-0 mx-auto flex max-w-2xl flex-col"
         style={{
           zIndex: 61 + layer * 10,
           height,

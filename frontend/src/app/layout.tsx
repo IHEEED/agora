@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import Script from "next/script";
-import { Inter, Newsreader, Pixelify_Sans } from "next/font/google";
+import { Inter, Literata, Pixelify_Sans } from "next/font/google";
 import { BottomNav } from "@/components/BottomNav";
 import { DesktopSidebar } from "@/components/DesktopSidebar";
 import { PageTransition } from "@/components/PageTransition";
@@ -25,16 +25,19 @@ const pixelFont = Pixelify_Sans({
   subsets: ["latin", "cyrillic"],
 });
 
-// Знак приложения набран старой газетной антиквой: Newsreader — переменный
-// шрифт того же семейства форм, что и наборные шрифты газет, и держит светлые
-// начертания, не рассыпаясь. Пиксельный остался для обоев: там он к месту,
-// а в шапке читался жирной перемычкой поперёк экрана.
-// Кириллицы у Newsreader нет — и не нужно: этим шрифтом набрано одно слово
-// латиницей. Всё остальное в интерфейсе остаётся на Inter.
-const markFont = Newsreader({
-  variable: "--font-mark",
-  weight: ["200", "300", "400"],
-  subsets: ["latin"],
+// Газетная антиква для знака и заголовков. Раньше здесь стоял Newsreader —
+// шрифт красивый, но без кириллицы, поэтому им было набрано ровно одно слово
+// в шапке, а все заголовки экранов оставались на гротеске. Literata из того же
+// семейства книжно-газетных форм, но с кириллицей: ею можно набрать
+// «Уведомления» и «Сообщества», а не только PARAFRAZ.
+//
+// Какие именно заголовки уходят в антикву, решает стиль оформления
+// (--display-family в globals.css): «Хроника», «Ателье» и «Сад» набирают ею
+// весь верхний уровень, «Сигнал» и «Полночь» оставляют гротеск.
+const displayFont = Literata({
+  variable: "--font-display",
+  weight: ["300", "400", "500", "600", "700"],
+  subsets: ["latin", "cyrillic"],
 });
 
 export const metadata: Metadata = {
@@ -42,7 +45,9 @@ export const metadata: Metadata = {
   description: "PARAFRAZ — сообщества, посты и обсуждения",
 };
 
-// Тема и акцент выставляются до первой отрисовки, иначе оба успевают мигнуть.
+// Стиль и тема выставляются до первой отрисовки, иначе оба успевают мигнуть.
+// Прежних data-accent, data-wallpaper и data-plain-bg здесь больше нет: всё,
+// что они задавали, входит в стиль целиком.
 const APPEARANCE_INIT_SCRIPT = `
   (function () {
     try {
@@ -50,9 +55,7 @@ const APPEARANCE_INIT_SCRIPT = `
       var theme = localStorage.getItem('parafraz-theme')
         || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
       root.setAttribute('data-theme', theme);
-      root.setAttribute('data-accent', localStorage.getItem('parafraz-accent') || 'indigo');
-      root.setAttribute('data-wallpaper', localStorage.getItem('parafraz-wallpaper') || 'none');
-      root.setAttribute('data-plain-bg', localStorage.getItem('parafraz-plain-bg') || '0');
+      root.setAttribute('data-style', localStorage.getItem('parafraz-style') || 'chronicle');
     } catch (e) {}
   })();
 `;
@@ -65,7 +68,7 @@ export default function RootLayout({
   return (
     <html
       lang="ru"
-      className={`${bodyFont.variable} ${pixelFont.variable} ${markFont.variable} h-full antialiased`}
+      className={`${bodyFont.variable} ${pixelFont.variable} ${displayFont.variable} h-full antialiased`}
       // data-theme проставляется инлайн-скриптом ниже до гидратации — специально
       // расходится с серверной разметкой, чтобы не было мигания темы при загрузке.
       suppressHydrationWarning
@@ -84,12 +87,10 @@ export default function RootLayout({
         {/* Пока нет сессии, AppGate рендерит только экран входа — ни шапки,
             ни навигации, ни контента страницы пользователь не видит. */}
         <AppGate>
-          {/* Обои лежат ниже ауроры: узор должен просвечивать сквозь неё,
-              а не спорить с цветными пятнами. */}
+          {/* Подложка: один источник света сверху и зерно бумаги. Плотность
+              обоих назначает выбранный стиль — у половины из них зерна нет
+              вовсе. */}
           <Wallpaper />
-          {/* Мягкие цветные пятна под всем интерфейсом: без них стеклу
-              нечего размывать и оно выглядит просто серой заливкой. */}
-          <div className="aurora" aria-hidden />
           <DesktopSidebar />
           {/* Отступ под таб-бар: его высота плюс домашний индикатор. Бар теперь
               прижат к кромке во всю ширину, а не парит, поэтому запас точный. */}

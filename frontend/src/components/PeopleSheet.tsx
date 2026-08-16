@@ -5,8 +5,7 @@ import Link from 'next/link';
 import { apiFetch } from '@/lib/api';
 import { UserSummary } from '@/lib/types';
 import { BottomSheet } from '@/components/BottomSheet';
-import { DefaultAvatar } from '@/components/DefaultAvatar';
-import { FollowButton } from '@/components/FollowButton';
+import { AvatarFollow } from '@/components/AvatarFollow';
 
 /**
  * Список людей в шторке: подписчики, подписки, участники сообщества.
@@ -76,22 +75,26 @@ export function PeopleSheet({
       <div className="flex flex-col divide-y divide-[var(--border)]">
         {people?.map((person) => (
           <div key={person.id} className="flex items-center gap-3 py-3">
+            {/* Значок подписки вне ссылки: он живёт на аватарке, но нажатие на
+                него не должно уводить в профиль. */}
+            <AvatarFollow
+              userId={person.id}
+              username={person.username}
+              initiallyFollowing={person.isFollowing}
+              size={46}
+            />
             <Link
               href={`/u/${person.id}`}
               onClick={onClose}
-              className="flex min-w-0 flex-1 items-center gap-3"
+              className="flex min-w-0 flex-1 flex-col"
             >
-              <DefaultAvatar name={person.username} size={44} />
-              <div className="flex min-w-0 flex-col">
-                <span className="truncate text-[15px] font-medium text-[var(--text)]">
-                  {person.username}
-                </span>
-                <span className="text-[12.5px] text-[var(--text-muted)]">
-                  <span className="font-num">{person.karma}</span> influence
-                </span>
-              </div>
+              <span className="truncate text-[15px] font-medium text-[var(--text)]">
+                {person.username}
+              </span>
+              <span className="text-[12.5px] text-[var(--text-muted)]">
+                <span className="font-num">{person.karma}</span> influence
+              </span>
             </Link>
-            <FollowButton userId={person.id} initiallyFollowing={person.isFollowing} />
           </div>
         ))}
       </div>

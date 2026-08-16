@@ -7,6 +7,10 @@
  *
  * Точку не добавляем, если строка уже кончается знаком препинания: у
  * «Куда опубликовать?» она превратила бы концовку в «?.».
+ *
+ * Гарнитуру задаёт .display-type, а через него — выбранный стиль оформления:
+ * «Хроника», «Ателье» и «Сад» набирают заголовки газетной антиквой, «Сигнал»
+ * и «Полночь» оставляют плотный гротеск. Здесь об этом знать не нужно.
  */
 export function ScreenTitle({
   children,
@@ -20,7 +24,7 @@ export function ScreenTitle({
 
   return (
     <h1
-      className={`text-[30px] font-semibold leading-tight tracking-tight text-[var(--text)] ${className}`}
+      className={`display-type text-[30px] leading-tight text-[var(--text)] ${className}`}
     >
       {trimmed}
       {needsDot && <span style={{ color: 'var(--accent)' }}>.</span>}

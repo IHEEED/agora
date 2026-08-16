@@ -19,12 +19,25 @@ export function FollowButton({
   userId,
   initiallyFollowing = false,
   withLabel = false,
+  corner = false,
+  cornerSize = 24,
   className = '',
 }: {
   userId: string;
   initiallyFollowing?: boolean;
   /** Со словом рядом со знаком — там, где кнопка стоит одна и должна читаться. */
   withLabel?: boolean;
+  /**
+   * Значком в углу аватарки, как в Threads. Отдельной строкой под карточкой
+   * кнопка занимала место наравне с именем человека и читалась равной ему по
+   * важности; в углу аватарки она пришита к тому, на кого подписываются, и
+   * карточка сокращается до имени и лица.
+   *
+   * Ставить только внутрь родителя с position: relative — см. AvatarFollow.
+   */
+  corner?: boolean;
+  /** Диаметр значка. Считается от размера аватарки, а не задаётся на глаз. */
+  cornerSize?: number;
   className?: string;
 }) {
   const { t } = useT();
@@ -45,21 +58,28 @@ export function FollowButton({
     }
   }
 
+  const glyph = corner ? Math.round(cornerSize * 0.62) : 18;
+
   return (
     <button
       onClick={toggle}
       aria-label={following ? t('suggest.unfollow') : t('suggest.follow')}
       aria-pressed={following}
       className={`flex items-center justify-center rounded-full transition-transform active:scale-95 ${
-        withLabel ? 'gap-2 py-2.5 text-[14px] font-semibold' : 'h-8 w-8 flex-none'
-      } ${className}`}
+        withLabel ? 'gap-2 py-2.5 text-[14px] font-semibold' : 'flex-none'
+      } ${corner ? 'absolute bottom-0 right-0' : withLabel ? '' : 'h-8 w-8'} ${className}`}
       style={{
+        ...(corner ? { width: cornerSize, height: cornerSize } : null),
         background: following ? 'var(--surface-2)' : 'var(--accent)',
         color: following ? 'var(--text-muted)' : 'var(--accent-contrast)',
+        // Кольцо цветом страницы вырезает значок из аватарки. Без него кружок
+        // сливается с лицом под ним, и непонятно, где кончается одно и
+        // начинается другое.
+        boxShadow: corner ? '0 0 0 2px var(--bg)' : undefined,
         transition: 'background-color 0.24s ease, color 0.24s ease, transform 0.18s ease',
       }}
     >
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
+      <svg width={glyph} height={glyph} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
         {/* Горизонталь общая для обоих знаков и не двигается. */}
         <path d="M5 12h14" />
         {/* Вертикаль — то, что отличает плюс от минуса: она поворачивается

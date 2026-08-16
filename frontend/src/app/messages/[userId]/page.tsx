@@ -11,8 +11,11 @@ import { DefaultAvatar } from '@/components/DefaultAvatar';
 import { MessageActions } from '@/components/MessageActions';
 import { setNavHidden } from '@/lib/navVisibility';
 
-/** Как часто перечитываем переписку, пока она открыта. */
-const POLL_MS = 4000;
+/** Как часто перечитываем переписку, пока она открыта.
+    Раньше был 4000 — при плохой сети задержка на запросе могла совпасть
+    с exit-анимацией и дать lag. Теперь реже, но и при плохой сети одна
+    зависшая очередь не заблокирует экран. */
+const POLL_MS = 6000;
 
 /** Быстрые реакции. Тот же короткий набор, что в мессенджерах. */
 const QUICK_REACTIONS = ['❤️', '👍', '🔥', '😂', '😮', '😢'];

@@ -448,7 +448,11 @@ export default function ProfilePage() {
           )}
 
           {!loading && !error && tab === 'comments' && (
-            <div className="flex flex-col">
+            /* Волосяная черта между репликами. Без неё цитата поста, текст
+               ответа и счётчик шли сплошным столбцом, и где кончается один
+               комментарий, а где начинается следующий, приходилось угадывать
+               по отступам — в списке из двух десятков реплик это не работает. */
+            <div className="flex flex-col divide-y divide-[var(--border)]">
               {comments.map((comment) => (
                 <article key={comment.id} className="flex flex-col gap-2 py-4">
                   {/* Под каким постом оставлен комментарий — видно прямо здесь,

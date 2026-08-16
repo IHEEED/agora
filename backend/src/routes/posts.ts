@@ -217,7 +217,7 @@ router.post('/', requireAuth, requirePhoneVerified, async (req, res) => {
       // сообщество у записи есть в любом случае.
       post_as_community: Boolean(post_as_community),
     })
-    .select('*, author:users(id, username), community:communities(id, name)')
+    .select('*, author:users!posts_author_id_fkey(id, username), community:communities(id, name)')
     .single();
 
   if (error) {
@@ -331,7 +331,7 @@ router.get('/reposts/:userId', optionalAuth, async (req, res) => {
 
   const { data } = await supabase
     .from('posts')
-    .select('*, author:users(id, username), community:communities(id, name)')
+    .select('*, author:users!posts_author_id_fkey(id, username), community:communities(id, name)')
     .in('id', ids);
 
   if (!data) return res.json([]);
@@ -367,7 +367,7 @@ router.get('/', optionalAuth, async (req, res) => {
 
   const { data, error } = await supabase
     .from('posts')
-    .select('*, author:users(id, username), community:communities(id, name)')
+    .select('*, author:users!posts_author_id_fkey(id, username), community:communities(id, name)')
     .order('created_at', { ascending: false })
     .limit(100);
 
@@ -385,7 +385,7 @@ router.get('/community/:communityId', optionalAuth, async (req, res) => {
 
   const { data, error } = await supabase
     .from('posts')
-    .select('*, author:users(id, username), community:communities(id, name)')
+    .select('*, author:users!posts_author_id_fkey(id, username), community:communities(id, name)')
     .eq('community_id', communityId)
     .order('created_at', { ascending: false });
 
@@ -405,7 +405,7 @@ router.get('/user/:userId', optionalAuth, async (req, res) => {
 
   const { data, error } = await supabase
     .from('posts')
-    .select('*, author:users(id, username), community:communities(id, name)')
+    .select('*, author:users!posts_author_id_fkey(id, username), community:communities(id, name)')
     .eq('author_id', userId)
     .order('created_at', { ascending: false });
 
@@ -422,7 +422,7 @@ router.get('/:id', optionalAuth, async (req, res) => {
 
   const { data, error } = await supabase
     .from('posts')
-    .select('*, author:users(id, username), community:communities(id, name)')
+    .select('*, author:users!posts_author_id_fkey(id, username), community:communities(id, name)')
     .eq('id', id)
     .single();
 

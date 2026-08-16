@@ -46,9 +46,14 @@ export function SegmentedControl<T extends string>({
   }, [activeIndex, options.length]);
 
   return (
+    // Дорожка — заливка, а не обведённая таблетка. Рамка вокруг переключателя
+    // повторяла форму капли внутри него: два одинаковых овала, вложенных друг
+    // в друга, из которых работает только внутренний. Утопленная подложка
+    // показывает границы дорожки не хуже и не спорит с каплей.
     <div
       ref={trackRef}
-      className={`relative flex gap-1 rounded-full border border-[var(--border)] p-1 ${className}`}
+      className={`relative flex gap-1 rounded-full p-1 ${className}`}
+      style={{ background: 'var(--surface-2)' }}
     >
       {blob && (
         <span

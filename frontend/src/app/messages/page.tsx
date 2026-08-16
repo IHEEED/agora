@@ -29,9 +29,7 @@ export default function MessagesPage() {
     <div className="flex flex-1 flex-col items-center">
       <main className="below-header flex w-full max-w-2xl flex-col gap-2.5 px-2.5 pb-10">
         <div className="flex items-center justify-between gap-3 px-2">
-          <h1 className="text-[26px] font-semibold tracking-tight text-[var(--text)]">
-            Сообщения
-          </h1>
+          <h1 className="display-type text-[26px] text-[var(--text)]">Сообщения</h1>
           <button
             type="button"
             onClick={() => setPicking(true)}
@@ -61,7 +59,11 @@ export default function MessagesPage() {
             <Link
               key={thread.user.id}
               href={`/messages/${thread.user.id}`}
-              className="flex items-center gap-3 px-2 py-3 transition-colors active:bg-[var(--surface-2)]"
+              // Подсветка нажатия скруглена и вписана в строку. Прежде она
+              // заливала прямоугольник во всю ширину экрана до самых углов —
+              // среди сплошь скруглённого интерфейса это читалось не откликом
+              // на касание, а выделением текста мышью.
+              className="flex items-center gap-3 rounded-2xl px-2 py-3 transition-colors active:bg-[var(--surface-2)]"
             >
               <DefaultAvatar name={thread.user.username} size={48} />
               <div className="flex min-w-0 flex-1 flex-col gap-0.5">
