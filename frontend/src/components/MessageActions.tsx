@@ -103,21 +103,27 @@ export function MessageActions({
             'opacity 0.18s ease, transform 0.22s cubic-bezier(0.32, 0.72, 0, 1), visibility 0.22s',
         }}
       >
+        {/* Реакций два десятка, и в один ряд они не встают. Сетка по шесть в
+            строку с прокруткой по высоте: первая строка — самые ходовые, они
+            видны сразу, остальные догоняются пролистыванием, не занимая
+            полэкрана. */}
         <div
-          className="glass flex items-center justify-between rounded-full px-1.5 py-1"
-          style={{ boxShadow: 'var(--glass-shadow)' }}
+          className="glass no-scrollbar overflow-y-auto rounded-3xl px-1.5 py-1.5"
+          style={{ boxShadow: 'var(--glass-shadow)', maxHeight: 132 }}
         >
-          {reactions.map((emoji) => (
-            <button
-              key={emoji}
-              type="button"
-              onClick={() => onReact(emoji)}
-              className="emoji flex h-9 w-9 items-center justify-center rounded-full text-[21px] transition-transform active:scale-90"
-              style={{ background: activeReaction === emoji ? 'var(--accent-soft)' : 'transparent' }}
-            >
-              {emoji}
-            </button>
-          ))}
+          <div className="grid grid-cols-6 gap-0.5">
+            {reactions.map((emoji) => (
+              <button
+                key={emoji}
+                type="button"
+                onClick={() => onReact(emoji)}
+                className="emoji flex h-9 w-9 items-center justify-center rounded-full text-[21px] transition-transform active:scale-90"
+                style={{ background: activeReaction === emoji ? 'var(--accent-soft)' : 'transparent' }}
+              >
+                {emoji}
+              </button>
+            ))}
+          </div>
         </div>
 
         <div

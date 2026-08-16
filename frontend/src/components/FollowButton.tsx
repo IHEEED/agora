@@ -67,7 +67,7 @@ export function FollowButton({
       aria-pressed={following}
       className={`flex items-center justify-center rounded-full transition-transform active:scale-95 ${
         withLabel ? 'gap-2 py-2.5 text-[14px] font-semibold' : 'flex-none'
-      } ${corner ? 'absolute bottom-0 right-0' : withLabel ? '' : 'h-8 w-8'} ${className}`}
+      } ${corner ? 'corner-hit absolute bottom-0 right-0' : withLabel ? '' : 'h-8 w-8'} ${className}`}
       style={{
         ...(corner ? { width: cornerSize, height: cornerSize } : null),
         background: following ? 'var(--surface-2)' : 'var(--accent)',

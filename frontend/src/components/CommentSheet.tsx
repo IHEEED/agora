@@ -64,17 +64,49 @@ export function CommentSheet({
     };
   }, [open, postId, reloads, onCountChange]);
 
-  // Пришли к конкретному комментарию — доводим до него, когда список
-  // отрисован. Ждать нужно именно отрисовки: до неё узла в разметке нет.
+  /**
+   * Пришли к конкретному комментарию — доводим до него, когда список
+   * отрисован, и на полторы секунды гасим соседей.
+   *
+   * По истечении этого времени указание снимается совсем, и это не только про
+   * внешний вид. Пока highlightId задан, ветка с искомым комментарием держится
+   * раскрытой принудительно (см. holdsTarget в CommentThread) — иначе
+   * прокручивать было бы не к чему. Но highlightId приходил из адресной строки
+   * и жил, пока открыта шторка, поэтому кнопка «Свернуть» в этой ветке не
+   * работала вовсе: сворачиваешь — а ветка тут же раскрывается обратно.
+   *
+   * Снимая указание после того, как оно отыграло, чиним и то и другое разом:
+   * подсветка не остаётся на экране навсегда, а ветка снова слушается кнопки.
+   */
+  const [spotlight, setSpotlight] = useState<string | null>(highlightId ?? null);
+
+  // Сброс при смене пропса делаем прямо в рендере, а не эффектом: это тот
+  // случай «состояние зависит от пропса», для которого React рекомендует
+  // именно такой приём. Эффект дал бы лишний кадр со старым значением, а
+  // заодно и предупреждение линтера про setState внутри эффекта.
+  const [lastHighlight, setLastHighlight] = useState(highlightId);
+  if (lastHighlight !== highlightId) {
+    setLastHighlight(highlightId);
+    setSpotlight(highlightId ?? null);
+  }
+
   useEffect(() => {
-    if (!highlightId || comments.length === 0) return;
+    if (!spotlight || comments.length === 0) return;
+
     const frame = requestAnimationFrame(() => {
       document
-        .getElementById(`comment-${highlightId}`)
+        .getElementById(`comment-${spotlight}`)
         ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     });
-    return () => cancelAnimationFrame(frame);
-  }, [highlightId, comments]);
+    // Полторы секунды: прокрутка занимает около полусекунды, и ещё секунда
+    // остаётся на то, чтобы глаз нашёл несглаженное пятно.
+    const timer = window.setTimeout(() => setSpotlight(null), 1600);
+
+    return () => {
+      cancelAnimationFrame(frame);
+      window.clearTimeout(timer);
+    };
+  }, [spotlight, comments]);
 
   async function submit(value: string) {
     const body = value.trim();
@@ -192,7 +224,11 @@ export function CommentSheet({
           список был причиной, по которой переход «к нужному комментарию» не
           работал: если искомый комментарий — ответ, его просто не было
           в разметке, и прокручивать было не к чему. */}
-      <div className="comment-list flex flex-col gap-5 py-1">
+      <div
+        className={`comment-list flex flex-col gap-5 py-1${
+          spotlight ? ' comment-list-spotlight' : ''
+        }`}
+      >
         {comments.map((comment) => (
           <CommentThread
             key={comment.id}
@@ -201,7 +237,7 @@ export function CommentSheet({
             onAdded={reload}
             isCollapsed={isCollapsed}
             onToggleCollapse={toggle}
-            highlightId={highlightId}
+            highlightId={spotlight}
           />
         ))}
       </div>

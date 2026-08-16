@@ -96,7 +96,9 @@ export default function RootLayout({
           {/* Отступ под таб-бар: его высота плюс домашний индикатор. Бар теперь
               прижат к кромке во всю ширину, а не парит, поэтому запас точный. */}
           <div
-            className="flex min-h-screen flex-col md:pb-0 md:pl-20"
+            // Отступ равен ширине боковой панели: та подросла до 92px, когда
+            // под знаками появились подписи.
+            className="flex min-h-screen flex-col md:pb-0 md:pl-[92px]"
             style={{ paddingBottom: 'calc(88px + env(safe-area-inset-bottom))' }}
           >
             <header className="app-header">

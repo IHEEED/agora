@@ -155,13 +155,23 @@ export function PostCard({
         </button>
       </div>
 
-      {/* Заголовок и текст одним потоком, одним кеглем и одной яркостью:
-          деление на «крупное тёмное» и «мелкое тусклое» навязывало структуру,
-          которой в мыслях обычно нет. Нужен заголовок — человек сам отобьёт
-          первую строку переносом. whitespace-pre-line эти переносы сохраняет. */}
-      <div className="relative flex flex-col gap-1.5 text-[15px] leading-relaxed text-[var(--text)]">
-        <p className="whitespace-pre-line">{post.title}</p>
-        {post.body && <p className="whitespace-pre-line">{post.body}</p>}
+      {/* Первая строка — газетной антиквой, остальное — обычным текстом.
+          Раньше и то и другое шло одним кеглем и одной гарнитурой: решение
+          было в том, чтобы не навязывать структуру, которой в мыслях нет. Но
+          гарнитура структуры и не навязывает — она задаёт голос. Антиква
+          отделяет мысль от её изложения тем же способом, каким это делает
+          газетная полоса, и не заставляет писать заголовок: у записи в одну
+          строку просто вся строка набрана крупно.
+
+          Кегль при этом почти не растёт — работает контраст форм, а не
+          размера, иначе лента снова распалась бы на «крупное» и «мелкое». */}
+      <div className="relative flex flex-col gap-1.5 text-[var(--text)]">
+        <p className="display-type whitespace-pre-line text-[17.5px] leading-snug">
+          {post.title}
+        </p>
+        {post.body && (
+          <p className="whitespace-pre-line text-[15px] leading-relaxed">{post.body}</p>
+        )}
       </div>
 
       {post.image_url && (

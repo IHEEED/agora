@@ -47,18 +47,33 @@ function Art({ children }: { children: React.ReactNode }) {
 
 const PAGES: Page[] = [
   {
-    key: 'feed',
-    title: 'Пара фраз вместо поста',
+    key: 'downvote',
+    title: 'Здесь можно не согласиться',
     body:
-      'Здесь не пишут заголовков. Первая строка и есть заголовок — если он вам нужен. ' +
-      'Хватит одной мысли: длина записи ничего не решает.',
+      'У каждой записи две стрелки, а не одно сердце. Несогласие — тоже ответ, ' +
+      'и оно видно всем: спорную запись не заминусуют молча, её придут обсудить.',
     art: (
       <Art>
-        <rect x="24" y="26" width="152" height="78" rx="14" fill="var(--surface-2)" />
-        <circle cx="46" cy="48" r="10" fill="var(--accent)" opacity="0.35" />
-        <rect x="64" y="43" width="52" height="6" rx="3" fill="var(--text)" opacity="0.5" />
-        <rect x="40" y="68" width="120" height="6" rx="3" fill="var(--text)" opacity="0.28" />
-        <rect x="40" y="82" width="82" height="6" rx="3" fill="var(--text)" opacity="0.28" />
+        <rect x="30" y="30" width="140" height="70" rx="14" fill="var(--surface-2)" />
+        {/* Две стрелки навстречу друг другу: та самая пара, которой нет в
+            лентах с одним сердцем. */}
+        <path d="M74 74V50" stroke="var(--up)" strokeWidth="3.2" strokeLinecap="round" />
+        <path
+          d="m66 58 8-8 8 8"
+          stroke="var(--up)"
+          strokeWidth="3.2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <path d="M126 50v24" stroke="var(--down)" strokeWidth="3.2" strokeLinecap="round" />
+        <path
+          d="m118 66 8 8 8-8"
+          stroke="var(--down)"
+          strokeWidth="3.2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <path d="M100 42v40" stroke="var(--text)" strokeOpacity="0.12" strokeWidth="2" />
       </Art>
     ),
   },

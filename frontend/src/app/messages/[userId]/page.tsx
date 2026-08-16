@@ -19,8 +19,24 @@ import { setNavHidden } from '@/lib/navVisibility';
     зависшая очередь не заблокирует экран. */
 const POLL_MS = 6000;
 
-/** Быстрые реакции. Тот же короткий набор, что в мессенджерах. */
-const QUICK_REACTIONS = ['❤️', '👍', '🔥', '😂', '😮', '😢'];
+/** Сколько уходит удаляемое сообщение. Совпадает с transition в разметке. */
+const REMOVE_MS = 240;
+
+/**
+ * Реакции. Двадцать самых ходовых, порядком примерно по частоте: первые шесть
+ * закрывают подавляющее большинство случаев и стоят на виду, остальные —
+ * ниже, в той же панели с прокруткой.
+ *
+ * Шесть штук, как было, — набор из мессенджера, где реакции только появились.
+ * Когда их мало, человек ставит не то, что чувствует, а ближайшее из
+ * имеющегося, и реакция перестаёт что-либо значить.
+ */
+const QUICK_REACTIONS = [
+  '❤️', '👍', '🔥', '😂', '😮', '😢',
+  '🙏', '👏', '🎉', '😍', '🤔', '😭',
+  '👎', '💯', '🤣', '🥰', '😅', '🤯',
+  '🙌', '💔',
+];
 
 /** Разделитель по дням — чтобы не гадать, когда именно это было сказано. */
 function dayLabel(iso: string): string {
@@ -74,6 +90,14 @@ export default function ChatPage() {
   const [forwarding, setForwarding] = useState<Message[] | null>(null);
   // Меню собеседника: жалоба, блокировка, очистка переписки.
   const [personMenu, setPersonMenu] = useState(false);
+  // Какие сообщения сейчас уходят: они ещё в разметке, но уже схлопываются.
+  const [removing, setRemoving] = useState<string[]>([]);
+  const timers = useRef<number[]>([]);
+
+  useEffect(() => {
+    const pending = timers.current;
+    return () => pending.forEach((id) => window.clearTimeout(id));
+  }, []);
 
   const person = useApiData<UserProfile>(`/users/${userId}`).data;
   // Кому можно переслать. Запрос уходит только когда шторку открыли.
@@ -243,9 +267,29 @@ export default function ChatPage() {
     }
   }
 
+  /**
+   * Удаление с уходом, а не подменой кадра.
+   *
+   * Пузырь сжимается и гаснет на месте, одновременно схлопываясь по высоте,
+   * чтобы соседи подтянулись плавно, а не прыгнули. Из массива сообщение
+   * убираем только после анимации: пока оно там, есть чему схлопываться.
+   *
+   * Запрос уходит сразу, не дожидаясь анимации, — она про то, как это
+   * выглядит, а не про то, когда случается.
+   */
+  function removeWithFade(id: string) {
+    setRemoving((prev) => [...prev, id]);
+    timers.current.push(
+      window.setTimeout(() => {
+        setMessages((prev) => prev.filter((m) => m.id !== id));
+        setRemoving((prev) => prev.filter((x) => x !== id));
+      }, REMOVE_MS)
+    );
+  }
+
   async function remove(message: Message) {
     setMenuFor(null);
-    setMessages((prev) => prev.filter((m) => m.id !== message.id));
+    removeWithFade(message.id);
     try {
       await apiFetch(`/messages/${message.id}`, { method: 'DELETE' });
     } catch {
@@ -335,7 +379,7 @@ export default function ChatPage() {
   async function removeSelected() {
     const ids = selected ?? [];
     setSelected(null);
-    setMessages((prev) => prev.filter((m) => !ids.includes(m.id)));
+    ids.forEach(removeWithFade);
     try {
       await Promise.all(
         ids.map((id) => apiFetch(`/messages/${id}`, { method: 'DELETE' }))
@@ -520,9 +564,22 @@ export default function ChatPage() {
           {rows.map(({ message, day, showDay, groupStart, groupEnd }) => {
             const mine = message.sender_id === me;
             const reactions = message.reactions ?? [];
+            const going = removing.includes(message.id);
 
             return (
-              <div key={message.id} className="flex flex-col">
+              // Уходящее сообщение схлопывается по высоте через grid-rows —
+              // единственный способ анимировать высоту содержимого, размер
+              // которого заранее неизвестен. Сам пузырь при этом сжимается и
+              // гаснет (ниже), поэтому схлопывания зазора глазу не видно.
+              <div
+                key={message.id}
+                className="grid"
+                style={{
+                  gridTemplateRows: going ? '0fr' : '1fr',
+                  transition: `grid-template-rows ${REMOVE_MS}ms var(--exit-ease)`,
+                }}
+              >
+                <div className="flex min-h-0 flex-col overflow-hidden">
                 {showDay && (
                   <span
                     className="my-3 self-center rounded-full px-3 py-1 text-[11.5px] font-medium"
@@ -561,6 +618,16 @@ export default function ChatPage() {
                     background: mine ? 'var(--accent)' : 'var(--surface-2)',
                     color: mine ? 'var(--accent-contrast)' : 'var(--text)',
                     marginTop: groupStart ? 6 : 0,
+                    // Уход: сжимается к своему краю и гаснет. transformOrigin
+                    // по стороне пузыря — иначе своё сообщение уползало бы к
+                    // середине экрана, откуда оно не приходило.
+                    transformOrigin: mine ? 'right center' : 'left center',
+                    transform: going ? 'scale(0.85)' : undefined,
+                    opacity: going ? 0 : 1,
+                    transition: going
+                      ? `transform ${REMOVE_MS}ms var(--exit-ease), opacity ${Math.round(REMOVE_MS * 0.7)}ms linear`
+                      : undefined,
+                    pointerEvents: going ? 'none' : undefined,
                     // Отмеченное обводится акцентом снаружи, а не заливается:
                     // заливка спорила бы с собственным цветом пузыря.
                     boxShadow: selected?.includes(message.id)
@@ -638,6 +705,7 @@ export default function ChatPage() {
                     ))}
                   </span>
                 )}
+                </div>
               </div>
             );
           })}
