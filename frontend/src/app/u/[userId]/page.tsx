@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import { useApiData } from '@/lib/useApiData';
 import { useSession } from '@/lib/useSession';
 import { CommentWithPost, Post, UserProfile } from '@/lib/types';
@@ -15,6 +15,7 @@ import { FollowButton } from '@/components/FollowButton';
 import { PeopleSheet } from '@/components/PeopleSheet';
 import { PersonMenuSheet } from '@/components/PersonMenuSheet';
 import { setBlocked, useIsBlocked } from '@/lib/blockedUsers';
+import { useScreenLeave } from '@/lib/useScreenLeave';
 import { useT } from '@/lib/i18n';
 
 type Tab = 'posts' | 'comments' | 'reposts';
@@ -48,7 +49,6 @@ function PeopleStat({
  */
 export default function UserProfilePage() {
   const { userId } = useParams<{ userId: string }>();
-  const router = useRouter();
   const { session } = useSession();
   const { t } = useT();
 
@@ -56,6 +56,8 @@ export default function UserProfilePage() {
   const [tab, setTab] = useState<Tab>('posts');
   const [menuOpen, setMenuOpen] = useState(false);
   const blocked = useIsBlocked(userId);
+  // Уход вправо — тем же движением, каким экран приехал слева.
+  const { goBack, style: leaveStyle } = useScreenLeave();
 
   const postsResult = useApiData<Post[]>(`/posts/user/${userId}?sort=new`);
   // Комментарии и репосты подтягиваем только когда на них перешли: в чужой
@@ -79,7 +81,7 @@ export default function UserProfilePage() {
   const influence = useMemo(() => posts.reduce((sum, post) => sum + post.score, 0), [posts]);
 
   return (
-    <div className="flex flex-1 flex-col items-center">
+    <div className="flex flex-1 flex-col items-center" style={leaveStyle}>
       <main className="below-header flex w-full max-w-2xl flex-col gap-2.5 px-2.5 pb-10">
         {/* Выход из чужого профиля. Крестика в шапке здесь нет — она показывает
             лупу, — и вернуться было нечем, кроме системного жеста.
@@ -87,7 +89,7 @@ export default function UserProfilePage() {
             своей кнопки в карточке. */}
         <div className="flex items-center justify-between">
           <button
-            onClick={() => router.back()}
+            onClick={goBack}
             className="-ml-1 flex w-fit items-center gap-1.5 rounded-full py-2 pl-2 pr-3.5 text-[16px] font-medium text-[var(--text)] transition-transform active:scale-95"
           >
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

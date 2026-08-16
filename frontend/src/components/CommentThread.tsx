@@ -93,7 +93,14 @@ export function CommentThread({
   return (
     <div
       id={`comment-${comment.id}`}
-      className={`flex flex-col gap-2 ${highlighted ? 'comment-highlight' : ''}`}
+      // holdsTarget здесь не только про раскрытие ветки: пока действует
+      // указание, все комментарии, кроме искомого, приглушаются, а
+      // прозрачность наследуется по дереву — не пометив ветку, мы приглушили
+      // бы вместе с ней и саму цель. Отмечать предков в CSS через :has()
+      // не вышло: Lightning CSS выбрасывает такое правило из сборки целиком.
+      className={`flex flex-col gap-2 ${
+        highlighted ? 'comment-highlight' : holdsTarget ? 'comment-holds-target' : ''
+      }`}
     >
       <div className="flex gap-2.5">
         <Link href={authorHref} className="flex-none">

@@ -7,6 +7,7 @@ import { useCollapsedComments } from '@/lib/useCollapsedComments';
 import { isPhoneNotVerifiedError, usePhoneGate } from '@/components/PhoneGateContext';
 import { BottomSheet } from '@/components/BottomSheet';
 import { CommentThread } from '@/components/CommentThread';
+import { useCommentSpotlight } from '@/lib/useCommentSpotlight';
 
 /** Быстрые реакции над строкой ввода — то же, что в Instagram. */
 const QUICK_EMOJI = ['❤️', '🙌', '🔥', '👏', '😢', '😍', '😮', '😂'];
@@ -64,49 +65,10 @@ export function CommentSheet({
     };
   }, [open, postId, reloads, onCountChange]);
 
-  /**
-   * Пришли к конкретному комментарию — доводим до него, когда список
-   * отрисован, и на полторы секунды гасим соседей.
-   *
-   * По истечении этого времени указание снимается совсем, и это не только про
-   * внешний вид. Пока highlightId задан, ветка с искомым комментарием держится
-   * раскрытой принудительно (см. holdsTarget в CommentThread) — иначе
-   * прокручивать было бы не к чему. Но highlightId приходил из адресной строки
-   * и жил, пока открыта шторка, поэтому кнопка «Свернуть» в этой ветке не
-   * работала вовсе: сворачиваешь — а ветка тут же раскрывается обратно.
-   *
-   * Снимая указание после того, как оно отыграло, чиним и то и другое разом:
-   * подсветка не остаётся на экране навсегда, а ветка снова слушается кнопки.
-   */
-  const [spotlight, setSpotlight] = useState<string | null>(highlightId ?? null);
-
-  // Сброс при смене пропса делаем прямо в рендере, а не эффектом: это тот
-  // случай «состояние зависит от пропса», для которого React рекомендует
-  // именно такой приём. Эффект дал бы лишний кадр со старым значением, а
-  // заодно и предупреждение линтера про setState внутри эффекта.
-  const [lastHighlight, setLastHighlight] = useState(highlightId);
-  if (lastHighlight !== highlightId) {
-    setLastHighlight(highlightId);
-    setSpotlight(highlightId ?? null);
-  }
-
-  useEffect(() => {
-    if (!spotlight || comments.length === 0) return;
-
-    const frame = requestAnimationFrame(() => {
-      document
-        .getElementById(`comment-${spotlight}`)
-        ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    });
-    // Полторы секунды: прокрутка занимает около полусекунды, и ещё секунда
-    // остаётся на то, чтобы глаз нашёл несглаженное пятно.
-    const timer = window.setTimeout(() => setSpotlight(null), 1600);
-
-    return () => {
-      cancelAnimationFrame(frame);
-      window.clearTimeout(timer);
-    };
-  }, [spotlight, comments]);
+  // Прокрутка к найденному комментарию и снятие указания через полторы
+  // секунды. Тем же хуком, что и на странице поста: комментарии открываются
+  // двумя способами, но ведут себя одинаково.
+  const spotlight = useCommentSpotlight(highlightId, comments.length > 0);
 
   async function submit(value: string) {
     const body = value.trim();

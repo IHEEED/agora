@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState, useSyncExternalStore, SubmitEvent } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import { apiFetch } from '@/lib/api';
 import { useT } from '@/lib/i18n';
 import { useSession } from '@/lib/useSession';
@@ -12,6 +12,8 @@ import { PostCard } from '@/components/PostCard';
 import { CommentThread } from '@/components/CommentThread';
 import { isPhoneNotVerifiedError, usePhoneGate } from '@/components/PhoneGateContext';
 import { SegmentedControl } from '@/components/SegmentedControl';
+import { useCommentSpotlight } from '@/lib/useCommentSpotlight';
+import { useScreenLeave } from '@/lib/useScreenLeave';
 
 const COMMENT_SORT_OPTIONS: ReadonlyArray<readonly [CommentSort, string]> = [
   ['best', 'По рейтингу'],
@@ -20,7 +22,6 @@ const COMMENT_SORT_OPTIONS: ReadonlyArray<readonly [CommentSort, string]> = [
 
 export default function PostPage() {
   const { postId } = useParams<{ postId: string }>();
-  const router = useRouter();
   const { t } = useT();
   const { session } = useSession();
   const { requestVerification } = usePhoneGate();
@@ -79,16 +80,12 @@ export default function PostPage() {
     () => null
   );
 
-  // Прокручиваем уже после того, как ветка раскрылась и узел появился.
-  useEffect(() => {
-    if (!highlightId || comments.length === 0) return;
-    const frame = requestAnimationFrame(() => {
-      document
-        .getElementById(`comment-${highlightId}`)
-        ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    });
-    return () => cancelAnimationFrame(frame);
-  }, [highlightId, comments]);
+  // Прокрутка к цели и её снятие через полторы секунды — общим хуком, тем же,
+  // что и в шторке комментариев. Пока цель задана, ветка с ней держится
+  // раскрытой; не снимая цель, мы навсегда ломали в ней кнопку «Свернуть».
+  const spotlight = useCommentSpotlight(highlightId, comments.length > 0);
+
+  const { goBack, style: leaveStyle } = useScreenLeave();
 
   async function handleSubmit(e: SubmitEvent) {
     e.preventDefault();
@@ -116,13 +113,13 @@ export default function PostPage() {
   return (
     // Фон и цвета берём из темы, а не из палитры Tailwind: этот экран остался
     // единственным, куда редизайн не дошёл, — отсюда и вид «чёрного листа».
-    <div className="flex flex-1 flex-col items-center">
+    <div className="flex flex-1 flex-col items-center" style={leaveStyle}>
       <main className="below-header flex w-full max-w-2xl flex-col gap-5 px-4 pb-10">
         {/* Отрицательный отступ ставит стрелку по одной линии с текстом поста:
             собственные поля кнопки иначе сдвигали её вправо, и колонка
             начиналась в двух разных местах. */}
         <button
-          onClick={() => router.back()}
+          onClick={goBack}
           className="-ml-2.5 flex w-fit items-center gap-1.5 rounded-full py-2 pl-2 pr-3.5 text-[16px] font-medium text-[var(--text)] transition-colors hover:bg-[var(--surface-2)]"
         >
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -177,7 +174,11 @@ export default function PostPage() {
             </form>
           )}
 
-          <div className="comment-list flex flex-col gap-5">
+          <div
+            className={`comment-list flex flex-col gap-5${
+              spotlight ? ' comment-list-spotlight' : ''
+            }`}
+          >
             {comments.map((comment) => (
               <CommentThread
                 key={comment.id}
@@ -186,7 +187,7 @@ export default function PostPage() {
                 onAdded={loadComments}
                 isCollapsed={isCollapsed}
                 onToggleCollapse={toggle}
-                highlightId={highlightId}
+                highlightId={spotlight}
               />
             ))}
             {!loading && comments.length === 0 && (
