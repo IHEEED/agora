@@ -42,7 +42,7 @@ const displayFont = Literata({
 
 export const metadata: Metadata = {
   title: "PARAFRAZ",
-  description: "PARAFRAZ — сообщества, посты и обсуждения",
+  description: "PARAFRAZ — клубы, посты и обсуждения",
 };
 
 // Стиль и тема выставляются до первой отрисовки, иначе оба успевают мигнуть.

@@ -92,7 +92,7 @@ export default function CommunitiesPage() {
       setDescription('');
       setShowForm(false);
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : 'Не удалось создать сообщество');
+      setFormError(err instanceof Error ? err.message : 'Не удалось создать клуб');
     } finally {
       setSubmitting(false);
     }
