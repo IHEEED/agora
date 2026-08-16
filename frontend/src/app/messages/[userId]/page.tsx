@@ -10,6 +10,7 @@ import { Message, UserProfile, UserSummary } from '@/lib/types';
 import { DefaultAvatar } from '@/components/DefaultAvatar';
 import { MessageActions } from '@/components/MessageActions';
 import { BottomSheet } from '@/components/BottomSheet';
+import { PersonMenuSheet } from '@/components/PersonMenuSheet';
 import { setNavHidden } from '@/lib/navVisibility';
 
 /** Как часто перечитываем переписку, пока она открыта.
@@ -71,6 +72,8 @@ export default function ChatPage() {
   const [selected, setSelected] = useState<string[] | null>(null);
   // Что пересылаем. Список получателей открывается шторкой.
   const [forwarding, setForwarding] = useState<Message[] | null>(null);
+  // Меню собеседника: жалоба, блокировка, очистка переписки.
+  const [personMenu, setPersonMenu] = useState(false);
 
   const person = useApiData<UserProfile>(`/users/${userId}`).data;
   // Кому можно переслать. Запрос уходит только когда шторку открыли.
@@ -319,6 +322,16 @@ export default function ChatPage() {
     }
   }
 
+  /** Очистить переписку: сервер удалит только наши письма, чужие останутся. */
+  async function clearChat() {
+    try {
+      await apiFetch(`/messages/thread/${userId}`, { method: 'DELETE' });
+      setMessages((prev) => prev.filter((m) => m.sender_id !== me));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Не удалось очистить переписку');
+    }
+  }
+
   async function removeSelected() {
     const ids = selected ?? [];
     setSelected(null);
@@ -448,6 +461,19 @@ export default function ChatPage() {
                 {person?.username ?? '…'}
               </span>
             </Link>
+
+            <button
+              onClick={() => setPersonMenu(true)}
+              aria-label="Действия"
+              className="-mr-1 flex h-10 w-10 flex-none items-center justify-center rounded-full transition-colors hover:bg-[var(--surface-2)]"
+              style={{ color: 'var(--control)' }}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                <circle cx="5" cy="12" r="1.8" />
+                <circle cx="12" cy="12" r="1.8" />
+                <circle cx="19" cy="12" r="1.8" />
+              </svg>
+            </button>
           </div>
         )}
 
@@ -838,6 +864,15 @@ export default function ChatPage() {
           {people.loading && <p className="py-6 text-[var(--text-muted)]">Загрузка…</p>}
         </div>
       </BottomSheet>
+
+      <PersonMenuSheet
+        open={personMenu}
+        onClose={() => setPersonMenu(false)}
+        userId={userId}
+        username={person?.username ?? '—'}
+        url={typeof window === 'undefined' ? '' : `${window.location.origin}/u/${userId}`}
+        onClearChat={clearChat}
+      />
     </div>
   );
 }

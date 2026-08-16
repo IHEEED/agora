@@ -5,13 +5,30 @@ import { PostScreen } from '../screens/PostScreen';
 import { LoginScreen } from '../screens/LoginScreen';
 import { CreateCommunityScreen } from '../screens/CreateCommunityScreen';
 import { CreatePostScreen } from '../screens/CreatePostScreen';
+import { usePalette } from '../theme';
 import type { RootStackParamList } from './types';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export function RootNavigator() {
+  const palette = usePalette();
+
   return (
-    <Stack.Navigator initialRouteName="MainTabs">
+    <Stack.Navigator
+      initialRouteName="MainTabs"
+      screenOptions={{
+        // Заголовок отдан системе целиком: headerTransparent + прозрачный фон
+        // означают, что панель рисует UIKit, а на iOS 26 она сама получает
+        // Liquid Glass и сама решает, как преломлять уезжающий под неё
+        // контент. Любой собственный backgroundColor здесь вернул бы плоскую
+        // крашеную полосу.
+        headerTransparent: true,
+        headerStyle: { backgroundColor: 'transparent' },
+        headerTintColor: palette.accent,
+        headerTitleStyle: { color: palette.text },
+        contentStyle: { backgroundColor: palette.bg },
+      }}
+    >
       <Stack.Screen name="MainTabs" component={MainTabs} options={{ headerShown: false }} />
       <Stack.Screen name="Community" component={CommunityScreen} />
       <Stack.Screen name="Post" component={PostScreen} options={{ title: 'Пост' }} />
@@ -19,7 +36,7 @@ export function RootNavigator() {
       <Stack.Screen
         name="CreateCommunity"
         component={CreateCommunityScreen}
-        options={{ title: 'Новое сообщество', presentation: 'modal' }}
+        options={{ title: 'Новый клуб', presentation: 'modal' }}
       />
       <Stack.Screen
         name="CreatePost"

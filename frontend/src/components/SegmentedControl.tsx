@@ -52,7 +52,7 @@ export function SegmentedControl<T extends string>({
     // показывает границы дорожки не хуже и не спорит с каплей.
     <div
       ref={trackRef}
-      className={`relative flex gap-1 rounded-full p-1 ${className}`}
+      className={`relative flex min-w-0 gap-1 overflow-hidden rounded-full p-1 ${className}`}
       style={{ background: 'var(--surface-2)' }}
     >
       {blob && (
@@ -83,7 +83,17 @@ export function SegmentedControl<T extends string>({
           ref={(node) => {
             itemRefs.current[index] = node;
           }}
-          className="relative z-10 flex-1 whitespace-nowrap rounded-full px-3 py-1.5 text-[13.5px] font-medium transition-colors"
+          // min-w-0 и truncate вместо whitespace-nowrap. Неразрывная подпись
+          // задаёт кнопке минимальную ширину по своему содержимому, flex-1 её
+          // уменьшить не может — и три вкладки со счётчиками («Репосты 12»)
+          // переставали помещаться в узкую колонку профиля, выпирая за
+          // карточку. Теперь лишнее обрезается многоточием.
+          // flex-auto, а не flex-1. Разница в базе: flex-1 задаёт её нулевой и
+          // делит дорожку поровну, поэтому длинная подпись обрезалась даже
+          // тогда, когда соседние короткие оставляли ей место. flex-auto
+          // берёт базой ширину самой подписи и растягивает остаток —
+          // «Комменты» получает своё, «Посты» не занимают лишнего.
+          className="relative z-10 min-w-0 flex-auto truncate rounded-full px-2.5 py-1.5 text-center text-[13px] font-medium transition-colors"
           style={{
             color: option === value ? 'var(--accent-contrast)' : 'var(--text-muted)',
           }}

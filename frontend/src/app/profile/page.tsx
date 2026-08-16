@@ -363,8 +363,14 @@ export default function ProfilePage() {
             <SegmentedControl
               value={tab}
               onChange={setTab}
+              // Счётчик — только у выбранной вкладки. Со счётчиками у всех трёх
+              // подписи («Комменты 18») переставали помещаться в колонку
+              // профиля и обрезались многоточием, а число — самое полезное в
+              // них — пропадало первым. Число нужно про то, что сейчас
+              // смотришь; про остальные две его видно, когда на них перейдёшь.
               options={TABS.map(
-                ([value, labelKey]) => [value, `${t(labelKey)} ${counts[value]}`] as const
+                ([value, labelKey]) =>
+                  [value, value === tab ? `${t(labelKey)} ${counts[value]}` : t(labelKey)] as const
               )}
             />
           </div>

@@ -345,6 +345,34 @@ router.put('/:id/reaction', requireAuth, async (req, res) => {
   res.status(204).send();
 });
 
+/**
+ * Удалить переписку целиком.
+ *
+ * Удаляем только свои письма: чужие реплики принадлежат тому, кто их написал,
+ * и стереть их у собеседника из своего интерфейса нельзя. Для того, кто нажал,
+ * это выглядит как «переписка очищена» — его половина разговора исчезла, а
+ * входящие остаются, пока он их не удалит по одному. Так же ведёт себя почта.
+ *
+ * Объявлено до '/:userId/read', чтобы 'thread' не был принят за идентификатор.
+ */
+router.delete('/thread/:userId', requireAuth, async (req, res) => {
+  const me = req.user!.id;
+  const other = String(req.params.userId);
+
+  const { error } = await supabase
+    .from('messages')
+    .delete()
+    .eq('sender_id', me)
+    .eq('recipient_id', other);
+
+  if (error) {
+    console.error('messages: thread delete failed', error);
+    return res.status(500).json({ error: describeError(error, 'Не удалось удалить переписку') });
+  }
+
+  res.status(204).send();
+});
+
 /** Отметить входящие в переписке прочитанными. */
 router.post('/:userId/read', requireAuth, async (req, res) => {
   const { error } = await supabase

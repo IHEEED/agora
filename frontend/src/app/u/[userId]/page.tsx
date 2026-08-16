@@ -13,6 +13,8 @@ import { PostCard } from '@/components/PostCard';
 import { ProfileAvatar } from '@/components/ProfileAvatar';
 import { FollowButton } from '@/components/FollowButton';
 import { PeopleSheet } from '@/components/PeopleSheet';
+import { PersonMenuSheet } from '@/components/PersonMenuSheet';
+import { setBlocked, useIsBlocked } from '@/lib/blockedUsers';
 import { useT } from '@/lib/i18n';
 
 type Tab = 'posts' | 'comments' | 'reposts';
@@ -52,6 +54,8 @@ export default function UserProfilePage() {
 
   const [peopleTab, setPeopleTab] = useState<'followers' | 'following' | null>(null);
   const [tab, setTab] = useState<Tab>('posts');
+  const [menuOpen, setMenuOpen] = useState(false);
+  const blocked = useIsBlocked(userId);
 
   const postsResult = useApiData<Post[]>(`/posts/user/${userId}?sort=new`);
   // Комментарии и репосты подтягиваем только когда на них перешли: в чужой
@@ -78,16 +82,56 @@ export default function UserProfilePage() {
     <div className="flex flex-1 flex-col items-center">
       <main className="below-header flex w-full max-w-2xl flex-col gap-2.5 px-2.5 pb-10">
         {/* Выход из чужого профиля. Крестика в шапке здесь нет — она показывает
-            лупу, — и вернуться было нечем, кроме системного жеста. */}
-        <button
-          onClick={() => router.back()}
-          className="-ml-1 flex w-fit items-center gap-1.5 rounded-full py-2 pl-2 pr-3.5 text-[16px] font-medium text-[var(--text)] transition-transform active:scale-95"
-        >
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M15 5l-7 7 7 7" />
-          </svg>
-          {t('common.back')}
-        </button>
+            лупу, — и вернуться было нечем, кроме системного жеста.
+            Три точки справа: всё, что делают с человеком и что не заслуживает
+            своей кнопки в карточке. */}
+        <div className="flex items-center justify-between">
+          <button
+            onClick={() => router.back()}
+            className="-ml-1 flex w-fit items-center gap-1.5 rounded-full py-2 pl-2 pr-3.5 text-[16px] font-medium text-[var(--text)] transition-transform active:scale-95"
+          >
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M15 5l-7 7 7 7" />
+            </svg>
+            {t('common.back')}
+          </button>
+
+          {!isMe && (
+            <button
+              onClick={() => setMenuOpen(true)}
+              aria-label="Действия"
+              className="-mr-1 flex h-10 w-10 flex-none items-center justify-center rounded-full transition-colors hover:bg-[var(--surface-2)]"
+              style={{ color: 'var(--control)' }}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                <circle cx="5" cy="12" r="1.8" />
+                <circle cx="12" cy="12" r="1.8" />
+                <circle cx="19" cy="12" r="1.8" />
+              </svg>
+            </button>
+          )}
+        </div>
+
+        {/* Заблокированного не прячем целиком: человек пришёл сюда сам, по
+            ссылке или из поиска, и пустой экран вместо профиля выглядел бы
+            поломкой. Достаточно сказать, что записи скрыты, и дать снять. */}
+        {blocked && (
+          <div
+            className="flex items-center gap-3 rounded-2xl px-4 py-3"
+            style={{ background: 'var(--surface-2)' }}
+          >
+            <span className="min-w-0 flex-1 text-[13.5px] leading-snug text-[var(--text-muted)]">
+              Вы заблокировали этого человека. Его записи скрыты на этом устройстве.
+            </span>
+            <button
+              onClick={() => setBlocked(userId, false)}
+              className="flex-none rounded-full px-3 py-1.5 text-[13px] font-medium"
+              style={{ background: 'var(--accent)', color: 'var(--accent-contrast)' }}
+            >
+              Разблокировать
+            </button>
+          </div>
+        )}
 
         {/* Та же карточка, что и в своём профиле: обложка, растворяющаяся в
             стекло, аватар на ней и строка метрик. Отличие одно — вместо
@@ -258,6 +302,14 @@ export default function UserProfilePage() {
         emptyText={
           peopleTab === 'following' ? t('people.emptyFollowing') : t('people.emptyFollowers')
         }
+      />
+
+      <PersonMenuSheet
+        open={menuOpen}
+        onClose={() => setMenuOpen(false)}
+        userId={userId}
+        username={username || '—'}
+        url={typeof window === 'undefined' ? '' : `${window.location.origin}/u/${userId}`}
       />
     </div>
   );

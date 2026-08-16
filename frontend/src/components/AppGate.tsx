@@ -2,6 +2,7 @@
 
 import { useSession } from '@/lib/useSession';
 import { AuthScreen } from '@/components/AuthScreen';
+import { Onboarding } from '@/components/Onboarding';
 import { PhoneGateProvider } from '@/components/PhoneGateContext';
 
 /**
@@ -21,5 +22,13 @@ export function AppGate({ children }: { children: React.ReactNode }) {
     return <AuthScreen />;
   }
 
-  return <PhoneGateProvider>{children}</PhoneGateProvider>;
+  // Приветствие рисуется поверх приложения, а не вместо него: под ним уже
+  // загружается лента, и закрыв последнюю страницу, человек попадает не на
+  // пустой экран с крутилкой, а в готовую ленту.
+  return (
+    <PhoneGateProvider>
+      <Onboarding />
+      {children}
+    </PhoneGateProvider>
+  );
 }

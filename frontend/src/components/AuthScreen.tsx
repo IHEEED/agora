@@ -37,11 +37,19 @@ export function AuthScreen() {
     <div className="relative isolate flex min-h-screen flex-col items-center gap-7 overflow-hidden bg-[var(--bg)] px-6 pb-12 pt-[12vh]">
       <PixelWall />
 
-      {/* Только надпись: знак дублировал её первой буквой, а строка про
-          «всплывают наверх сами» отнимала место, нужное под клавиатуру. */}
-      <h1 className="font-pixel relative z-10 text-[42px] text-[var(--text)]">PARAFRAZ</h1>
+      {/* Тем же знаком, что и в шапке приложения. Пиксельный шрифт ушёл
+          вместе с пиксельным фоном: он был к месту, пока фон был из тех же
+          букв, а на перетекающем градиенте читался чужой деталью. */}
+      <h1 className="wordmark relative z-10" style={{ fontSize: 34 }}>
+        PARAFRA<span style={{ color: 'var(--accent)' }}>Z</span>
+      </h1>
 
-      <div className="relative z-10 w-full max-w-sm rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6">
+      {/* Карточка без обводки и на плотной подложке: сквозь полупрозрачную
+          сквозили пятна фона, а рамка вокруг них дробила экран. */}
+      <div
+        className="relative z-10 w-full max-w-sm rounded-2xl p-6"
+        style={{ background: 'var(--surface)', boxShadow: 'var(--glass-shadow)' }}
+      >
         <h2 className="mb-5 text-center text-[15px] font-semibold text-[var(--text)]">Вход</h2>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">

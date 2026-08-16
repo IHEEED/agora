@@ -7,6 +7,7 @@ import { MessageThread, UserSummary } from '@/lib/types';
 import { DefaultAvatar } from '@/components/DefaultAvatar';
 import { BottomSheet } from '@/components/BottomSheet';
 import { formatCompactAge } from '@/lib/formatDate';
+import { useBlockedUsers } from '@/lib/blockedUsers';
 import { useT } from '@/lib/i18n';
 
 /**
@@ -21,7 +22,13 @@ export default function MessagesPage() {
   const [picking, setPicking] = useState(false);
 
   const threadsResult = useApiData<MessageThread[]>('/messages/threads');
-  const threads = threadsResult.data ?? [];
+  // Переписки с заблокированными убираем из списка: смысл блокировки в том,
+  // чтобы человек не попадался на глаза, а строка в мессенджере — ровно то
+  // место, где он попадается чаще всего.
+  const blocked = useBlockedUsers();
+  const threads = (threadsResult.data ?? []).filter(
+    (thread) => !blocked.includes(thread.user.id)
+  );
 
   // Кому писать: свои подписки — те, с кем связь уже есть. Список тянем
   // только когда шторку открыли.

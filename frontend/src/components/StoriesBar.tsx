@@ -90,18 +90,29 @@ export function StoriesBar({
       onPointerMove={onPointerMove}
       onPointerUp={endDrag}
       onPointerLeave={endDrag}
-      className="no-scrollbar -mx-4 flex gap-1.5 overflow-x-auto px-4 pb-1"
-      style={{ touchAction: 'pan-x', cursor: 'grab', overscrollBehaviorX: 'contain' }}
+      className="no-scrollbar -mx-4 flex overflow-x-auto px-4 pb-1"
+      // Зазор числом, а не классом gap-1.5. Ячейка ровно по ширине кружка, и
+      // при равном зазоре расстояния между кружками одинаковы по всей строке.
+      // Прежде первая ячейка была шире остальных: у «своей истории» кружок нёс
+      // рамку в два пикселя, та добавлялась к ширине — и первый промежуток
+      // выходил на четыре пикселя больше следующих. Заметно это ровно настолько,
+      // насколько неровный ряд вообще бросается в глаза.
+      style={{
+        gap: 10,
+        touchAction: 'pan-x',
+        cursor: 'grab',
+        overscrollBehaviorX: 'contain',
+      }}
     >
-      {/* Ширина ячейки равна аватару, поэтому левый край первой истории
-          совпадает с краем постов, а кружки стоят вплотную друг к другу. */}
       {currentUserLetter && (
         <div className="flex flex-col items-center gap-1.5" style={{ flex: `0 0 ${RING_SIZE}px` }}>
-          <div className="relative">
+          <div className="relative" style={{ width: RING_SIZE, height: RING_SIZE }}>
             {/* Пунктир вместо дуг: своей истории ещё нет, показывать нечего —
                 и кружок читается как «место под неё», а не как непросмотренное. */}
             <div
-              className="flex items-center justify-center overflow-hidden rounded-full border-2 border-dashed"
+              // box-border обязателен: рамка обязана лечь внутрь заданной
+              // ширины, иначе ячейка вырастает на её толщину и ряд разъезжается.
+              className="box-border flex items-center justify-center overflow-hidden rounded-full border-2 border-dashed"
               style={{ width: RING_SIZE, height: RING_SIZE, borderColor: 'var(--border)' }}
             >
               <DefaultAvatar name={currentUserLetter} size={RING_SIZE - 8} />

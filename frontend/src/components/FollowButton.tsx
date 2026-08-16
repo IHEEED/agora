@@ -74,8 +74,9 @@ export function FollowButton({
         color: following ? 'var(--text-muted)' : 'var(--accent-contrast)',
         // Кольцо цветом страницы вырезает значок из аватарки. Без него кружок
         // сливается с лицом под ним, и непонятно, где кончается одно и
-        // начинается другое.
-        boxShadow: corner ? '0 0 0 2px var(--bg)' : undefined,
+        // начинается другое. Полтора пикселя, а не два: на уменьшившемся
+        // значке двойная кайма съедала заметную долю его площади.
+        boxShadow: corner ? '0 0 0 1.5px var(--bg)' : undefined,
         transition: 'background-color 0.24s ease, color 0.24s ease, transform 0.18s ease',
       }}
     >

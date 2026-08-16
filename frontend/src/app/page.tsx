@@ -9,6 +9,7 @@ import { PostCard } from '@/components/PostCard';
 import { StoriesBar } from '@/components/StoriesBar';
 import { DefaultAvatar } from '@/components/DefaultAvatar';
 import { SuggestedPeople } from '@/components/SuggestedPeople';
+import { useBlockedUsers } from '@/lib/blockedUsers';
 import { useT } from '@/lib/i18n';
 
 export default function FeedPage() {
@@ -21,10 +22,19 @@ export default function FeedPage() {
   // новый пустой массив и пересчитывает список историй ниже без причины.
   const posts = useMemo(() => data ?? [], [data]);
 
+  // Записи заблокированных не показываем. Фильтруем здесь, а не на сервере:
+  // список живёт на устройстве, сервер о нём не знает (см. blockedUsers).
+  const blocked = useBlockedUsers();
+  const visiblePosts = useMemo(
+    () => posts.filter((post) => !post.author.id || !blocked.includes(post.author.id)),
+    [posts, blocked]
+  );
+
   // Истории собираем из авторов ленты — своего механизма у них пока нет.
+  // Из отфильтрованных: заблокированный не должен остаться кружком наверху.
   const storyUsernames = useMemo(
-    () => Array.from(new Set(posts.map((p) => p.author.username))),
-    [posts]
+    () => Array.from(new Set(visiblePosts.map((p) => p.author.username))),
+    [visiblePosts]
   );
 
   return (
@@ -56,7 +66,7 @@ export default function FeedPage() {
         <SuggestedPeople />
 
         <div className="feed-list flex flex-col">
-          {posts.map((post) => (
+          {visiblePosts.map((post) => (
             <PostCard
               key={post.id}
               post={post}
@@ -64,7 +74,7 @@ export default function FeedPage() {
               canFollow={post.author.id !== session?.user.id}
             />
           ))}
-          {!loading && !error && posts.length === 0 && (
+          {!loading && !error && visiblePosts.length === 0 && (
             <div className="flex flex-col items-center gap-3 py-16 text-center">
               <p className="text-[var(--text-muted)]">{t('feed.empty')}</p>
               <Link

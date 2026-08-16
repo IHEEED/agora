@@ -950,87 +950,66 @@ label,
   }
 }
 
-/* ─── Пиксельные обои экрана входа ──────────────────────────────────────────
-   Внутрь приложения они не идут: там градиент. Здесь же надпись — сама тема
-   экрана, поэтому строки ещё и медленно едут слева направо. */
-.pixel-wall {
+/* ─── Фон экрана входа ──────────────────────────────────────────────────────
+   Четыре огромных размытых пятна, медленно перетекающих друг в друга.
+   Цвет — акцент выбранного стиля, поэтому вход выглядит продолжением
+   приложения, а не отдельной картинкой перед ним.
+
+   Пятна вынесены в свой слой с isolation: контейнер экрана уже несёт
+   overflow: hidden, и за его пределы они не выходят. */
+.auth-wall {
   position: absolute;
   inset: 0;
   z-index: 0;
   pointer-events: none;
   overflow: hidden;
+  /* Полотно приглушено, но не растворено: при половинной прозрачности поверх
+     размытия в 90px от четырёх пятен оставалась почти белая дымка, в которой
+     не читалось ни одного цвета. Форма входа лежит на плотной поверхности со
+     своей тенью, поэтому фону можно позволить быть цветным. */
+  opacity: light-dark(0.9, 0.65);
 }
 
-.pixel-wall-inner {
+.auth-blob {
   position: absolute;
-  left: 50%;
-  top: 50%;
-  /* Полотно больше экрана: после поворота его углы иначе оголили бы фон.
-     По высоте с запасом на широкие короткие окна — там поворот съедает больше. */
-  width: 200%;
-  height: 180%;
-  transform: translate(-50%, -50%) rotate(-20deg);
-  display: flex;
-  flex-direction: column;
-  justify-content: space-around;
-  font-family: var(--font-pixel), monospace;
-  /* Кегли внутри заданы в em: одна цифра здесь ужимает узор целиком. */
-  font-size: 16px;
-  letter-spacing: 0.04em;
-  line-height: 1;
-  user-select: none;
-  color: color-mix(in srgb, var(--accent) var(--pixel-wall-alpha), transparent);
-}
-
-:root {
-  --pixel-wall-alpha: 9%;
-}
-:root[data-theme='dark'] {
-  --pixel-wall-alpha: 13%;
-}
-
-/* На телефоне тот же узор в тех же кеглях выглядел парой гигантских слов. */
-@media (max-width: 640px) {
-  .pixel-wall-inner {
-    font-size: 10px;
-  }
-}
-
-.pixel-wall-row {
-  display: flex;
-  /* Строго от левого края, не по центру: при центрировании сдвинутая на -50%
-     дорожка оголяла правую половину экрана, и надписи «докатывались» до края
-     уже на глазах у пользователя. */
-  justify-content: flex-start;
-}
-
-.pixel-wall-track {
-  display: flex;
-  align-items: center;
-  gap: 0.9em;
-  white-space: nowrap;
-  /* Минимум две ширины полотна: тогда каждая из двух копий сама по себе
-     перекрывает экран целиком, и в любой фазе анимации фон полон. */
-  min-width: 200%;
-  justify-content: space-around;
-  /* Сдвиг ровно на половину собственной ширины: вторая копия встаёт на место
-     первой, поэтому петля не видна. Стартуем со сдвига, чтобы ехать вправо. */
-  animation: pixel-wall-drift linear infinite;
+  border-radius: 50%;
+  /* Размытие делает из круга облако. Радиус большой, но не запредельный: на
+     девяноста пикселях четыре пятна смешивались в один ровный тон, и от
+     перетекания оставалось только движение без цвета. */
+  filter: blur(64px);
+  background: radial-gradient(
+    circle at 50% 50%,
+    var(--accent),
+    color-mix(in srgb, var(--accent) 45%, transparent) 55%,
+    transparent 72%
+  );
+  animation: auth-blob-drift 36s ease-in-out infinite;
+  /* Слой заранее уходит на видеокарту: без этого браузер растрирует размытие
+     заново на каждом кадре, и четыре пятна разом роняют частоту. */
   will-change: transform;
 }
 
-@keyframes pixel-wall-drift {
-  from {
-    transform: translateX(-50%);
+/* Дыхание и снос. Смещения в процентах от собственного размера, поэтому узор
+   ведёт себя одинаково и на телефоне, и на широком экране. */
+@keyframes auth-blob-drift {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
   }
-  to {
-    transform: translateX(0);
+  33% {
+    transform: translate3d(6%, -8%, 0) scale(1.12);
+  }
+  66% {
+    transform: translate3d(-7%, 5%, 0) scale(0.94);
+  }
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
   }
 }
 
-/* Движущийся фон — первое, что мешает при вестибулярных нарушениях. */
+/* Движущийся фон — первое, что мешает при вестибулярных нарушениях. Пятна
+   остаются, замирает только их перетекание. */
 @media (prefers-reduced-motion: reduce) {
-  .pixel-wall-track {
+  .auth-blob {
     animation: none;
   }
 }
