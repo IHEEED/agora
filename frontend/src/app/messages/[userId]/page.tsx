@@ -819,6 +819,9 @@ export default function ChatPage() {
         createPortal(
       <form
         onSubmit={send}
+        // Метка для снимка экрана: строка живёт порталом в body, но уехать
+        // обязана вместе с перепиской, а не остаться поверх списка (см. peelScreen).
+        data-screen-fixed
         className="fixed inset-x-0 bottom-0 z-40 flex flex-col items-center px-3 md:pl-20"
         style={{
           paddingBottom: 'calc(10px + env(safe-area-inset-bottom))',

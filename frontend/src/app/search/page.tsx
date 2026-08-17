@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useApiData } from '@/lib/useApiData';
@@ -12,7 +12,8 @@ import { FollowButton } from '@/components/FollowButton';
 import { SuggestedPeople } from '@/components/SuggestedPeople';
 import { ScreenTitle } from '@/components/ScreenTitle';
 import { useScreenExit } from '@/lib/screenExit';
-import { dissolveScreen } from '@/lib/peelScreen';
+import { foldScreenTo } from '@/lib/peelScreen';
+import { takeFoldOrigin } from '@/lib/foldOrigin';
 import { TranslationKey, useT } from '@/lib/i18n';
 
 type Scope = 'all' | 'people' | 'posts' | 'communities';
@@ -35,21 +36,51 @@ export default function SearchPage() {
   const [scope, setScope] = useState<Scope>('all');
 
   /**
-   * Уход с поиска.
+   * Поиск разворачивается из лупы и складывается обратно в неё.
    *
-   * Маршрут меняется сразу, а растворяется снимок экрана поверх уже настоящей
-   * ленты (см. dissolveScreen). Прежде было наоборот: экран гас двести
+   * Экран и кнопка связаны одним движением, поэтому не нужно догадываться, что
+   * именно ты сейчас закрыл и куда вернёшься. Тот же приём в Substack на
+   * переходе к автору из записи: экран не «появляется», а вырастает из того, по
+   * чему нажали.
+   *
+   * Маршрут при уходе меняется сразу, а складывается снимок поверх уже
+   * настоящей ленты (см. foldScreenTo). Прежде было наоборот: экран гас двести
    * миллисекунд, и только потом монтировалась лента — то самое «сначала пустой
-   * экран, а потом уже лента», из-за которого возврат выглядел дешевле, чем он
-   * есть. Данные для ленты всё это время лежали в кеше готовыми — их просто
-   * некому было показать.
+   * экран, а потом уже лента». Данные всё это время лежали в кеше готовыми,
+   * их просто некому было показать.
    */
   const screenRef = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    const node = screenRef.current;
+    // Рамку кнопки запомнил тот, по кому нажали (см. foldOrigin). Если её нет —
+    // пришли по прямой ссылке, и разворачиваться неоткуда: экран просто есть.
+    const from = takeFoldOrigin();
+    if (!node || !from) return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+    const here = node.getBoundingClientRect();
+    // transform-origin считается от собственной рамки элемента, а координаты
+    // кнопки — от окна: без вычитания экран разворачивался бы из точки,
+    // сдвинутой на высоту шапки.
+    node.style.transformOrigin = `${from.left + from.width / 2 - here.left}px ${
+      from.top + from.height / 2 - here.top
+    }px`;
+    node.animate(
+      [
+        { opacity: 0, transform: 'scale(0.12)' },
+        { opacity: 1, transform: 'none' },
+      ],
+      { duration: 260, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' }
+    );
+  }, []);
+
   const leaveGuard = useRef(false);
   const leave = useCallback(() => {
     if (leaveGuard.current) return;
     leaveGuard.current = true;
-    dissolveScreen(screenRef.current);
+    const button = document.querySelector<HTMLElement>('[data-header-action]');
+    foldScreenTo(screenRef.current, button?.getBoundingClientRect() ?? null);
     router.back();
   }, [router]);
   useScreenExit(leave);

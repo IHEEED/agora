@@ -11,6 +11,7 @@ import { DefaultAvatar } from '@/components/DefaultAvatar';
 import { SuggestedPeople } from '@/components/SuggestedPeople';
 import { useBlockedUsers } from '@/lib/blockedUsers';
 import { SkeletonList, SkeletonPost } from '@/components/Skeleton';
+import { OverlayLink } from '@/components/OverlayLink';
 import { useT } from '@/lib/i18n';
 
 export default function FeedPage() {
@@ -46,7 +47,7 @@ export default function FeedPage() {
           currentUserLetter={session?.user.email?.[0]?.toUpperCase()}
         />
 
-        <Link
+        <OverlayLink
           href="/create"
           // Строка, а не плашка: скруглённая обойма читалась кнопкой,
           // а не местом, куда пишут. Отрицательные поля выводят черту за
@@ -56,7 +57,7 @@ export default function FeedPage() {
         >
           <DefaultAvatar name={(session?.user.email ?? '?').split('@')[0]} size={32} />
           <span className="text-[15px] text-[var(--text-muted)]">{t('feed.whatsNew')}</span>
-        </Link>
+        </OverlayLink>
 
         {/* Заглушки по геометрии настоящих карточек: подмена не двигает
             раскладку, и анимация появления не проигрывается на прыгающем

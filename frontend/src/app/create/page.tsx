@@ -8,6 +8,7 @@ import { invalidate, useApiData } from '@/lib/useApiData';
 import { BottomSheet } from '@/components/BottomSheet';
 import { useScreenExit } from '@/lib/screenExit';
 import { markGoingBack } from '@/lib/navDirection';
+import { releaseBackdrop } from '@/lib/screenBackdrop';
 import { supabase } from '@/lib/supabase';
 import { useSession } from '@/lib/useSession';
 import { Community, Post } from '@/lib/types';
@@ -121,6 +122,11 @@ function CreatePost() {
     const frame = requestAnimationFrame(() => setSheetOpen(true));
     return () => cancelAnimationFrame(frame);
   }, []);
+
+  // Под шторкой стоит замороженная лента — снимок, снятый в момент нажатия
+  // (см. screenBackdrop). Убираем его, когда этот экран уходит: дальше на его
+  // месте окажется живая лента, и две одинаковые копии друг на друге ни к чему.
+  useEffect(() => releaseBackdrop, []);
 
   // Закрытие: сначала шторка уезжает вниз, и только потом меняется маршрут.
   // Уход по router.back() снимал разметку в тот же кадр — экран исчезал рывком,

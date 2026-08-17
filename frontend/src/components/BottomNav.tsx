@@ -4,6 +4,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { CREATE_HREF, CreateIcon, MOBILE_SLOTS } from '@/components/navTabs';
+import { OverlayLink } from '@/components/OverlayLink';
 import { useNavHiddenRequest } from '@/lib/navVisibility';
 import { useT } from '@/lib/i18n';
 
@@ -133,7 +134,7 @@ export function BottomNav() {
         {MOBILE_SLOTS.map((slot, index) => {
           if (!slot) {
             return (
-              <Link
+              <OverlayLink
                 key="create"
                 href={CREATE_HREF}
                 aria-label={t('nav.create')}
@@ -144,7 +145,7 @@ export function BottomNav() {
                 style={{ color: 'var(--accent)' }}
               >
                 <CreateIcon size={27} />
-              </Link>
+              </OverlayLink>
             );
           }
 

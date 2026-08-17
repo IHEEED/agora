@@ -2,6 +2,7 @@
 
 import { useLayoutEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { holdBackdrop } from '@/lib/screenBackdrop';
 import { BottomSheet } from '@/components/BottomSheet';
 
 /** Причины жалобы. Тот же короткий список, что у Reddit и Threads. */
@@ -136,6 +137,9 @@ export function PostMenuSheet({
       ),
       onSelect: () => {
         onClose();
+        // Замораживаем ленту: «новая запись» — отдельный маршрут, и без снимка
+        // её шторка выехала бы поверх пустоты (см. screenBackdrop).
+        holdBackdrop();
         router.push(continueHref);
       },
     });

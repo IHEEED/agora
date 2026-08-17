@@ -2,6 +2,7 @@
 
 import { usePathname, useRouter } from 'next/navigation';
 import { requestScreenExit } from '@/lib/screenExit';
+import { setFoldOrigin } from '@/lib/foldOrigin';
 
 /**
  * Правая часть шапки, зависит от экрана:
@@ -70,11 +71,16 @@ export function HeaderAction() {
 
   const glyph: Glyph = closes ? 'cross' : pathname === '/profile' ? 'gear' : 'search';
 
-  function handleClick() {
+  function handleClick(event: React.MouseEvent<HTMLButtonElement>) {
     // Экран может захотеть закрыться сам — погаснуть, уехать вниз — и только
     // потом отдать навигацию. Если такого желания нет, уходим назад сразу.
     if (closes) return requestScreenExit(() => router.back());
-    router.push(glyph === 'gear' ? '/settings' : '/search');
+    if (glyph === 'gear') return router.push('/settings');
+    // Точку, из которой развернётся поиск, запоминаем здесь: сейчас рамка
+    // кнопки известна точно, а к моменту, когда экран поиска смонтируется,
+    // глиф уже превращается в крестик и мерить его поздно.
+    setFoldOrigin(event.currentTarget.getBoundingClientRect());
+    router.push('/search');
   }
 
   const morph = 'opacity 0.28s ease, transform 0.28s cubic-bezier(0.32, 0.72, 0, 1)';
@@ -83,6 +89,9 @@ export function HeaderAction() {
     <button
       onClick={handleClick}
       aria-label={LABEL[glyph]}
+      // Метка для экрана поиска: он разворачивается из этой кнопки и
+      // складывается обратно в неё, а для этого ему нужно знать, где она.
+      data-header-action
       // Ни подложки, ни обводки: два кружка по краям шапки спорили с вывеской
       // посередине и перетягивали внимание на себя. Остался один акцентный знак.
       className="relative flex h-11 w-11 items-center justify-center rounded-full transition-transform active:scale-90"

@@ -12,6 +12,7 @@ import { CommunityAvatar, communityPalette } from '@/components/CommunityAvatar'
 import { DefaultAvatar } from '@/components/DefaultAvatar';
 import { FollowButton } from '@/components/FollowButton';
 import { useScreenLeave } from '@/lib/useScreenLeave';
+import { OverlayLink } from '@/components/OverlayLink';
 import { useT } from '@/lib/i18n';
 
 /**
@@ -165,7 +166,7 @@ export default function CommunityPage() {
               {/* Запись сразу от имени сообщества: сообщество уже выбрано тем,
                   что человек стоит на его странице, и спрашивать об этом на
                   следующем экране — переспрашивать очевидное. */}
-              <Link
+              <OverlayLink
                 href={`/create?community=${communityId}`}
                 className="flex flex-1 items-center justify-center gap-2 rounded-full py-2.5 text-[14px] font-semibold transition-transform active:scale-[0.98]"
                 style={{ background: 'var(--accent)', color: 'var(--accent-contrast)' }}
@@ -174,7 +175,7 @@ export default function CommunityPage() {
                   <path d="M12 5v14M5 12h14" />
                 </svg>
                 {t('community.publish')}
-              </Link>
+              </OverlayLink>
 
               {/* Справка о сообществе — маленькой кнопкой, а не вкладкой во всю
                   ширину: её открывают один раз, а место она занимала всегда. */}

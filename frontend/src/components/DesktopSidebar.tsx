@@ -2,7 +2,9 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { CREATE_HREF, CreateIcon, TABS } from '@/components/navTabs';
+import { CREATE_HREF, CreateIcon, SIDEBAR_TABS } from '@/components/navTabs';
+import { MessagesButton } from '@/components/MessagesButton';
+import { OverlayLink } from '@/components/OverlayLink';
 import { useT } from '@/lib/i18n';
 import type { TranslationKey } from '@/lib/i18n';
 
@@ -26,7 +28,7 @@ export function DesktopSidebar() {
 
   return (
     <nav className="glass fixed inset-y-0 left-0 z-40 hidden w-[92px] flex-col items-center gap-2 border-y-0 border-l-0 py-6 md:flex">
-      <Link
+      <OverlayLink
         href={CREATE_HREF}
         aria-label={t('nav.create')}
         className="mb-4 flex w-[76px] flex-col items-center gap-1 rounded-2xl py-2 transition-colors"
@@ -34,10 +36,15 @@ export function DesktopSidebar() {
       >
         <CreateIcon size={24} />
         <span className="text-[9.5px] font-medium leading-none">{t('nav.create')}</span>
-      </Link>
+      </OverlayLink>
 
+      {/* Профиль первым, а не четвёртым.
+          Порядок из мобильного бара сюда не переносится: там пять слотов в ряд,
+          и профиль стоит на краю, куда удобнее всего дотянуться большим пальцем.
+          На широком экране панель читается сверху вниз, как список, и первым в
+          нём должно стоять то, куда заходят чаще всего, — своё. */}
       <div className="flex flex-col gap-1">
-        {TABS.map((tab) => {
+        {SIDEBAR_TABS.map((tab) => {
           const active = pathname === tab.href;
           return (
             <Link
@@ -62,6 +69,17 @@ export function DesktopSidebar() {
             </Link>
           );
         })}
+      </div>
+
+      {/* Мессенджер переехал сюда из левого верхнего угла шапки.
+          В шапке он был единственным разделом приложения, живущим вне
+          навигации: четыре раздела в панели слева, пятый — в противоположном
+          углу экрана. На телефоне это оправдано (в баре пять слотов заняты), на
+          широком экране — нет: место в панели есть, и разделу место среди
+          разделов. mt-auto ставит его особняком у нижней кромки — переписки не
+          лента и не профиль, это отдельный ход. */}
+      <div className="mt-auto">
+        <MessagesButton variant="sidebar" />
       </div>
     </nav>
   );
