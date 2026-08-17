@@ -56,10 +56,11 @@ export function SegmentRing({
             обязан выглядеть одинаково всегда, иначе его приходится узнавать
             заново на каждой теме. Тёплая гамма от малинового к янтарному
             различима на всех шести фонах и не совпадает ни с одним акцентом. */}
-        <linearGradient id={gradientId} x1="0" y1="1" x2="1" y2="0">
-          <stop offset="0%" stopColor="#c4318b" />
-          <stop offset="45%" stopColor="#ee4b52" />
-          <stop offset="100%" stopColor="#f6a534" />
+        <linearGradient id={gradientId} x1="0.1" y1="1" x2="0.9" y2="0">
+          <stop offset="0%" stopColor="#7a3fd0" />
+          <stop offset="30%" stopColor="#d6296f" />
+          <stop offset="65%" stopColor="#f2593a" />
+          <stop offset="100%" stopColor="#fcbf3f" />
         </linearGradient>
       </defs>
       <circle

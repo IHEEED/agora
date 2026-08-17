@@ -10,6 +10,7 @@ import { StoriesBar } from '@/components/StoriesBar';
 import { DefaultAvatar } from '@/components/DefaultAvatar';
 import { SuggestedPeople } from '@/components/SuggestedPeople';
 import { useBlockedUsers } from '@/lib/blockedUsers';
+import { SkeletonList, SkeletonPost } from '@/components/Skeleton';
 import { useT } from '@/lib/i18n';
 
 export default function FeedPage() {
@@ -57,7 +58,16 @@ export default function FeedPage() {
           <span className="text-[15px] text-[var(--text-muted)]">{t('feed.whatsNew')}</span>
         </Link>
 
-        {loading && <p className="text-[var(--text-muted)]">{t('common.loading')}</p>}
+        {/* Заглушки по геометрии настоящих карточек: подмена не двигает
+            раскладку, и анимация появления не проигрывается на прыгающем
+            экране. Именно это и выглядело рвано. */}
+        {loading && (
+          <div className="feed-list flex flex-col">
+            <SkeletonList count={3}>
+              <SkeletonPost />
+            </SkeletonList>
+          </div>
+        )}
         {error && <p style={{ color: 'var(--down)' }}>{error}</p>}
 
         {/* Лента — сплошной список, разделённый полосками, а не набор плиток.

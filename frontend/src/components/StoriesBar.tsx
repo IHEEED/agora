@@ -98,7 +98,7 @@ export function StoriesBar({
       // выходил на четыре пикселя больше следующих. Заметно это ровно настолько,
       // насколько неровный ряд вообще бросается в глаза.
       style={{
-        gap: 10,
+        gap: 6,
         touchAction: 'pan-x',
         cursor: 'grab',
         overscrollBehaviorX: 'contain',
@@ -130,7 +130,9 @@ export function StoriesBar({
               </svg>
             </span>
           </div>
-          <span className="w-full truncate text-center text-[11px] text-[var(--text-muted)]">
+          {/* Ник обрезается многоточием, а не жмётся: ячейка равна кружку, и
+              длинное имя иначе раздвигало бы ряд. */}
+          <span className="w-full truncate text-center text-[10.5px] text-[var(--text-muted)]">
             {t('feed.yourStory')}
           </span>
         </div>
@@ -139,7 +141,9 @@ export function StoriesBar({
       {usernames.map((username) => (
         <div key={username} className="flex flex-col items-center gap-1.5" style={{ flex: `0 0 ${RING_SIZE}px` }}>
           <StoryRing name={username} segments={segmentsFor(username)} />
-          <span className="w-full truncate text-center text-[11px] text-[var(--text-muted)]">
+          {/* Ник обрезается многоточием, а не жмётся: ячейка равна кружку, и
+              длинное имя иначе раздвигало бы ряд. */}
+          <span className="w-full truncate text-center text-[10.5px] text-[var(--text-muted)]">
             {username}
           </span>
         </div>

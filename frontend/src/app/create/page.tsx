@@ -13,6 +13,7 @@ import { Community, Post } from '@/lib/types';
 import { isPhoneNotVerifiedError, usePhoneGate } from '@/components/PhoneGateContext';
 import { CommunityAvatar } from '@/components/CommunityAvatar';
 import { DefaultAvatar } from '@/components/DefaultAvatar';
+import { HintDot } from '@/components/HintDot';
 import { useT } from '@/lib/i18n';
 
 /** Бакет в Supabase Storage, куда складываются картинки постов. */
@@ -308,7 +309,7 @@ function CreatePost() {
       open={sheetOpen}
       onClose={closeSheet}
       title={title}
-      height="90vh"
+      height="84vh"
       footer={footer}
     >
       {children}
@@ -497,7 +498,15 @@ function CreatePost() {
               <span className="font-semibold" style={{ color: 'var(--accent)' }}>
                 вслед
               </span>{' '}
-              за предыдущей и появится под ней.
+              за предыдущей и появится под ней.{' '}
+              <HintDot label="Что такое «вслед»">
+                «Вслед» — продолжение вашей же записи. Она не появится в ленте
+                отдельным постом: её видно под той, которую она продолжает, с
+                подписью «Вслед · 2 из 3». Так одна мысль, которой не хватило
+                одного захода, остаётся одной мыслью, а не рассыпается по ленте
+                между чужими записями. Продолжить можно только свою запись и
+                только один раз — цепочка идёт в одну линию.
+              </HintDot>
             </span>
           </div>
         )}

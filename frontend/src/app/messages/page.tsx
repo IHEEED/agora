@@ -6,8 +6,10 @@ import { useApiData } from '@/lib/useApiData';
 import { MessageThread, UserSummary } from '@/lib/types';
 import { DefaultAvatar } from '@/components/DefaultAvatar';
 import { BottomSheet } from '@/components/BottomSheet';
+import { SkeletonList, SkeletonRow } from '@/components/Skeleton';
 import { formatCompactAge } from '@/lib/formatDate';
 import { useBlockedUsers } from '@/lib/blockedUsers';
+import { useScreenLeave } from '@/lib/useScreenLeave';
 import { useT } from '@/lib/i18n';
 
 /**
@@ -20,6 +22,7 @@ import { useT } from '@/lib/i18n';
 export default function MessagesPage() {
   const { t } = useT();
   const [picking, setPicking] = useState(false);
+  const { goBack, style: leaveStyle, swipeHandlers } = useScreenLeave();
 
   const threadsResult = useApiData<MessageThread[]>('/messages/threads');
   // Переписки с заблокированными убираем из списка: смысл блокировки в том,
@@ -35,12 +38,28 @@ export default function MessagesPage() {
   const peopleResult = useApiData<UserSummary[]>(picking ? '/users' : null);
 
   return (
-    <div className="flex flex-1 flex-col items-center">
+    <div className="flex flex-1 flex-col items-center" style={leaveStyle} {...swipeHandlers}>
       <main className="below-header flex w-full max-w-2xl flex-col gap-2.5 px-2.5 pb-10">
-        <div className="flex items-center justify-between gap-3 px-2">
+        <div className="flex items-center gap-2 px-2">
+          {/* Стрелка слева от заголовка. Мессенджер открывается из шапки, а не
+              из нижнего бара, поэтому вкладки, к которой можно вернуться
+              нажатием, у него нет — выйти было нечем, кроме системного жеста. */}
+          <button
+            onClick={goBack}
+            aria-label={t('common.back')}
+            className="-ml-2 flex h-10 w-10 flex-none items-center justify-center rounded-full text-[var(--text)] transition-transform active:scale-90"
+          >
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M15 5l-7 7 7 7" />
+            </svg>
+          </button>
+
           {/* «Сообщения» — это то, что внутри переписок, а заголовок называет
               сам раздел. Мессенджер и есть раздел. */}
-          <h1 className="display-type text-[26px] text-[var(--text)]">{t('messenger.title')}<span style={{ color: 'var(--accent)' }}>.</span></h1>
+          <h1 className="display-type min-w-0 flex-1 truncate text-[26px] text-[var(--text)]">
+            {t('messenger.title')}
+            <span style={{ color: 'var(--accent)' }}>.</span>
+          </h1>
           <button
             type="button"
             onClick={() => setPicking(true)}
@@ -136,7 +155,11 @@ export default function MessagesPage() {
               </span>
             </Link>
           ))}
-          {peopleResult.loading && <p className="py-6 text-[var(--text-muted)]">Загрузка…</p>}
+          {peopleResult.loading && (
+            <SkeletonList count={5}>
+              <SkeletonRow />
+            </SkeletonList>
+          )}
         </div>
       </BottomSheet>
     </div>

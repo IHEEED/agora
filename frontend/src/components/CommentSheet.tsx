@@ -8,6 +8,7 @@ import { isPhoneNotVerifiedError, usePhoneGate } from '@/components/PhoneGateCon
 import { BottomSheet } from '@/components/BottomSheet';
 import { CommentThread } from '@/components/CommentThread';
 import { useCommentSpotlight } from '@/lib/useCommentSpotlight';
+import { SkeletonComment, SkeletonList } from '@/components/Skeleton';
 
 /** Быстрые реакции над строкой ввода — то же, что в Instagram. */
 const QUICK_EMOJI = ['❤️', '🙌', '🔥', '👏', '😢', '😍', '😮', '😂'];
@@ -110,7 +111,7 @@ export function CommentSheet({
       title="Комментарии"
       // Почти во весь экран: комментариев на пост десятки, и семьдесят
       // процентов высоты означали, что за раз видно четыре.
-      height="90vh"
+      height="84vh"
       footer={
         <>
           {replyTo && (
@@ -176,7 +177,15 @@ export function CommentSheet({
         </>
       }
     >
-      {loading && <p className="py-6 text-[var(--text-muted)]">Загрузка…</p>}
+      {/* Заглушки, а не строка «Загрузка…»: они занимают ту же высоту, что и
+          комментарии, поэтому подмена ничего не двигает. */}
+      {loading && (
+        <div className="py-1">
+          <SkeletonList count={4}>
+            <SkeletonComment />
+          </SkeletonList>
+        </div>
+      )}
       {error && <p className="py-3 text-[13px]" style={{ color: 'var(--down)' }}>{error}</p>}
 
       {!loading && comments.length === 0 && (

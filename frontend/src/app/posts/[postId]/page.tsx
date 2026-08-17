@@ -12,6 +12,7 @@ import { PostCard } from '@/components/PostCard';
 import { CommentThread } from '@/components/CommentThread';
 import { isPhoneNotVerifiedError, usePhoneGate } from '@/components/PhoneGateContext';
 import { SegmentedControl } from '@/components/SegmentedControl';
+import { SkeletonPost } from '@/components/Skeleton';
 import { useCommentSpotlight } from '@/lib/useCommentSpotlight';
 import { useScreenLeave } from '@/lib/useScreenLeave';
 
@@ -128,7 +129,7 @@ export default function PostPage() {
           {t('common.back')}
         </button>
 
-        {loading && <p className="text-[var(--text-muted)]">{t('common.loading')}</p>}
+        {loading && <SkeletonPost />}
         {error && <p style={{ color: 'var(--down)' }}>{error}</p>}
 
         {post && <PostCard post={post} linkToDetail={false} />}

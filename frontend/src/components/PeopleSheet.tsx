@@ -6,6 +6,7 @@ import { apiFetch } from '@/lib/api';
 import { UserSummary } from '@/lib/types';
 import { BottomSheet } from '@/components/BottomSheet';
 import { AvatarFollow } from '@/components/AvatarFollow';
+import { SkeletonList, SkeletonRow } from '@/components/Skeleton';
 
 /**
  * Список людей в шторке: подписчики, подписки, участники сообщества.
@@ -66,7 +67,11 @@ export function PeopleSheet({
         </p>
       )}
 
-      {!error && people === null && <p className="py-6 text-[var(--text-muted)]">Загрузка…</p>}
+      {!error && people === null && (
+        <SkeletonList count={5}>
+          <SkeletonRow />
+        </SkeletonList>
+      )}
 
       {!error && people?.length === 0 && (
         <p className="py-12 text-center text-[var(--text-muted)]">{emptyText}</p>

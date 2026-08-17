@@ -48,8 +48,12 @@ export function MessagesButton() {
 
   return (
     <Link
-      href="/messages"
-      aria-label="Сообщения"
+      // Кнопка работает переключателем: из мессенджера она возвращает в ленту,
+      // а не ведёт в мессенджер повторно. Так себя ведёт любая вкладка — нажатие
+      // по той, где ты уже стоишь, обязано что-то делать, иначе кнопка выглядит
+      // залипшей.
+      href={active ? '/' : '/messages'}
+      aria-label={active ? 'В ленту' : 'Мессенджер'}
       // Без подложки и обводки — как у кнопки справа. Знак различает состояние
       // заливкой: на самом экране переписок он залит, снаружи — контурный.
       className="relative flex h-11 w-11 items-center justify-center rounded-full transition-transform active:scale-90"

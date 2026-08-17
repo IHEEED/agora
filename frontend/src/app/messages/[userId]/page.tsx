@@ -11,6 +11,7 @@ import { DefaultAvatar } from '@/components/DefaultAvatar';
 import { MessageActions } from '@/components/MessageActions';
 import { BottomSheet } from '@/components/BottomSheet';
 import { PersonMenuSheet } from '@/components/PersonMenuSheet';
+import { SkeletonList, SkeletonRow } from '@/components/Skeleton';
 import { setNavHidden } from '@/lib/navVisibility';
 
 /** Как часто перечитываем переписку, пока она открыта.
@@ -942,7 +943,11 @@ export default function ChatPage() {
               </span>
             </button>
           ))}
-          {people.loading && <p className="py-6 text-[var(--text-muted)]">Загрузка…</p>}
+          {people.loading && (
+            <SkeletonList count={5}>
+              <SkeletonRow />
+            </SkeletonList>
+          )}
         </div>
       </BottomSheet>
 

@@ -10,6 +10,7 @@ import { ProfileAvatar } from '@/components/ProfileAvatar';
 import { InfluenceInfo } from '@/components/InfluenceInfo';
 import { SuggestedPeople } from '@/components/SuggestedPeople';
 import { SegmentedControl } from '@/components/SegmentedControl';
+import { SkeletonList, SkeletonPost } from '@/components/Skeleton';
 import { useStickyTab } from '@/lib/useStickyTab';
 import { DEFAULT_FIT, Fit } from '@/components/ImageFitter';
 import { ImageAdjustDialog } from '@/components/ImageAdjustDialog';
@@ -378,7 +379,13 @@ export default function ProfilePage() {
             />
           </div>
 
-          {loading && <p className="py-6 text-[var(--text-muted)]">{t('common.loading')}</p>}
+          {loading && (
+            <div className="py-2">
+              <SkeletonList count={3}>
+                <SkeletonPost />
+              </SkeletonList>
+            </div>
+          )}
           {error && <p className="py-6" style={{ color: 'var(--down)' }}>{error}</p>}
 
           {/* pt-4: посты жались прямо к линии под вкладками и читались её

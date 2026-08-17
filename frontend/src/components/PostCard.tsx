@@ -194,8 +194,12 @@ export function PostCard({
         <PollBlock postId={post.id} options={post.pollOptions} myVote={post.myPollVote} />
       )}
 
-      <div className="relative mt-1 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
+      {/* Две группы, а не пять кнопок в ряд. Слева то, что относится к самой
+          записи — голос и обсуждение; справа то, что уносит её дальше — репост
+          и «поделиться». Внутри группы кнопки стоят вплотную, между группами
+          пусто: так видно, что это два разных действия, а не пять равных. */}
+      <div className="relative mt-1 flex items-center justify-between">
+        <div className="-ml-1 flex items-center">
           <VoteBlock id={post.id} score={post.score} myVote={post.myVote} />
 
           {linkToDetail && (
@@ -216,7 +220,7 @@ export function PostCard({
           )}
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="-mr-1 flex items-center">
           <button
             onClick={handleRepost}
             aria-label="Репост"

@@ -103,6 +103,31 @@ const PAGES: Page[] = [
     ),
   },
   {
+    key: 'chain',
+    title: 'Мысли не хватило поста',
+    body:
+      'Свою запись можно продолжить — она уйдёт «вслед» за предыдущей и встанет под ней, ' +
+      'а не отдельным постом в ленте. Одна мысль остаётся одной, даже если ей нужно три захода.',
+    art: (
+      <Art>
+        {/* Одна запись и два продолжения под ней, связанные линией. */}
+        <rect x="34" y="14" width="132" height="26" rx="9" fill="var(--surface-2)" />
+        <rect x="46" y="24" width="76" height="5" rx="2.5" fill="var(--text)" opacity="0.45" />
+        <path
+          d="M40 46v14a6 6 0 0 0 6 6h6M40 46v40a6 6 0 0 0 6 6h6"
+          stroke="var(--accent)"
+          strokeOpacity="0.5"
+          strokeWidth="2"
+          fill="none"
+        />
+        <rect x="58" y="54" width="108" height="24" rx="8" fill="var(--surface-2)" />
+        <rect x="68" y="63" width="58" height="5" rx="2.5" fill="var(--text)" opacity="0.3" />
+        <rect x="58" y="80" width="108" height="24" rx="8" fill="var(--surface-2)" />
+        <rect x="68" y="89" width="44" height="5" rx="2.5" fill="var(--text)" opacity="0.3" />
+      </Art>
+    ),
+  },
+  {
     key: 'influence',
     title: 'Influence вместо лайков',
     body:
