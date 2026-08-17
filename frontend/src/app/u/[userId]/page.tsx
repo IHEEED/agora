@@ -227,10 +227,12 @@ export default function UserProfilePage() {
             />
           </div>
 
-          {/* Без разделителей: в профиле все записи одного автора, и черта между
-              ними ничего не разделяла — только дробила карточку на полоски. */}
+          {/* Волосяная черта между записями — та же, что в ленте и в своём
+              профиле. Довод «здесь всё равно один автор» не сработал: карточки
+              идут без рамок, и без черты подпись под одним постом читалась как
+              начало следующего. Отделяет не авторов, а записи. */}
           {tab === 'posts' && (
-            <div className="flex flex-col">
+            <div className="feed-list feed-list-inset flex flex-col">
               {posts.map((post) => (
                 <PostCard key={post.id} post={post} />
               ))}
@@ -243,7 +245,7 @@ export default function UserProfilePage() {
           )}
 
           {tab === 'comments' && (
-            <div className="flex flex-col">
+            <div className="flex flex-col divide-y divide-[var(--border)]">
               {comments.map((comment) => (
                 <article key={comment.id} className="flex flex-col gap-2 py-4">
                   {comment.post && (
@@ -284,7 +286,7 @@ export default function UserProfilePage() {
           )}
 
           {tab === 'reposts' && (
-            <div className="flex flex-col">
+            <div className="feed-list feed-list-inset flex flex-col">
               {reposts.map((post) => (
                 <PostCard key={post.id} post={post} />
               ))}

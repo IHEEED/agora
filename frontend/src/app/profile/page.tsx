@@ -403,7 +403,7 @@ export default function ProfilePage() {
           {/* pt-4: посты жались прямо к линии под вкладками и читались её
               продолжением, а не отдельным списком. */}
           {!loading && !error && tab === 'posts' && (
-            <div className="flex flex-col pt-2">
+            <div className="feed-list feed-list-inset flex flex-col pt-2">
               {posts.map((post) => (
                 <PostCard key={post.id} post={post} />
               ))}
@@ -492,7 +492,7 @@ export default function ProfilePage() {
           )}
 
           {!loading && !error && tab === 'reposts' && (
-            <div className="flex flex-col pt-2">
+            <div className="feed-list feed-list-inset flex flex-col pt-2">
               {reposts.map((post) => (
                 <PostCard key={post.id} post={post} />
               ))}

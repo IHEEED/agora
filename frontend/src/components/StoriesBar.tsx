@@ -97,15 +97,21 @@ export function StoriesBar({
       // рамку в два пикселя, та добавлялась к ширине — и первый промежуток
       // выходил на четыре пикселя больше следующих. Заметно это ровно настолько,
       // насколько неровный ряд вообще бросается в глаза.
+      //
+      // Ячейкам нужен min-w-0. Флексовый элемент по умолчанию не сжимается
+      // меньше своего содержимого, и длинный ник растягивал ячейку, вместо того
+      // чтобы обрезаться многоточием: заданные 66 пикселей при этом ничего не
+      // держали, а ряд разъезжался ровно на тех именах, ради которых
+      // многоточие и ставилось.
       style={{
-        gap: 6,
+        gap: 3,
         touchAction: 'pan-x',
         cursor: 'grab',
         overscrollBehaviorX: 'contain',
       }}
     >
       {currentUserLetter && (
-        <div className="flex flex-col items-center gap-1.5" style={{ flex: `0 0 ${RING_SIZE}px` }}>
+        <div className="min-w-0 flex flex-col items-center gap-1.5" style={{ flex: `0 0 ${RING_SIZE}px` }}>
           <div className="relative" style={{ width: RING_SIZE, height: RING_SIZE }}>
             {/* Пунктир вместо дуг: своей истории ещё нет, показывать нечего —
                 и кружок читается как «место под неё», а не как непросмотренное. */}
@@ -139,7 +145,7 @@ export function StoriesBar({
       )}
 
       {usernames.map((username) => (
-        <div key={username} className="flex flex-col items-center gap-1.5" style={{ flex: `0 0 ${RING_SIZE}px` }}>
+        <div key={username} className="min-w-0 flex flex-col items-center gap-1.5" style={{ flex: `0 0 ${RING_SIZE}px` }}>
           <StoryRing name={username} segments={segmentsFor(username)} />
           {/* Ник обрезается многоточием, а не жмётся: ячейка равна кружку, и
               длинное имя иначе раздвигало бы ряд. */}

@@ -58,11 +58,30 @@ export function CommentThread({
   // не рендерит ответы, и прокручивать было бы не к чему.
   const holdsTarget = Boolean(highlightId) && contains(comment, highlightId!);
 
+  /**
+   * Раз ветку раскрыли ради перехода — она такой и остаётся.
+   *
+   * Раньше holdsTarget держал её открытой ровно пока горит подсветка, а через
+   * полторы секунды ветка схлопывалась обратно к сохранённому состоянию: человек
+   * читал ответ, и тот на глазах сворачивался сам. Решение «свернуть» за него
+   * никто не принимал — оно осталось от прошлого визита, когда он свернул эту
+   * ветку по своей воле, но пришёл-то он сюда именно за ответом внутри неё.
+   *
+   * Флаг живёт в самой ветке и снимается только её же кнопкой.
+   */
+  const [pinnedOpen, setPinnedOpen] = useState(false);
+  const [wasHolding, setWasHolding] = useState(holdsTarget);
+  if (wasHolding !== holdsTarget) {
+    setWasHolding(holdsTarget);
+    // Подсветка гаснет — фиксируем то состояние, в котором ветка сейчас есть.
+    if (holdsTarget) setPinnedOpen(true);
+  }
+
   // Ветка открыта, пока её не свернули. Прошлая схема показывала часть ответов
   // и прятала остальные — на одну кнопку приходилось три состояния, и было
   // непонятно, что она сделает: «Свернуть» убирала не всё, «Ещё» открывала не
   // с начала. Теперь состояний два, и оба видно по подписи.
-  const collapsed = hasReplies && isCollapsed(comment.id) && !holdsTarget;
+  const collapsed = hasReplies && isCollapsed(comment.id) && !holdsTarget && !pinnedOpen;
   const replyCount = comment.replies.length;
 
   async function submitReply(e: SubmitEvent) {
@@ -212,7 +231,12 @@ export function CommentThread({
               перекрёстным затуханием: смена текста в один кадр дёргала
               ширину кнопки. */}
           <button
-            onClick={() => onToggleCollapse(comment.id)}
+            onClick={() => {
+              // Своё «оставить раскрытой» снимаем здесь же: нажатие по кнопке —
+              // это и есть решение человека, а оно сильнее нашего.
+              setPinnedOpen(false);
+              onToggleCollapse(comment.id);
+            }}
             className="grid self-start rounded-lg text-[13px] font-medium transition-transform active:scale-95"
             style={{ color: 'var(--accent)' }}
           >

@@ -165,6 +165,8 @@ export default function ChatPage() {
     document.documentElement.dataset.inChat = '1';
     return () => {
       setNavHidden(false);
+      // Атрибут снимаем сразу: обои гаснут прозрачностью и успевают уйти
+      // плавно, пока экран уезжает (см. .chat-wallpaper в globals.css).
       delete document.documentElement.dataset.inChat;
     };
   }, []);
@@ -497,17 +499,17 @@ export default function ChatPage() {
             действий над отмеченным. Так же ведут себя списки в почте: панель
             занимает место заголовка, а не появляется третьей полосой. */}
         {selected ? (
-          <div className="mb-2 flex items-center gap-1 px-1">
+          <div className="mb-2 flex items-center gap-1.5 px-1">
             <button
               onClick={() => setSelected(null)}
               aria-label="Отменить выбор"
-              className="-ml-1 flex h-10 w-10 flex-none items-center justify-center rounded-full text-[var(--text)] transition-transform active:scale-90"
+              className="chat-island flex h-10 w-10 flex-none items-center justify-center rounded-full text-[var(--text)] transition-transform active:scale-90"
             >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
                 <path d="M6 6l12 12M18 6 6 18" />
               </svg>
             </button>
-            <span className="min-w-0 flex-1 text-[15px] font-semibold text-[var(--text)]">
+            <span className="chat-island mr-auto min-w-0 rounded-full px-4 py-2 text-[15px] font-semibold text-[var(--text)]">
               <span className="font-num">{selected.length}</span>
             </span>
 
@@ -517,7 +519,7 @@ export default function ChatPage() {
               }
               disabled={selected.length === 0}
               aria-label="Переслать"
-              className="flex h-10 w-10 flex-none items-center justify-center rounded-full transition-transform active:scale-90 disabled:opacity-30"
+              className="chat-island flex h-10 w-10 flex-none items-center justify-center rounded-full transition-transform active:scale-90 disabled:opacity-30"
               style={{ color: 'var(--accent)' }}
             >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
@@ -533,7 +535,7 @@ export default function ChatPage() {
                 messages.some((m) => selected.includes(m.id) && m.sender_id !== me)
               }
               aria-label="Удалить"
-              className="flex h-10 w-10 flex-none items-center justify-center rounded-full transition-transform active:scale-90 disabled:opacity-30"
+              className="chat-island flex h-10 w-10 flex-none items-center justify-center rounded-full transition-transform active:scale-90 disabled:opacity-30"
               style={{ color: 'var(--down)' }}
             >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
@@ -542,19 +544,31 @@ export default function ChatPage() {
             </button>
           </div>
         ) : (
-          <div className="mb-2 flex items-center gap-2 px-1">
+          /* Островки, а не строка во всю ширину.
+             На обоях полоса заголовка выглядела наклеенной поверх узора: у неё
+             нет своих границ, и она либо сливается с фоном, либо закрывает его
+             прямоугольником. Отдельные скруглённые блоки решают то же самое
+             честнее — каждый несёт ровно своё содержимое и стоит на обоях, а не
+             вместо них. Так устроена шапка чата в Telegram, и по той же причине. */
+          <div className="mb-2 flex items-center gap-1.5 px-1">
             <button
               onClick={leave}
               aria-label="Назад"
-              className="-ml-1 flex h-10 w-10 flex-none items-center justify-center rounded-full text-[var(--text)] transition-transform active:scale-90"
+              className="chat-island flex h-10 w-10 flex-none items-center justify-center rounded-full text-[var(--text)] transition-transform active:scale-90"
             >
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M15 5l-7 7 7 7" />
               </svg>
             </button>
-            <Link href={`/u/${userId}`} className="flex min-w-0 flex-1 items-center gap-2.5">
-              <DefaultAvatar name={person?.username ?? '?'} size={38} />
-              <span className="min-w-0 truncate text-[16px] font-semibold text-[var(--text)]">
+            <Link
+              href={`/u/${userId}`}
+              // mr-auto, а не flex-1: островок обязан быть по размеру имени.
+              // Растянутый во всю ширину, он превращается обратно в полосу —
+              // ту самую, от которой островки и уводят.
+              className="chat-island mr-auto flex min-w-0 items-center gap-2.5 rounded-full py-1 pl-1 pr-3.5"
+            >
+              <DefaultAvatar name={person?.username ?? '?'} size={34} />
+              <span className="min-w-0 truncate text-[15.5px] font-semibold text-[var(--text)]">
                 {person?.username ?? '…'}
               </span>
             </Link>
@@ -562,7 +576,7 @@ export default function ChatPage() {
             <button
               onClick={() => setPersonMenu(true)}
               aria-label="Действия"
-              className="-mr-1 flex h-10 w-10 flex-none items-center justify-center rounded-full transition-colors hover:bg-[var(--surface-2)]"
+              className="chat-island flex h-10 w-10 flex-none items-center justify-center rounded-full transition-colors"
               style={{ color: 'var(--control)' }}
             >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
@@ -584,8 +598,7 @@ export default function ChatPage() {
                 .getElementById(`msg-${pinned[pinned.length - 1].id}`)
                 ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
             }}
-            className="mb-2 flex items-center gap-2.5 rounded-xl px-3 py-2 text-left transition-colors active:bg-[var(--surface-2)]"
-            style={{ background: 'var(--surface-2)' }}
+            className="chat-island mb-2 flex items-center gap-2.5 rounded-2xl px-3 py-2 text-left transition-transform active:scale-[0.99]"
           >
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" className="flex-none">
               <path d="M9 4h6l-1 6 4 3v2H6v-2l4-3Z" />

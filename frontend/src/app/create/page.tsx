@@ -7,6 +7,7 @@ import { apiFetch } from '@/lib/api';
 import { invalidate, useApiData } from '@/lib/useApiData';
 import { BottomSheet } from '@/components/BottomSheet';
 import { useScreenExit } from '@/lib/screenExit';
+import { markGoingBack } from '@/lib/navDirection';
 import { supabase } from '@/lib/supabase';
 import { useSession } from '@/lib/useSession';
 import { Community, Post } from '@/lib/types';
@@ -18,6 +19,25 @@ import { useT } from '@/lib/i18n';
 
 /** Бакет в Supabase Storage, куда складываются картинки постов. */
 const MEDIA_BUCKET = 'post-media';
+
+/**
+ * Сколько гаснет уходящий шаг мастера.
+ *
+ * Дольше перехода между экранами и намеренно: экраны сменяются целиком, а тут
+ * подменяется содержимое одной и той же шторки — она остаётся на месте, и
+ * рывок внутри неподвижной рамки заметен куда сильнее. На ста девяноста
+ * миллисекундах шаг не гас, а моргал.
+ */
+const STEP_MS = 260;
+
+/** Сколько уезжает шторка — берём из темы, чтобы маршрут менялся ровно следом. */
+function sheetOutMs(): number {
+  return (
+    Number.parseFloat(
+      getComputedStyle(document.documentElement).getPropertyValue('--sheet-out-ms')
+    ) || 200
+  );
+}
 
 /** Метка выбора «от своего имени» — идентификатором сообщества быть не может. */
 const PERSONAL = '__personal__';
@@ -91,7 +111,14 @@ function CreatePost() {
   // хотя приезжал плавно.
   const closeSheet = useCallback(() => {
     setSheetOpen(false);
-    window.setTimeout(() => router.back(), 300);
+    // Ждём ровно столько, сколько уезжает шторка. Здесь стояли зашитые 300 мс,
+    // и после того как длительности вынесли в переменные, шторка уезжала за
+    // свои двести, а маршрут менялся ещё через сотню — эта пауза и читалась
+    // как заминка перед лентой.
+    // Помечаем направление: лента под шторкой всё это время была на месте, и
+    // проигрывать ей появление незачем.
+    markGoingBack();
+    window.setTimeout(() => router.back(), sheetOutMs());
   }, [router]);
 
   // Крестик в шапке закрывает этот экран его же способом, а не своим.
@@ -121,8 +148,13 @@ function CreatePost() {
       setAsCommunity(id !== null);
       setStep('compose');
       setLeavingTo(null);
-    }, 190);
+    }, STEP_MS);
   }
+
+  // Вернулись ли к выбору с шага написания. На первом открытии выбор уже едет
+  // вместе со шторкой, и собственная анимация ему не нужна — а вот при возврате
+  // шторка стоит на месте, и без неё экран возникал в один кадр.
+  const [pickerReturn, setPickerReturn] = useState(false);
 
   /** Назад к выбору — с той же паузой на затухание, что и вперёд. */
   function backToPicker() {
@@ -130,8 +162,9 @@ function CreatePost() {
     setComposeLeaving(true);
     stepTimeout.current = setTimeout(() => {
       setStep('community');
+      setPickerReturn(true);
       setComposeLeaving(false);
-    }, 190);
+    }, STEP_MS);
   }
 
   const [composeLeaving, setComposeLeaving] = useState(false);
@@ -282,15 +315,22 @@ function CreatePost() {
       });
       // Лента закеширована — без сброса свежий пост в ней не появится.
       invalidate('/posts');
-      router.push(`/posts/${post.id}`);
+      // Сначала шторка уезжает вниз, и только потом меняется маршрут. Раньше
+      // push случался в тот же кадр, что и ответ сервера: экран написания
+      // пропадал разом, не отыграв закрытия, — при том что открывался он
+      // движением. Отправка — единственное место, где он исчезал рывком.
+      setSheetOpen(false);
+      window.setTimeout(() => router.push(`/posts/${post.id}`), sheetOutMs());
+      // Кнопку не отпускаем — те двести миллисекунд, пока шторка уезжает, она
+      // ещё на экране и нажимается, а пост уже отправлен. Поэтому и снимаем
+      // блокировку только на ошибках, а не в finally.
     } catch (err) {
+      setSubmitting(false);
       if (isPhoneNotVerifiedError(err)) {
         requestVerification();
         return;
       }
       setError(err instanceof Error ? err.message : 'Не удалось опубликовать пост');
-    } finally {
-      setSubmitting(false);
     }
   }
 
@@ -329,11 +369,11 @@ function CreatePost() {
     return sheet(
       t('create.pickCommunity'),
       <div
-        className="flex flex-col gap-4 py-3"
+        className={`${pickerReturn ? 'step-enter-back' : ''} flex flex-col gap-4 py-3`}
         style={{
           opacity: leavingTo ? 0 : 1,
           transform: leavingTo ? 'translateY(-10px) scale(0.985)' : 'none',
-          transition: 'opacity 0.19s ease, transform 0.19s cubic-bezier(0.32, 0.72, 0, 1)',
+          transition: 'opacity 0.26s ease, transform 0.26s var(--enter-ease)',
         }}
       >
           <p className="text-[14px] text-[var(--text-muted)]">
@@ -465,7 +505,7 @@ function CreatePost() {
       style={{
         opacity: composeLeaving ? 0 : 1,
         transform: composeLeaving ? 'translateY(10px) scale(0.985)' : 'none',
-        transition: 'opacity 0.19s ease, transform 0.19s cubic-bezier(0.32, 0.72, 0, 1)',
+        transition: 'opacity 0.26s ease, transform 0.26s var(--enter-ease)',
       }}
     >
         {/* Возврат к выбору тоже с паузой: экран написания успевает погаснуть,
