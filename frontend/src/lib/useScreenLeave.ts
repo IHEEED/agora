@@ -1,11 +1,9 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { markGoingBack } from '@/lib/navDirection';
-
-/** Сколько уезжает экран. Совпадает с --exit-ms в globals.css. */
-const LEAVE_MS = 70;
+import { peelScreen } from '@/lib/peelScreen';
 
 /** Ширина полосы у левой кромки, с которой начинается жест. */
 const EDGE_ZONE = 32;
@@ -16,19 +14,24 @@ const DISMISS_RATIO = 0.3;
 /**
  * Уход с вложенного экрана: кнопкой назад и свайпом от левой кромки.
  *
- * Пост, чужой профиль, настройки, клуб и мессенджер въезжают справа налево —
- * это движение «вглубь». Обратно они просто исчезали: router.back() менял
- * маршрут, разметка пропадала в тот же кадр.
+ * Экран не гаснет и не уезжает сам по себе — с него снимают слой. Маршрут
+ * меняется в тот же кадр, в который нажали, поэтому под уходящим экраном сразу
+ * настоящая лента; вправо уезжает его снимок (см. peelScreen).
+ *
+ * Прежде было наоборот: экран сначала отыгрывал уход, и только потом менялся
+ * маршрут. Лента при этом появлялась после — то самое «сначала пустой экран, а
+ * потом уже лента», от которого всё выглядело дешевле, чем есть.
  *
  * Жест ловим только у самой кромки: начнись он посреди экрана — и любое
  * горизонтальное движение по списку закрывало бы страницу.
  */
 export function useScreenLeave() {
   const router = useRouter();
-  const [leaving, setLeaving] = useState(false);
   const [dragX, setDragX] = useState(0);
   const [dragging, setDragging] = useState(false);
   const from = useRef<number | null>(null);
+  /** Узел экрана — с него снимается копия. Ставится на корень через ref. */
+  const screenRef = useRef<HTMLDivElement>(null);
   /**
    * Уже уходим. Отдельный ref, а не проверка внутри setState.
    *
@@ -44,19 +47,20 @@ export function useScreenLeave() {
    * чистой функцией от предыдущего состояния.
    */
   const going = useRef(false);
-  const timer = useRef<number | undefined>(undefined);
 
-  useEffect(() => () => window.clearTimeout(timer.current), []);
-
-  const goBack = useCallback(() => {
+  const goBack = useCallback((fromX = 0) => {
     if (going.current) return;
     going.current = true;
-    setLeaving(true);
     // Помечаем направление: экран, на который вернёмся, уже был показан, и
     // проигрывать ему анимацию появления незачем (см. PageTransition).
     markGoingBack();
-    timer.current = window.setTimeout(() => router.back(), LEAVE_MS);
+    // Снимок снимаем до смены маршрута — после неё узла уже нет.
+    peelScreen(screenRef.current, fromX);
+    router.back();
   }, [router]);
+
+  /** Для onClick: обработчик события получил бы событие вместо сдвига. */
+  const onBack = useCallback(() => goBack(0), [goBack]);
 
   function onPointerDown(event: React.PointerEvent) {
     // Мышь исключена намеренно: на настольном экране протаскивание от левого
@@ -76,12 +80,15 @@ export function useScreenLeave() {
     const far = dragX > window.innerWidth * DISMISS_RATIO;
     from.current = null;
     setDragging(false);
+    // Слой подхватывает ровно тот сдвиг, на котором отпустили, и продолжает
+    // движение с него. Сбрось мы dragX до нуля — экран прыгнул бы назад.
+    if (far) goBack(dragX);
     setDragX(0);
-    if (far) goBack();
   }
 
-  /** Обработчики жеста — на корневой узел экрана, вместе со style. */
+  /** Обработчики жеста — на корневой узел экрана, вместе со style и ref. */
   const swipeHandlers = {
+    ref: screenRef,
     onPointerDown,
     onPointerMove,
     onPointerUp,
@@ -91,15 +98,10 @@ export function useScreenLeave() {
   const style: React.CSSProperties = {
     // В покое именно none, а не translateX(0): любой transform создаёт слой,
     // из которого дочерним элементам не подняться над размытием шторок.
-    transform: leaving ? 'translateX(24px)' : dragX ? `translateX(${dragX}px)` : 'none',
-    opacity: leaving ? 0 : 1,
+    transform: dragX ? `translateX(${dragX}px)` : 'none',
     // Пока тянут пальцем — без перехода, иначе экран отстаёт от руки.
-    transition: dragging
-      ? 'none'
-      : leaving
-        ? 'transform var(--exit-ms) var(--exit-ease), opacity var(--exit-ms) var(--exit-ease)'
-        : 'transform var(--enter-ms) var(--enter-ease)',
+    transition: dragging ? 'none' : 'transform var(--enter-ms) var(--enter-ease)',
   };
 
-  return { leaving, goBack, style, swipeHandlers };
+  return { goBack: onBack, style, swipeHandlers };
 }

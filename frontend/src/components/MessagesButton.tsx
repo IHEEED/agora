@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { apiFetch } from '@/lib/api';
+import { markGoingBack } from '@/lib/navDirection';
+import { peelCurrentScreen } from '@/lib/peelScreen';
 
 /** Как часто спрашиваем про непрочитанные. */
 const POLL_MS = 25000;
@@ -19,6 +21,7 @@ const POLL_MS = 25000;
  */
 export function MessagesButton() {
   const pathname = usePathname();
+  const router = useRouter();
   const [unread, setUnread] = useState(0);
 
   useEffect(() => {
@@ -54,6 +57,17 @@ export function MessagesButton() {
       // залипшей.
       href={active ? '/' : '/messages'}
       aria-label={active ? 'В ленту' : 'Мессенджер'}
+      // Возврат в ленту той же кнопкой — это тот же уход из мессенджера, что и
+      // по стрелке внутри него, и выглядеть он обязан так же: слой снимается,
+      // лента под ним уже настоящая. Обычный переход по ссылке дал бы вместо
+      // этого проявление ленты с нуля.
+      onClick={(event) => {
+        if (!active) return;
+        event.preventDefault();
+        markGoingBack();
+        peelCurrentScreen();
+        router.push('/');
+      }}
       // Без подложки и обводки — как у кнопки справа. Знак различает состояние
       // заливкой: на самом экране переписок он залит, снаружи — контурный.
       className="relative flex h-11 w-11 items-center justify-center rounded-full transition-transform active:scale-90"

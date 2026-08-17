@@ -1,6 +1,14 @@
 'use client';
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, SubmitEvent } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  SubmitEvent,
+} from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { apiFetch } from '@/lib/api';
@@ -14,6 +22,8 @@ import { PersonMenuSheet } from '@/components/PersonMenuSheet';
 import { SkeletonList, SkeletonRow } from '@/components/Skeleton';
 import { setNavHidden } from '@/lib/navVisibility';
 import { markGoingBack } from '@/lib/navDirection';
+import { createPortal } from 'react-dom';
+import { peelScreen } from '@/lib/peelScreen';
 
 /** Как часто перечитываем переписку, пока она открыта.
     Раньше был 4000 — при плохой сети задержка на запросе могла совпасть
@@ -210,35 +220,46 @@ export default function ChatPage() {
   // Отдельный флаг вместо чтения ref в разметке: ref для отрисовки не годится,
   // React о его изменении не знает.
   const [dragging, setDragging] = useState(false);
-  const [leaving, setLeaving] = useState(false);
+  /** Узел экрана: с него снимается копия, которая и уезжает вправо. */
+  const screenRef = useRef<HTMLDivElement>(null);
+
+  // Портал строки ввода возможен только в браузере: на сервере document нет.
+  // Через useSyncExternalStore, как в BottomSheet: серверный снимок false,
+  // клиентский true — и разметка сходится без лишнего кадра.
+  const mounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false
+  );
 
   /**
-   * Уход из переписки.
+   * Уход из переписки — снятием слоя.
    *
-   * Ждать ровно столько, сколько длится анимация. Здесь стояли зашитые 260 мс,
-   * а сама анимация давно шла за --exit-ms; после ускорения интерфейса вдвое
-   * экран уезжал за сотню миллисекунд и ещё полторы сотни просто стоял за
-   * кадром, ничего не делая. Именно эта пауза и читалась как «уход не
-   * плавный»: движение кончалось раньше, чем менялся маршрут.
+   * Маршрут меняется сразу, в тот же кадр: список переписок под уходящим
+   * экраном настоящий и уже на месте. Вправо уезжает снимок (см. peelScreen).
+   *
+   * Прежде экран сначала отыгрывал уход, и только через --exit-ms менялся
+   * маршрут. Пока движение шло, за ним не было ничего — обои с узором просто
+   * обрывались, — а список появлялся уже после. Это и называлось «обои очень
+   * резко уезжают».
    */
   const leaveGuard = useRef(false);
 
-  const leave = useCallback(() => {
-    // Тот же guard, что в useScreenLeave: без него повторное нажатие заводило
-    // второй таймер и router.back() уходил на две записи истории назад.
+  const leave = useCallback((fromX = 0) => {
+    // Guard от повторного нажатия: без него router.back() уходил на две записи
+    // истории назад — отсюда весь набор «выход кидает не туда».
     if (leaveGuard.current) return;
     leaveGuard.current = true;
-    setLeaving(true);
     markGoingBack();
-    const ms =
-      Number.parseFloat(
-        getComputedStyle(document.documentElement).getPropertyValue('--exit-ms')
-      ) || 70;
-    window.setTimeout(() => router.back(), ms);
+    peelScreen(screenRef.current, fromX);
+    router.back();
   }, [router]);
 
+  /** Для onClick: обработчик получил бы событие вместо сдвига. */
+  const onLeave = useCallback(() => leave(0), [leave]);
+
   function onPointerDown(event: React.PointerEvent) {
-    if (event.clientX > EDGE_ZONE || leaving) return;
+    if (event.clientX > EDGE_ZONE || leaveGuard.current) return;
     dragFrom.current = event.clientX;
     setDragging(true);
   }
@@ -253,8 +274,9 @@ export default function ChatPage() {
     const far = dragX > window.innerWidth / 3;
     dragFrom.current = null;
     setDragging(false);
+    // Слой продолжает движение с того сдвига, на котором отпустили.
+    if (far) leave(dragX);
     setDragX(0);
-    if (far) leave();
   }
 
   // Переписку открываем на последнем письме — прокручивать снизу вверх
@@ -472,25 +494,22 @@ export default function ChatPage() {
 
   return (
     <div
+      ref={screenRef}
       className="flex flex-1 flex-col items-center"
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerUp}
       style={{
-        // Уезжает вправо — тем же движением, каким пришёл слева.
+        // Только протаскивание пальцем. Сам уход отыгрывает снятый слой, а не
+        // этот узел: к моменту, когда что-то поедет, его здесь уже нет.
+        //
         // В покое transform именно none, а не translateX(0): любой transform
         // создаёт слой, из которого дочернему пузырю не подняться над
         // размытием меню — сообщение оставалось замыленным вместе с фоном.
-        transform: leaving ? 'translateX(100%)' : dragX ? `translateX(${dragX}px)` : 'none',
-        opacity: leaving ? 0 : 1,
+        transform: dragX ? `translateX(${dragX}px)` : 'none',
         // Пока тянут пальцем — без перехода, иначе экран отстаёт от руки.
-        // Уход резкий и короткий: решение уже принято, тянуть его незачем.
-        transition: dragging
-          ? 'none'
-          : leaving
-            ? 'transform var(--exit-ms) var(--exit-ease), opacity var(--exit-ms) var(--exit-ease)'
-            : 'transform 0.3s var(--enter-ease), opacity 0.24s ease',
+        transition: dragging ? 'none' : 'transform var(--enter-ms) var(--enter-ease)',
       }}
     >
       <main className="below-header relative flex w-full max-w-2xl flex-1 flex-col px-2.5 pb-28">
@@ -552,7 +571,7 @@ export default function ChatPage() {
              вместо них. Так устроена шапка чата в Telegram, и по той же причине. */
           <div className="mb-2 flex items-center gap-1.5 px-1">
             <button
-              onClick={leave}
+              onClick={onLeave}
               aria-label="Назад"
               className="chat-island flex h-10 w-10 flex-none items-center justify-center rounded-full text-[var(--text)] transition-transform active:scale-90"
             >
@@ -785,11 +804,27 @@ export default function ChatPage() {
         )}
       </main>
 
-      {/* Строка ввода прижата к кромке — там же, где обычно стоит бар. */}
+      {/* Строка ввода прижата к кромке — там же, где обычно стоит бар.
+          Уходит порталом в body, а не живёт внутри экрана. Причина в анимации
+          входа: вложенный экран въезжает справа, то есть корень страницы на
+          время анимации несёт transform, — а transform превращает любой
+          fixed внутри себя в absolute относительно себя. Строка при этом
+          вставала по нижней кромке анимируемого блока (на высоту таб-бара
+          выше настоящей) и в конце прыгала вниз. Портал выносит её из-под
+          transform целиком.
+
+          Сдвиг пальцем строка при этом отыгрывает сама: жест тащит экран, и
+          она обязана ехать вместе с ним, а не стоять на месте. */}
+      {mounted &&
+        createPortal(
       <form
         onSubmit={send}
         className="fixed inset-x-0 bottom-0 z-40 flex flex-col items-center px-3 md:pl-20"
-        style={{ paddingBottom: 'calc(10px + env(safe-area-inset-bottom))' }}
+        style={{
+          paddingBottom: 'calc(10px + env(safe-area-inset-bottom))',
+          transform: dragX ? `translateX(${dragX}px)` : 'none',
+          transition: dragging ? 'none' : 'transform var(--enter-ms) var(--enter-ease)',
+        }}
       >
         {/* Полоска над строкой ввода — одна на правку и на ответ: и то и другое
             отвечает на вопрос «что сейчас происходит с этим полем», и две
@@ -879,7 +914,9 @@ export default function ChatPage() {
             )}
           </button>
         </div>
-      </form>
+      </form>,
+          document.body
+        )}
 
       <MessageActions
         open={menuFor !== null}

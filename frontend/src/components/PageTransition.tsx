@@ -59,7 +59,10 @@ export function PageTransition({ children }: { children: React.ReactNode }) {
   const animation = silent ? '' : isDetail ? 'page-push' : 'page-enter';
 
   return (
-    <div key={pathname} className={`${animation} flex flex-1 flex-col`}>
+    // data-screen — метка для тех, кто уводит с экрана снаружи него: кнопка
+    // мессенджера в шапке снимает с него слой ровно так же, как своя кнопка
+    // «назад» внутри (см. peelCurrentScreen).
+    <div key={pathname} data-screen className={`${animation} flex flex-1 flex-col`}>
       {children}
     </div>
   );

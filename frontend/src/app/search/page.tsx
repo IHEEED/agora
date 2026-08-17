@@ -12,6 +12,7 @@ import { FollowButton } from '@/components/FollowButton';
 import { SuggestedPeople } from '@/components/SuggestedPeople';
 import { ScreenTitle } from '@/components/ScreenTitle';
 import { useScreenExit } from '@/lib/screenExit';
+import { dissolveScreen } from '@/lib/peelScreen';
 import { TranslationKey, useT } from '@/lib/i18n';
 
 type Scope = 'all' | 'people' | 'posts' | 'communities';
@@ -33,11 +34,23 @@ export default function SearchPage() {
   const [query, setQuery] = useState('');
   const [scope, setScope] = useState<Scope>('all');
 
-  // Экран сам гасит себя перед уходом — крестик в шапке только просит об этом.
-  const [leaving, setLeaving] = useState(false);
+  /**
+   * Уход с поиска.
+   *
+   * Маршрут меняется сразу, а растворяется снимок экрана поверх уже настоящей
+   * ленты (см. dissolveScreen). Прежде было наоборот: экран гас двести
+   * миллисекунд, и только потом монтировалась лента — то самое «сначала пустой
+   * экран, а потом уже лента», из-за которого возврат выглядел дешевле, чем он
+   * есть. Данные для ленты всё это время лежали в кеше готовыми — их просто
+   * некому было показать.
+   */
+  const screenRef = useRef<HTMLDivElement>(null);
+  const leaveGuard = useRef(false);
   const leave = useCallback(() => {
-    setLeaving(true);
-    window.setTimeout(() => router.back(), 210);
+    if (leaveGuard.current) return;
+    leaveGuard.current = true;
+    dissolveScreen(screenRef.current);
+    router.back();
   }, [router]);
   useScreenExit(leave);
 
@@ -128,22 +141,13 @@ export default function SearchPage() {
   const nothingFound = normalized && !showPeople && !showCommunities && !showPosts;
 
   return (
-    <div
-      className="flex flex-1 flex-col items-center"
-      style={{
-        // Уход экрана поиска: сначала гаснем и слегка опускаемся, потом
-        // меняется маршрут. Раньше крестик снимал разметку в тот же кадр.
-        opacity: leaving ? 0 : 1,
-        transform: leaving ? 'translateY(8px) scale(0.99)' : 'none',
-        transition: 'opacity 0.2s ease, transform 0.2s cubic-bezier(0.32, 0.72, 0, 1)',
-      }}
-    >
+    <div ref={screenRef} className="flex flex-1 flex-col items-center">
       <main className="below-header flex w-full max-w-2xl flex-col gap-4 px-4 pb-8">
         {/* Крупный заголовок со стрелкой назад — как в системных экранах
             поиска: понятно, куда попал и как выйти, без охоты за крестиком. */}
         <div className="flex items-center gap-2 px-0.5">
           <button
-            onClick={() => router.back()}
+            onClick={leave}
             aria-label={t('common.back')}
             className="-ml-2 flex h-10 w-10 flex-none items-center justify-center rounded-full text-[var(--text)] transition-colors hover:bg-[var(--surface-2)]"
           >

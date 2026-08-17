@@ -23,12 +23,15 @@ const MEDIA_BUCKET = 'post-media';
 /**
  * Сколько гаснет уходящий шаг мастера.
  *
- * Дольше перехода между экранами и намеренно: экраны сменяются целиком, а тут
- * подменяется содержимое одной и той же шторки — она остаётся на месте, и
- * рывок внутри неподвижной рамки заметен куда сильнее. На ста девяноста
- * миллисекундах шаг не гас, а моргал.
+ * Число живёт в теме (--step-ms), а не здесь: та же величина нужна анимации
+ * въезда следующего шага, и разъехавшись, эти двое дают либо провал между
+ * шагами, либо наложение.
  */
-const STEP_MS = 260;
+function stepMs(): number {
+  return (
+    Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--step-ms')) || 85
+  );
+}
 
 /** Сколько уезжает шторка — берём из темы, чтобы маршрут менялся ровно следом. */
 function sheetOutMs(): number {
@@ -41,6 +44,18 @@ function sheetOutMs(): number {
 
 /** Метка выбора «от своего имени» — идентификатором сообщества быть не может. */
 const PERSONAL = '__personal__';
+
+/**
+ * Подогнать высоту поля под текст.
+ *
+ * Сброс в auto перед чтением scrollHeight обязателен: у выросшего поля
+ * scrollHeight равен его собственной высоте, и при удалении строк оно бы уже
+ * не уменьшалось — только росло.
+ */
+function grow(field: HTMLTextAreaElement) {
+  field.style.height = 'auto';
+  field.style.height = `${field.scrollHeight}px`;
+}
 
 /**
  * Storage отвечает короткими техническими фразами — переводим их в то,
@@ -80,6 +95,7 @@ function CreatePost() {
   const { t } = useT();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+  const textRef = useRef<HTMLTextAreaElement>(null);
 
   // Пришли со страницы сообщества — оно уже выбрано, и спрашивать «куда
   // опубликовать» значит переспрашивать очевидное: человек стоял на его
@@ -111,10 +127,11 @@ function CreatePost() {
   // хотя приезжал плавно.
   const closeSheet = useCallback(() => {
     setSheetOpen(false);
-    // Ждём ровно столько, сколько уезжает шторка. Здесь стояли зашитые 300 мс,
-    // и после того как длительности вынесли в переменные, шторка уезжала за
-    // свои двести, а маршрут менялся ещё через сотню — эта пауза и читалась
-    // как заминка перед лентой.
+    // Ждём ровно столько, сколько уезжает шторка, — не больше. Здесь стояли
+    // зашитые 300 мс, и когда длительности вынесли в переменные, шторка
+    // уезжала за свои двести, а маршрут менялся ещё через сотню: эта пауза и
+    // читалась как заминка перед лентой.
+    //
     // Помечаем направление: лента под шторкой всё это время была на месте, и
     // проигрывать ей появление незачем.
     markGoingBack();
@@ -148,7 +165,7 @@ function CreatePost() {
       setAsCommunity(id !== null);
       setStep('compose');
       setLeavingTo(null);
-    }, STEP_MS);
+    }, stepMs());
   }
 
   // Вернулись ли к выбору с шага написания. На первом открытии выбор уже едет
@@ -164,7 +181,7 @@ function CreatePost() {
       setStep('community');
       setPickerReturn(true);
       setComposeLeaving(false);
-    }, STEP_MS);
+    }, stepMs());
   }
 
   const [composeLeaving, setComposeLeaving] = useState(false);
@@ -373,7 +390,7 @@ function CreatePost() {
         style={{
           opacity: leavingTo ? 0 : 1,
           transform: leavingTo ? 'translateY(-10px) scale(0.985)' : 'none',
-          transition: 'opacity 0.26s ease, transform 0.26s var(--enter-ease)',
+          transition: 'opacity var(--step-ms) ease, transform var(--step-ms) var(--enter-ease)',
         }}
       >
           <p className="text-[14px] text-[var(--text-muted)]">
@@ -505,7 +522,7 @@ function CreatePost() {
       style={{
         opacity: composeLeaving ? 0 : 1,
         transform: composeLeaving ? 'translateY(10px) scale(0.985)' : 'none',
-        transition: 'opacity 0.26s ease, transform 0.26s var(--enter-ease)',
+        transition: 'opacity var(--step-ms) ease, transform var(--step-ms) var(--enter-ease)',
       }}
     >
         {/* Возврат к выбору тоже с паузой: экран написания успевает погаснуть,
@@ -573,14 +590,24 @@ function CreatePost() {
             навязывало структуру, которой в мыслях обычно нет, и половина
             высоты шторки уходила на пустые рамки. Первая строка становится
             заголовком сама — её и отправляем как title. */}
+        {/* Поле растёт под текст, а не стоит в пять строк с самого начала.
+            Пустые строки были не запасом, а расстоянием: панель вложений
+            отъезжала от строки на четыре пустых, и до неё приходилось тянуться
+            через пустоту, которую ничего не заполняло. Теперь поле начинается с
+            двух строк и добирает высоту по мере набора — вложения всё время
+            стоят прямо под последней написанной строкой. */}
         <textarea
           autoFocus
           required
-          rows={5}
+          rows={2}
+          ref={textRef}
           placeholder={t('create.placeholder')}
           value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          className="resize-none border-none bg-transparent px-1 text-[16px] leading-relaxed text-[var(--text)] outline-none"
+          onChange={(e) => {
+            setTitle(e.target.value);
+            grow(e.currentTarget);
+          }}
+          className="resize-none overflow-hidden border-none bg-transparent px-1 text-[16px] leading-relaxed text-[var(--text)] outline-none"
         />
 
         {/* Панель вложений сразу под строкой, а не у нижней кромки шторки:
@@ -591,8 +618,13 @@ function CreatePost() {
             читались панелью управления от другой программы: обводка обещала
             кнопку с состоянием, хотя две из трёх просто открывают системный
             выбор файла. Осталось то, что и было содержанием, — знак и слово
-            под ним; нажимаемость показывает подсветка при касании. */}
-        <div className="-mx-1 flex items-center gap-1">
+            под ним; нажимаемость показывает подсветка при касании.
+
+            Отрицательный верхний отступ съедает общий gap формы: панель обязана
+            принадлежать полю ввода, а не висеть отдельным блоком под ним. На
+            расстоянии в шестнадцать пикселей она читалась как следующий раздел
+            шторки, хотя это продолжение той же строки — то, чем её дополняют. */}
+        <div className="-mx-1 -mt-3 flex items-center gap-1">
           <input
             ref={fileInputRef}
             type="file"
