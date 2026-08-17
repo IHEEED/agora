@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { apiFetch } from '@/lib/api';
 import { useSession } from '@/lib/useSession';
-import { useApiData } from '@/lib/useApiData';
+import { invalidate, useApiData } from '@/lib/useApiData';
 import { Message, UserProfile, UserSummary } from '@/lib/types';
 import { DefaultAvatar } from '@/components/DefaultAvatar';
 import { MessageActions } from '@/components/MessageActions';
@@ -109,14 +109,44 @@ export default function ChatPage() {
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  /**
+   * Переписка идёт через общий кеш, а не прямым запросом.
+   *
+   * Раньше экран заводил свой useEffect с apiFetch, и открытие чата всегда
+   * начиналось с пустоты: сообщения, прочитанные минуту назад, запрашивались
+   * заново, и до ответа сервера смотреть было не на что. Кеш отдаёт последний
+   * известный список сразу, а свежий приходит фоном и молча подменяет его —
+   * ровно так же, как это давно устроено в ленте.
+   */
+  const thread = useApiData<Message[]>(`/messages/${userId}`);
+
+  // Локальная копия нужна, потому что список правится на месте: реакция,
+  // удаление и отправка обязаны быть видны до ответа сервера. Кеш при этом
+  // остаётся источником — из него приходят и первый снимок, и обновления.
+  //
+  // Подхватываем прямо в рендере, а не эффектом: это тот случай «состояние
+  // зависит от пропса», для которого React рекомендует сравнение с прошлым
+  // значением. Эффект дал бы лишний кадр со старым списком — ровно то
+  // мелькание, ради устранения которого кеш сюда и заводился.
+  const [lastThread, setLastThread] = useState(thread.data);
+  if (thread.data && lastThread !== thread.data) {
+    setLastThread(thread.data);
+    setMessages(thread.data);
+  }
+
+  const [lastThreadError, setLastThreadError] = useState(thread.error);
+  if (thread.error && lastThreadError !== thread.error) {
+    setLastThreadError(thread.error);
+    setError(thread.error);
+  }
+
   const load = useCallback(() => {
-    apiFetch<Message[]>(`/messages/${userId}`)
-      .then(setMessages)
-      .catch((err) => setError(err instanceof Error ? err.message : 'Не удалось загрузить'));
+    // Сбросом кеша, а не своим запросом: иначе в сеть уходили бы два запроса
+    // за одним и тем же — от опроса и от useApiData.
+    invalidate(`/messages/${userId}`);
   }, [userId]);
 
   useEffect(() => {
-    load();
     const timer = window.setInterval(load, POLL_MS);
     return () => window.clearInterval(timer);
   }, [load]);

@@ -1,8 +1,9 @@
 'use client';
 
-import { useCallback, useEffect, useState, useSyncExternalStore, SubmitEvent } from 'react';
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore, SubmitEvent } from 'react';
 import { useParams } from 'next/navigation';
 import { apiFetch } from '@/lib/api';
+import { invalidate, useApiData } from '@/lib/useApiData';
 import { useT } from '@/lib/i18n';
 import { useSession } from '@/lib/useSession';
 import { useCollapsedComments } from '@/lib/useCollapsedComments';
@@ -28,36 +29,39 @@ export default function PostPage() {
   const { requestVerification } = usePhoneGate();
   const { isCollapsed, toggle } = useCollapsedComments(postId);
 
-  const [post, setPost] = useState<Post | null>(null);
-  const [comments, setComments] = useState<Comment[]>([]);
   const [commentSort, setCommentSort] = useState<CommentSort>('best');
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
 
   const [body, setBody] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
+  /**
+   * И запись, и комментарии — через общий кеш.
+   *
+   * Здесь стояли свои useEffect с apiFetch, поэтому переход из профиля к
+   * комментарию всегда начинался с пустого экрана: запись, которую только что
+   * видели в списке, запрашивалась заново. Кеш отдаёт её сразу, а свежая
+   * версия приходит фоном. Именно эта пауза и читалась как рваное открытие —
+   * дело было не в анимации, а в том, что анимировать было нечего.
+   */
+  const postResult = useApiData<Post>(`/posts/${postId}`);
+  const commentsResult = useApiData<Comment[]>(`/comments/post/${postId}?sort=${commentSort}`);
+
+  const post = postResult.data ?? null;
+  const comments = useMemo(() => commentsResult.data ?? [], [commentsResult.data]);
+  const error = postResult.error;
+  const loading = postResult.loading;
+
   const loadComments = useCallback(() => {
-    apiFetch<Comment[]>(`/comments/post/${postId}?sort=${commentSort}`).then(setComments);
-  }, [postId, commentSort]);
+    // Сбросом кеша: свой запрос ушёл бы вторым за теми же данными.
+    invalidate(`/comments/post/${postId}`);
+  }, [postId]);
 
   useEffect(() => {
     if (markPostViewed(postId)) {
       apiFetch(`/posts/${postId}/view`, { method: 'POST' }).catch(() => {});
     }
   }, [postId]);
-
-  useEffect(() => {
-    apiFetch<Post>(`/posts/${postId}`)
-      .then(setPost)
-      .catch((err) => setError(err.message))
-      .finally(() => setLoading(false));
-  }, [postId]);
-
-  useEffect(() => {
-    loadComments();
-  }, [loadComments]);
 
   // Пришли по ссылке вида #comment-<id> из профиля. Цель берём из адреса прямо
   // при рендере, а не ставим состоянием из эффекта: от неё зависит, какая ветка

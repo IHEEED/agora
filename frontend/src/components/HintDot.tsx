@@ -1,6 +1,7 @@
 'use client';
 
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { createPortal } from 'react-dom';
 
 /**
  * Знак «i» с всплывающим объяснением.
@@ -25,6 +26,13 @@ export function HintDot({
   const [open, setOpen] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const tipRef = useRef<HTMLSpanElement>(null);
+
+  // document.body на сервере нет — портал ставим только на клиенте.
+  const mounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false
+  );
 
   useLayoutEffect(() => {
     const button = buttonRef.current;
@@ -75,18 +83,32 @@ export function HintDot({
         </svg>
       </button>
 
-      {open && <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />}
+      {/* Подсказка живёт в body, а не рядом со знаком.
+          position: fixed привязывается к ближайшему предку с transform, а знак
+          часто стоит внутри шторки — та как раз двигается трансформацией. В
+          результате подсказка считала свой верх от шторки и уезжала к нижней
+          кромке экрана вместо того, чтобы встать под знаком. Портал выносит её
+          из-под любых трансформаций разом. */}
+      {mounted &&
+        createPortal(
+          <>
+            {open && (
+              <div className="fixed inset-0 z-[85]" onClick={() => setOpen(false)} />
+            )}
 
-      <span
-        ref={tipRef}
-        role="tooltip"
-        aria-hidden={!open}
-        className="influence-tip fixed inset-x-3 z-50 mx-auto max-w-[340px] rounded-xl p-3 text-left text-[12.5px] font-normal leading-relaxed text-[var(--text-muted)]"
-        style={{ background: 'var(--surface)', boxShadow: 'var(--float-shadow)' }}
-        data-open={open}
-      >
-        {children}
-      </span>
+            <span
+              ref={tipRef}
+              role="tooltip"
+              aria-hidden={!open}
+              className="influence-tip fixed inset-x-3 z-[86] mx-auto max-w-[340px] rounded-xl p-3 text-left text-[12.5px] font-normal leading-relaxed text-[var(--text-muted)]"
+              style={{ background: 'var(--surface)', boxShadow: 'var(--float-shadow)' }}
+              data-open={open}
+            >
+              {children}
+            </span>
+          </>,
+          document.body
+        )}
     </span>
   );
 }
