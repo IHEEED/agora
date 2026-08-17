@@ -166,11 +166,11 @@ export function PostCard({
           Кегль при этом почти не растёт — работает контраст форм, а не
           размера, иначе лента снова распалась бы на «крупное» и «мелкое». */}
       <div className="relative flex flex-col gap-1.5 text-[var(--text)]">
-        <p className="display-type whitespace-pre-line text-[17.5px] leading-snug">
+        <p className="display-type whitespace-pre-line text-[16px] leading-snug">
           {post.title}
         </p>
         {post.body && (
-          <p className="whitespace-pre-line text-[15px] leading-relaxed">{post.body}</p>
+          <p className="whitespace-pre-line text-[13.5px] leading-relaxed">{post.body}</p>
         )}
       </div>
 
@@ -218,7 +218,7 @@ export function PostCard({
             aria-pressed={reposted}
             className="flex items-center gap-1.5 rounded-full px-2 py-2"
             // Только цвет иконки, без заливки и обводки — как у стрелок.
-            style={{ color: reposted ? 'var(--accent)' : 'var(--control)' }}
+            style={{ color: reposted ? 'var(--repost)' : 'var(--control)' }}
           >
             <span key={repostSpin} className={repostSpin > 0 ? 'animate-repost' : undefined} style={{ display: 'inline-flex' }}>
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">

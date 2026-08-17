@@ -100,7 +100,9 @@ export function BottomSheet({
           pointerEvents: open ? 'auto' : 'none',
           // Затемнение уходит быстрее, чем приходит: возвращаясь к ленте,
           // человек хочет увидеть её, а не смотреть, как расходится вуаль.
-          transition: open ? 'opacity 0.26s ease' : 'opacity var(--exit-ms) var(--exit-ease)',
+          transition: open
+            ? 'opacity var(--enter-ms) ease'
+            : 'opacity var(--exit-ms) var(--exit-ease)',
         }}
       />
 
@@ -129,7 +131,7 @@ export function BottomSheet({
             drag !== null
               ? 'none'
               : open
-                ? 'transform 0.36s var(--enter-ease), visibility 0.36s'
+                ? 'transform calc(var(--enter-ms) * 1.4) var(--enter-ease), visibility calc(var(--enter-ms) * 1.4)'
                 : 'transform var(--exit-ms) var(--exit-ease), visibility var(--exit-ms)',
         }}
       >

@@ -118,7 +118,7 @@ export function CommentThread({
             <span className="text-[var(--text-muted)]">{formatCompactAge(comment.created_at)}</span>
           </div>
 
-          <p className="text-[14.5px] leading-relaxed text-[var(--text)]">{comment.body}</p>
+          <p className="text-[13.5px] leading-relaxed text-[var(--text)]">{comment.body}</p>
 
           <div className="mt-0.5 flex items-center gap-2">
             <VoteBlock

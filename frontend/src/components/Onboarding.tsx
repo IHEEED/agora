@@ -182,7 +182,18 @@ export function Onboarding() {
     window.localStorage.setItem(ONBOARDING_STORAGE_KEY, '1');
     setLeaving(true);
     // Ждём анимацию ухода, иначе приветствие пропадает в тот же кадр.
-    window.setTimeout(() => setDone(true), 220);
+    // Заодно даём приложению под ним знать, что сейчас оно откроется: класс на
+    // <html> запускает .app-reveal, и лента не просто оказывается на экране, а
+    // выходит из-под уходящего приветствия.
+    document.documentElement.classList.add('app-revealing');
+    window.setTimeout(() => {
+      setDone(true);
+      // Класс снимаем после того, как анимация отыграла: он одноразовый и не
+      // должен влиять на последующие переходы.
+      window.setTimeout(() => {
+        document.documentElement.classList.remove('app-revealing');
+      }, 700);
+    }, 260);
   }
 
   function next() {
@@ -204,8 +215,12 @@ export function Onboarding() {
       style={{
         background: 'var(--bg)',
         opacity: leaving ? 0 : 1,
-        transform: leaving ? 'scale(1.02)' : 'none',
-        transition: 'opacity var(--exit-ms) var(--exit-ease), transform var(--exit-ms) var(--exit-ease)',
+        // Приветствие уходит вверх и наружу, как поднятая крышка, — под ним
+        // видно приложение, которое в это же время встаёт на место. Дольше
+        // обычного ухода: это единственный переход, который человек видит один
+        // раз в жизни, и торопиться ему некуда.
+        transform: leaving ? 'scale(1.06) translateY(-2%)' : 'none',
+        transition: 'opacity 260ms ease, transform 320ms var(--exit-ease)',
         paddingTop: 'calc(48px + env(safe-area-inset-top))',
         paddingBottom: 'calc(28px + env(safe-area-inset-bottom))',
       }}

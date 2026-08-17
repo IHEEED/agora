@@ -15,7 +15,13 @@ export type ThemePreference = Theme | 'system';
  * globals.css рядом с правилами, которые их читают, — дублировать палитру
  * ещё и здесь значило бы править её в двух местах при каждой правке.
  */
-export type StyleId = 'chronicle' | 'atelier' | 'midnight' | 'garden' | 'signal';
+/**
+ * 'glam' в списке ниже намеренно отсутствует: это шестое оформление, которое
+ * не выбирают, а находят — пролистав настройки до самого дна и дальше. В типе
+ * он есть, потому что применяется и сохраняется тем же способом, что
+ * остальные; нет его только в STYLES, откуда строится список выбора.
+ */
+export type StyleId = 'chronicle' | 'atelier' | 'midnight' | 'garden' | 'signal' | 'glam';
 
 /**
  * Обои переписки — фон одного экрана, не всего приложения.
@@ -181,9 +187,14 @@ export function applyStyle(style: StyleId) {
   window.localStorage.setItem(STYLE_STORAGE_KEY, style);
 }
 
+/** Оформления, которые можно применить, включая ненайденное. */
+const ALL_STYLE_IDS: readonly string[] = [...STYLES.map((s) => s.id), 'glam'];
+
 export function readStyle(): StyleId {
   const stored = window.localStorage.getItem(STYLE_STORAGE_KEY);
-  return STYLES.some((s) => s.id === stored) ? (stored as StyleId) : DEFAULT_STYLE;
+  // Сверяемся с полным набором, а не со списком выбора: найденный «Гламур»
+  // обязан пережить перезагрузку, хотя в настройках его в ряду нет.
+  return ALL_STYLE_IDS.includes(stored ?? '') ? (stored as StyleId) : DEFAULT_STYLE;
 }
 
 /**

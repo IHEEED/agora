@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import { useApiData } from '@/lib/useApiData';
 import { useSession } from '@/lib/useSession';
 import { Community, Post } from '@/lib/types';
@@ -11,6 +11,7 @@ import { BottomSheet } from '@/components/BottomSheet';
 import { CommunityAvatar, communityPalette } from '@/components/CommunityAvatar';
 import { DefaultAvatar } from '@/components/DefaultAvatar';
 import { FollowButton } from '@/components/FollowButton';
+import { useScreenLeave } from '@/lib/useScreenLeave';
 import { useT } from '@/lib/i18n';
 
 /**
@@ -30,10 +31,11 @@ import { useT } from '@/lib/i18n';
  */
 export default function CommunityPage() {
   const { communityId } = useParams<{ communityId: string }>();
-  const router = useRouter();
   const { session } = useSession();
   const { t } = useT();
   const [aboutOpen, setAboutOpen] = useState(false);
+  // Уход вправо и свайп от кромки — как на остальных вложенных экранах.
+  const { goBack, style: leaveStyle, swipeHandlers } = useScreenLeave();
 
   // Список сообществ почти всегда уже в кеше — шапка появляется мгновенно.
   const communitiesResult = useApiData<Community[]>('/communities');
@@ -86,10 +88,10 @@ export default function CommunityPage() {
     : null;
 
   return (
-    <div className="flex flex-1 flex-col items-center">
+    <div className="flex flex-1 flex-col items-center" style={leaveStyle} {...swipeHandlers}>
       <main className="below-header flex w-full max-w-2xl flex-col gap-2.5 px-2.5 pb-10">
         <button
-          onClick={() => router.back()}
+          onClick={goBack}
           className="flex w-fit items-center gap-2 rounded-full px-2 py-1.5 text-[15px] text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-2)]"
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

@@ -40,7 +40,7 @@ export default function MessagesPage() {
         <div className="flex items-center justify-between gap-3 px-2">
           {/* «Сообщения» — это то, что внутри переписок, а заголовок называет
               сам раздел. Мессенджер и есть раздел. */}
-          <h1 className="display-type text-[26px] text-[var(--text)]">{t('messenger.title')}</h1>
+          <h1 className="display-type text-[26px] text-[var(--text)]">{t('messenger.title')}<span style={{ color: 'var(--accent)' }}>.</span></h1>
           <button
             type="button"
             onClick={() => setPicking(true)}

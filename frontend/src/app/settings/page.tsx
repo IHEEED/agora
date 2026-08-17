@@ -1,13 +1,14 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { useScreenLeave } from '@/lib/useScreenLeave';
 import { useSession } from '@/lib/useSession';
 import { usePhoneGate } from '@/components/PhoneGateContext';
 import {
   CHAT_WALLS,
   ChatWallId,
+  DEFAULT_STYLE,
   STYLES,
   StyleId,
   ThemePreference,
@@ -187,8 +188,8 @@ function LocalToggle({ storageKey, defaultOn = false }: { storageKey: string; de
 
 export default function SettingsPage() {
   const { session } = useSession();
-  const router = useRouter();
   const { requestVerification } = usePhoneGate();
+  const { goBack, style: leaveStyle, swipeHandlers } = useScreenLeave();
   const { t, locale, setLocale } = useT();
 
   // До монтирования значения неизвестны — читаем их уже в браузере,
@@ -244,13 +245,13 @@ export default function SettingsPage() {
   const phoneVerified = Boolean(session?.user.phone_confirmed_at);
 
   return (
-    <div className="flex flex-1 flex-col items-center">
+    <div className="flex flex-1 flex-col items-center" style={leaveStyle} {...swipeHandlers}>
       <main className="below-header flex w-full max-w-2xl flex-col gap-2.5 px-2.5 pb-6">
         <div className="flex items-center gap-3 px-2 py-1">
           {/* Кружок с подложкой, а не голая стрелка: без фона она читалась
               украшением рядом с заголовком, и на неё просто не жали. */}
           <button
-            onClick={() => router.back()}
+            onClick={goBack}
             aria-label="Назад"
             className="glass flex h-11 w-11 flex-none items-center justify-center rounded-full text-[var(--text)] transition-transform active:scale-95"
           >
@@ -458,7 +459,93 @@ export default function SettingsPage() {
         <p className="px-3 pb-2 text-center text-[12px] leading-relaxed text-[var(--text-muted)]">
           {t('settings.localOnly')}
         </p>
+
+        {/* Дальше — пустота и то, что в ней спрятано. Пролистав настройки до
+            конца, человек обычно останавливается; кто пролистает дальше,
+            найдёт шестое оформление, которого нет в списке. */}
+        <GlamEasterEgg current={style} onFound={chooseStyle} />
       </main>
     </div>
+  );
+}
+
+/**
+ * Пасхалка: «Гламур».
+ *
+ * Спрятана не за секретным жестом, а за простым любопытством — надо всего лишь
+ * не остановиться там, где кончились настройки. Полтора экрана пустоты сами по
+ * себе сообщение: человек, докрутивший до дна, понимает, что дно тут
+ * нарочное.
+ *
+ * Проявляется по мере приближения — так видно, что впереди что-то есть, и
+ * находка не выглядит случайным сбоем.
+ */
+function GlamEasterEgg({
+  current,
+  onFound,
+}: {
+  current: StyleId | null;
+  onFound: (style: StyleId) => void;
+}) {
+  const [nearness, setNearness] = useState(0);
+  const anchor = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function onScroll() {
+      const node = anchor.current;
+      if (!node) return;
+      // Насколько верх карточки поднялся над нижней кромкой экрана: ноль —
+      // ещё за экраном, единица — целиком видна.
+      const { top } = node.getBoundingClientRect();
+      const progress = (window.innerHeight - top) / 160;
+      setNearness(Math.max(0, Math.min(1, progress)));
+    }
+
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll);
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', onScroll);
+    };
+  }, []);
+
+  const found = current === 'glam';
+
+  return (
+    <>
+      {/* Полтора экрана намеренной пустоты. */}
+      <div style={{ height: '58vh' }} aria-hidden />
+
+      <div ref={anchor} className="flex flex-col items-center gap-3 pb-16 text-center">
+        <div
+          style={{
+            opacity: nearness,
+            transform: `translateY(${(1 - nearness) * 14}px)`,
+            transition: 'opacity 0.2s ease, transform 0.2s var(--enter-ease)',
+          }}
+        >
+          <p className="mb-3 text-[13px] leading-relaxed text-[var(--text-muted)]">
+            {found
+              ? 'Гламур включён. Обратно — любым оформлением выше.'
+              : 'Здесь ничего нет. Почти.'}
+          </p>
+          <button
+            type="button"
+            onClick={() => onFound(found ? DEFAULT_STYLE : 'glam')}
+            className="rounded-full px-5 py-2.5 text-[14px] font-semibold transition-transform active:scale-95"
+            style={{
+              // Розовый — свой, а не из палитры: кнопка обещает именно этот
+              // цвет, и на любом текущем оформлении обещание одно и то же.
+              background: found ? 'var(--surface-2)' : '#e0338c',
+              color: found ? 'var(--text)' : '#ffffff',
+              boxShadow: found ? 'none' : '0 10px 30px -12px #e0338c',
+            }}
+          >
+            {found ? 'Хватит' : 'Гламур'}
+          </button>
+        </div>
+      </div>
+    </>
   );
 }

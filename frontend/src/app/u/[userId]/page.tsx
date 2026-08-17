@@ -16,6 +16,7 @@ import { PeopleSheet } from '@/components/PeopleSheet';
 import { PersonMenuSheet } from '@/components/PersonMenuSheet';
 import { setBlocked, useIsBlocked } from '@/lib/blockedUsers';
 import { useScreenLeave } from '@/lib/useScreenLeave';
+import { useStickyTab } from '@/lib/useStickyTab';
 import { useT } from '@/lib/i18n';
 
 type Tab = 'posts' | 'comments' | 'reposts';
@@ -53,11 +54,12 @@ export default function UserProfilePage() {
   const { t } = useT();
 
   const [peopleTab, setPeopleTab] = useState<'followers' | 'following' | null>(null);
-  const [tab, setTab] = useState<Tab>('posts');
+  // Своя вкладка на каждый профиль: возврат должен вернуть туда, где стоял.
+  const [tab, setTab] = useStickyTab<Tab>(`u:${userId}`, 'posts');
   const [menuOpen, setMenuOpen] = useState(false);
   const blocked = useIsBlocked(userId);
   // Уход вправо — тем же движением, каким экран приехал слева.
-  const { goBack, style: leaveStyle } = useScreenLeave();
+  const { goBack, style: leaveStyle, swipeHandlers } = useScreenLeave();
 
   const postsResult = useApiData<Post[]>(`/posts/user/${userId}?sort=new`);
   // Комментарии и репосты подтягиваем только когда на них перешли: в чужой
@@ -81,7 +83,7 @@ export default function UserProfilePage() {
   const influence = useMemo(() => posts.reduce((sum, post) => sum + post.score, 0), [posts]);
 
   return (
-    <div className="flex flex-1 flex-col items-center" style={leaveStyle}>
+    <div className="flex flex-1 flex-col items-center" style={leaveStyle} {...swipeHandlers}>
       <main className="below-header flex w-full max-w-2xl flex-col gap-2.5 px-2.5 pb-10">
         {/* Выход из чужого профиля. Крестика в шапке здесь нет — она показывает
             лупу, — и вернуться было нечем, кроме системного жеста.

@@ -108,6 +108,9 @@ export function CommentSheet({
       open={open}
       onClose={onClose}
       title="Комментарии"
+      // Почти во весь экран: комментариев на пост десятки, и семьдесят
+      // процентов высоты означали, что за раз видно четыре.
+      height="90vh"
       footer={
         <>
           {replyTo && (

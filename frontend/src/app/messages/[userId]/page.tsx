@@ -172,9 +172,22 @@ export default function ChatPage() {
   const [dragging, setDragging] = useState(false);
   const [leaving, setLeaving] = useState(false);
 
+  /**
+   * Уход из переписки.
+   *
+   * Ждать ровно столько, сколько длится анимация. Здесь стояли зашитые 260 мс,
+   * а сама анимация давно шла за --exit-ms; после ускорения интерфейса вдвое
+   * экран уезжал за сотню миллисекунд и ещё полторы сотни просто стоял за
+   * кадром, ничего не делая. Именно эта пауза и читалась как «уход не
+   * плавный»: движение кончалось раньше, чем менялся маршрут.
+   */
   const leave = useCallback(() => {
     setLeaving(true);
-    window.setTimeout(() => router.back(), 260);
+    const ms =
+      Number.parseFloat(
+        getComputedStyle(document.documentElement).getPropertyValue('--exit-ms')
+      ) || 100;
+    window.setTimeout(() => router.back(), ms);
   }, [router]);
 
   function onPointerDown(event: React.PointerEvent) {

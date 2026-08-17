@@ -10,6 +10,7 @@ import { ProfileAvatar } from '@/components/ProfileAvatar';
 import { InfluenceInfo } from '@/components/InfluenceInfo';
 import { SuggestedPeople } from '@/components/SuggestedPeople';
 import { SegmentedControl } from '@/components/SegmentedControl';
+import { useStickyTab } from '@/lib/useStickyTab';
 import { DEFAULT_FIT, Fit } from '@/components/ImageFitter';
 import { ImageAdjustDialog } from '@/components/ImageAdjustDialog';
 import Link from 'next/link';
@@ -76,7 +77,9 @@ export default function ProfilePage() {
   const { session, loading: sessionLoading } = useSession();
   const { requestVerification } = usePhoneGate();
   const { t } = useT();
-  const [tab, setTab] = useState<Tab>('posts');
+  // Вкладка переживает уход на страницу поста и возврат назад — иначе из
+  // «Комментов» человек возвращался в «Посты», и казалось, что вернуло не туда.
+  const [tab, setTab] = useStickyTab<Tab>('profile', 'posts');
   const [editing, setEditing] = useState(false);
   // Какой список людей открыт. Одна шторка на оба счётчика: содержимое у них
   // одинаковое, разница только в адресе запроса.

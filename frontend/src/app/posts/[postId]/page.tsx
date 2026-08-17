@@ -85,7 +85,7 @@ export default function PostPage() {
   // раскрытой; не снимая цель, мы навсегда ломали в ней кнопку «Свернуть».
   const spotlight = useCommentSpotlight(highlightId, comments.length > 0);
 
-  const { goBack, style: leaveStyle } = useScreenLeave();
+  const { goBack, style: leaveStyle, swipeHandlers } = useScreenLeave();
 
   async function handleSubmit(e: SubmitEvent) {
     e.preventDefault();
@@ -113,7 +113,7 @@ export default function PostPage() {
   return (
     // Фон и цвета берём из темы, а не из палитры Tailwind: этот экран остался
     // единственным, куда редизайн не дошёл, — отсюда и вид «чёрного листа».
-    <div className="flex flex-1 flex-col items-center" style={leaveStyle}>
+    <div className="flex flex-1 flex-col items-center" style={leaveStyle} {...swipeHandlers}>
       <main className="below-header flex w-full max-w-2xl flex-col gap-5 px-4 pb-10">
         {/* Отрицательный отступ ставит стрелку по одной линии с текстом поста:
             собственные поля кнопки иначе сдвигали её вправо, и колонка
