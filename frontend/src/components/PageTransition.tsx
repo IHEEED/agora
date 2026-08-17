@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { usePathname } from 'next/navigation';
+import { consumeGoingBack } from '@/lib/navDirection';
 
 /**
  * Экраны, которые выглядят не страницей, а шторкой поверх приложения.
@@ -34,24 +35,28 @@ function isOverlay(path: string): boolean {
 export function PageTransition({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
-  // Откуда пришли. Правим прямо в рендере, а не эффектом: значение нужно тому
-  // же кадру, в котором меняется маршрут, — эффект опоздал бы ровно на ту
-  // анимацию, которую мы и решаем, проигрывать ли.
+  // Откуда пришли и в какую сторону. Правим прямо в рендере, а не эффектом:
+  // значение нужно тому же кадру, в котором меняется маршрут, — эффект опоздал
+  // бы ровно на ту анимацию, которую мы и решаем, проигрывать ли.
   const [previous, setPrevious] = useState(pathname);
-  const [cameFromOverlay, setCameFromOverlay] = useState(false);
+  const [silent, setSilent] = useState(false);
   if (previous !== pathname) {
-    setCameFromOverlay(isOverlay(previous));
+    // Возврат назад или закрытие шторки — экран уже был показан. Анимировать
+    // его появление значит выдавать возврат за переход: человек ждёт свою
+    // ленту, а получает представление. Именно это читалось как «медленное
+    // появление» и «долгое прогружение».
+    setSilent(consumeGoingBack() || isOverlay(previous));
     setPrevious(pathname);
   }
 
   const isDetail =
     pathname.startsWith('/posts/') ||
     pathname.startsWith('/u/') ||
-    /^\/messages\/.+/.test(pathname);
+    pathname === '/settings' ||
+    pathname.startsWith('/c/') ||
+    /^\/messages/.test(pathname);
 
-  // Закрыли шторку — экран под ней уже был на месте, показывать его «приезд»
-  // означало бы соврать про то, что произошло.
-  const animation = cameFromOverlay && !isDetail ? '' : isDetail ? 'page-push' : 'page-enter';
+  const animation = silent ? '' : isDetail ? 'page-push' : 'page-enter';
 
   return (
     <div key={pathname} className={`${animation} flex flex-1 flex-col`}>

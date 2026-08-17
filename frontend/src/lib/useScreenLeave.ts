@@ -1,10 +1,11 @@
 'use client';
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { markGoingBack } from '@/lib/navDirection';
 
 /** Сколько уезжает экран. Совпадает с --exit-ms в globals.css. */
-const LEAVE_MS = 100;
+const LEAVE_MS = 70;
 
 /** Ширина полосы у левой кромки, с которой начинается жест. */
 const EDGE_ZONE = 32;
@@ -15,14 +16,9 @@ const DISMISS_RATIO = 0.3;
 /**
  * Уход с вложенного экрана: кнопкой назад и свайпом от левой кромки.
  *
- * Пост, чужой профиль, настройки и страница клуба въезжают справа налево — это
- * движение «вглубь». Обратно они просто исчезали: router.back() менял маршрут,
- * разметка пропадала в тот же кадр. Заметнее всего это там, где вход
- * анимирован: глаз ждёт симметричного движения и не получает его.
- *
- * Свайп добавлен всюду, где есть кнопка «назад». На телефоне жест от кромки —
- * основной способ вернуться, и экран, который на него не отвечает, читается
- * сломанным, даже если кнопка на месте.
+ * Пост, чужой профиль, настройки, клуб и мессенджер въезжают справа налево —
+ * это движение «вглубь». Обратно они просто исчезали: router.back() менял
+ * маршрут, разметка пропадала в тот же кадр.
  *
  * Жест ловим только у самой кромки: начнись он посреди экрана — и любое
  * горизонтальное движение по списку закрывало бы страницу.
@@ -33,21 +29,39 @@ export function useScreenLeave() {
   const [dragX, setDragX] = useState(0);
   const [dragging, setDragging] = useState(false);
   const from = useRef<number | null>(null);
+  /**
+   * Уже уходим. Отдельный ref, а не проверка внутри setState.
+   *
+   * Раньше защита от повторного нажатия жила в апдейтере setLeaving, и там же
+   * ставился таймер на router.back(). React прогоняет апдейтеры дважды
+   * (StrictMode в разработке) — таймеров заводилось два, router.back()
+   * срабатывал дважды, и экран уходил на две записи истории назад вместо
+   * одной. Отсюда и весь набор жалоб «выход кидает не туда»: из настроек в
+   * уведомления, из клуба в профиль, из чужого профиля в клубы. Возврат был
+   * верным, только выполнялся дважды.
+   *
+   * Побочному действию в апдейтере вообще не место: апдейтер обязан быть
+   * чистой функцией от предыдущего состояния.
+   */
+  const going = useRef(false);
+  const timer = useRef<number | undefined>(undefined);
+
+  useEffect(() => () => window.clearTimeout(timer.current), []);
 
   const goBack = useCallback(() => {
-    // Второе нажатие не должно запускать вторую навигацию: router.back()
-    // дважды увёл бы на два экрана назад вместо одного.
-    setLeaving((already) => {
-      if (already) return already;
-      window.setTimeout(() => router.back(), LEAVE_MS);
-      return true;
-    });
+    if (going.current) return;
+    going.current = true;
+    setLeaving(true);
+    // Помечаем направление: экран, на который вернёмся, уже был показан, и
+    // проигрывать ему анимацию появления незачем (см. PageTransition).
+    markGoingBack();
+    timer.current = window.setTimeout(() => router.back(), LEAVE_MS);
   }, [router]);
 
   function onPointerDown(event: React.PointerEvent) {
     // Мышь исключена намеренно: на настольном экране протаскивание от левого
     // края — это выделение текста, а не навигация.
-    if (event.pointerType === 'mouse' || event.clientX > EDGE_ZONE || leaving) return;
+    if (event.pointerType === 'mouse' || event.clientX > EDGE_ZONE || going.current) return;
     from.current = event.clientX;
     setDragging(true);
   }

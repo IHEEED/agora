@@ -13,6 +13,7 @@ import { BottomSheet } from '@/components/BottomSheet';
 import { PersonMenuSheet } from '@/components/PersonMenuSheet';
 import { SkeletonList, SkeletonRow } from '@/components/Skeleton';
 import { setNavHidden } from '@/lib/navVisibility';
+import { markGoingBack } from '@/lib/navDirection';
 
 /** Как часто перечитываем переписку, пока она открыта.
     Раньше был 4000 — при плохой сети задержка на запросе могла совпасть
@@ -127,9 +128,15 @@ export default function ChatPage() {
   }, [userId, messages.length]);
 
   // Бар уезжает вниз: на этом экране его место занимает строка ввода.
+  // Заодно поднимаем обои переписки: сам слой живёт в разметке приложения, вне
+  // анимируемого дерева (см. Wallpaper), а этот атрибут его показывает.
   useEffect(() => {
     setNavHidden(true);
-    return () => setNavHidden(false);
+    document.documentElement.dataset.inChat = '1';
+    return () => {
+      setNavHidden(false);
+      delete document.documentElement.dataset.inChat;
+    };
   }, []);
 
   /**
@@ -182,12 +189,19 @@ export default function ChatPage() {
    * кадром, ничего не делая. Именно эта пауза и читалась как «уход не
    * плавный»: движение кончалось раньше, чем менялся маршрут.
    */
+  const leaveGuard = useRef(false);
+
   const leave = useCallback(() => {
+    // Тот же guard, что в useScreenLeave: без него повторное нажатие заводило
+    // второй таймер и router.back() уходил на две записи истории назад.
+    if (leaveGuard.current) return;
+    leaveGuard.current = true;
     setLeaving(true);
+    markGoingBack();
     const ms =
       Number.parseFloat(
         getComputedStyle(document.documentElement).getPropertyValue('--exit-ms')
-      ) || 100;
+      ) || 70;
     window.setTimeout(() => router.back(), ms);
   }, [router]);
 
@@ -447,11 +461,6 @@ export default function ChatPage() {
             : 'transform 0.3s var(--enter-ease), opacity 0.24s ease',
       }}
     >
-      {/* Обои: фон одного этого экрана. Absolute, а не fixed, — у страницы при
-          свайпе появляется transform, и fixed привязался бы к ней в середине
-          жеста, дав скачок. */}
-      <div className="chat-wallpaper" aria-hidden />
-
       <main className="below-header relative flex w-full max-w-2xl flex-1 flex-col px-2.5 pb-28">
         {/* Шапка переписки в двух видах. Пока ничего не выбрано — собеседник и
             выход; как только включён режим выбора, она превращается в панель

@@ -10,7 +10,7 @@ import { ProfileAvatar } from '@/components/ProfileAvatar';
 import { InfluenceInfo } from '@/components/InfluenceInfo';
 import { SuggestedPeople } from '@/components/SuggestedPeople';
 import { SegmentedControl } from '@/components/SegmentedControl';
-import { SkeletonList, SkeletonPost } from '@/components/Skeleton';
+import { SkeletonComment, SkeletonLine, SkeletonList, SkeletonPost } from '@/components/Skeleton';
 import { useStickyTab } from '@/lib/useStickyTab';
 import { DEFAULT_FIT, Fit } from '@/components/ImageFitter';
 import { ImageAdjustDialog } from '@/components/ImageAdjustDialog';
@@ -309,6 +309,10 @@ export default function ProfilePage() {
               </div>
             </div>
 
+            {/* Пока счётчики и записи не пришли, на их месте стоят заглушки той
+                же геометрии. Прежде шапка собиралась по частям: сначала имя,
+                потом цифры, потом кнопка — и каждая приходящая строка толкала
+                соседей вниз. Это и выглядело как прыгающая аватарка. */}
             <div className="flex flex-col gap-0.5">
               <h1 className="text-[17px] font-semibold leading-tight text-[var(--text)]">{displayName}</h1>
               <span className="text-[13px] font-medium" style={{ color: 'var(--accent)' }}>
@@ -332,18 +336,26 @@ export default function ProfilePage() {
               />
             </div>
 
-            <div className="flex items-center gap-1.5 text-[13px] text-[var(--text-muted)]">
-              <span>
-                <span className="font-num text-[var(--text)]">{posts.length}</span>{' '}
-                {t('profile.stat.posts')}
-              </span>
-              <span aria-hidden>·</span>
-              <span className="flex items-center gap-1">
-                <span className="font-num text-[var(--text)]">{influence}</span>{' '}
-                {t('profile.stat.influence')}
-                <InfluenceInfo />
-              </span>
-            </div>
+            {/* Строка цифр держит высоту и до загрузки: без заглушки она
+                появлялась готовой и сдвигала кнопку «Редактировать» вниз. */}
+            {postsResult.loading ? (
+              <div className="flex h-[19px] items-center">
+                <SkeletonLine width={140} height={11} />
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5 text-[13px] text-[var(--text-muted)]">
+                <span>
+                  <span className="font-num text-[var(--text)]">{posts.length}</span>{' '}
+                  {t('profile.stat.posts')}
+                </span>
+                <span aria-hidden>·</span>
+                <span className="flex items-center gap-1">
+                  <span className="font-num text-[var(--text)]">{influence}</span>{' '}
+                  {t('profile.stat.influence')}
+                  <InfluenceInfo />
+                </span>
+              </div>
+            )}
 
             <button
               onClick={() => setEditing(true)}
@@ -415,6 +427,14 @@ export default function ProfilePage() {
                     </button>
                   </div>
                 ))}
+            </div>
+          )}
+
+          {loading && tab === 'comments' && (
+            <div className="py-3">
+              <SkeletonList count={4}>
+                <SkeletonComment />
+              </SkeletonList>
             </div>
           )}
 
