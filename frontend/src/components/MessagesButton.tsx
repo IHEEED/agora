@@ -5,7 +5,8 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { apiFetch } from '@/lib/api';
 import { markGoingBack } from '@/lib/navDirection';
-import { peelCurrentScreen } from '@/lib/peelScreen';
+import { foldCurrentScreen } from '@/lib/peelScreen';
+import { setFoldOrigin } from '@/lib/foldOrigin';
 
 /** Как часто спрашиваем про непрочитанные. */
 const POLL_MS = 25000;
@@ -68,15 +69,21 @@ export function MessagesButton({
       // залипшей.
       href={active ? '/' : '/messages'}
       aria-label={active ? 'В ленту' : 'Мессенджер'}
-      // Возврат в ленту той же кнопкой — это тот же уход из мессенджера, что и
-      // по стрелке внутри него, и выглядеть он обязан так же: слой снимается,
-      // лента под ним уже настоящая. Обычный переход по ссылке дал бы вместо
-      // этого проявление ленты с нуля.
+      // Кнопка — точка роста экрана. Наружу мессенджер складывается в неё же,
+      // а не проявляется лентой с нуля: одно движение в две стороны связывает
+      // раздел с тем, чем его открыли.
+      data-messages-button
       onClick={(event) => {
-        if (!active) return;
+        const rect = event.currentTarget.getBoundingClientRect();
+        if (!active) {
+          // Запоминаем рамку до перехода: экран мессенджера прочитает её на
+          // монтировании и развернётся отсюда (см. foldOrigin).
+          setFoldOrigin(rect);
+          return;
+        }
         event.preventDefault();
         markGoingBack();
-        peelCurrentScreen();
+        foldCurrentScreen(rect);
         router.push('/');
       }}
       // Без подложки и обводки — как у кнопки справа. Знак различает состояние

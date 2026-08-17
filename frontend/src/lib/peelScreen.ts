@@ -29,8 +29,11 @@ const PEEL_MS = 220;
 /** Растворение короче: оно без пути, а значит и следить не за чем. */
 const DISSOLVE_MS = 160;
 
-/** Складывание в лупу: быстро, но с торможением — иначе просто мигает. */
+/** Складывание в кнопку: быстро, но с торможением — иначе просто мигает. */
 const FOLD_MS = 240;
+
+/** Разворот чуть длиннее складывания: его смотрят, а не подтверждают. */
+const UNFOLD_MS = 260;
 
 /**
  * Сколько кадров ждём подмену экрана, прежде чем увести слой.
@@ -208,6 +211,12 @@ export function peelCurrentScreen(fromX = 0) {
   peelScreen(document.querySelector<HTMLElement>(SCREEN), fromX);
 }
 
+/** То же для складывания: узел экрана ищем сами, точку получаем снаружи. */
+export function foldCurrentScreen(origin: DOMRect | null) {
+  if (typeof document === 'undefined') return;
+  foldScreenTo(document.querySelector<HTMLElement>(SCREEN), origin);
+}
+
 /**
  * Экран-накладка не уезжает вбок — он растворяется на месте: вглубь он и не
  * уходил, а лежал поверх того же экрана.
@@ -227,6 +236,34 @@ export function dissolveScreen(node: HTMLElement | null) {
       DISSOLVE_MS,
       'cubic-bezier(0.4, 0, 1, 1)'
     )
+  );
+}
+
+/**
+ * Экран разворачивается из точки — оттуда, по чему нажали.
+ *
+ * Пара к foldScreenTo. Здесь анимируется живой узел, а не снимок: экран только
+ * что смонтировался, он и есть то, что должно вырасти.
+ *
+ * @param origin Рамка кнопки в координатах окна. Нет её — пришли по прямой
+ *               ссылке, и разворачиваться неоткуда: экран просто есть.
+ */
+export function unfoldFrom(node: HTMLElement | null, origin: DOMRect | null) {
+  if (!node || !origin || reducedMotion()) return;
+
+  const here = node.getBoundingClientRect();
+  // transform-origin считается от собственной рамки элемента, а координаты
+  // кнопки — от окна: без вычитания экран разворачивался бы из точки,
+  // сдвинутой на высоту шапки.
+  node.style.transformOrigin = `${origin.left + origin.width / 2 - here.left}px ${
+    origin.top + origin.height / 2 - here.top
+  }px`;
+  node.animate(
+    [
+      { opacity: 0, transform: 'scale(0.12)' },
+      { opacity: 1, transform: 'none' },
+    ],
+    { duration: UNFOLD_MS, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' }
   );
 }
 

@@ -22,7 +22,11 @@ import { useT } from '@/lib/i18n';
 export default function MessagesPage() {
   const { t } = useT();
   const [picking, setPicking] = useState(false);
-  const { goBack, style: leaveStyle, swipeHandlers } = useScreenLeave();
+  // Разворачивается из кнопки в шапке и складывается обратно в неё — так же,
+  // как поиск. У мессенджера есть своя кнопка, и связь «нажал вот это — выросло
+  // вот это» показать стоит: раздел открывается не из бара, и вернуться иначе
+  // нечем, кроме той же кнопки.
+  const { goBack, style: leaveStyle, swipeHandlers } = useScreenLeave('[data-messages-button]');
 
   const threadsResult = useApiData<MessageThread[]>('/messages/threads');
   // Переписки с заблокированными убираем из списка: смысл блокировки в том,

@@ -7,6 +7,7 @@ import { useSession } from '@/lib/useSession';
 import { Post } from '@/lib/types';
 import { PostCard } from '@/components/PostCard';
 import { StoriesBar } from '@/components/StoriesBar';
+import { storiesFrom } from '@/components/StoryViewer';
 import { DefaultAvatar } from '@/components/DefaultAvatar';
 import { SuggestedPeople } from '@/components/SuggestedPeople';
 import { useBlockedUsers } from '@/lib/blockedUsers';
@@ -32,18 +33,17 @@ export default function FeedPage() {
     [posts, blocked]
   );
 
-  // Истории собираем из авторов ленты — своего механизма у них пока нет.
+  // Истории собираем из записей ленты — своей таблицы у них пока нет.
   // Из отфильтрованных: заблокированный не должен остаться кружком наверху.
-  const storyUsernames = useMemo(
-    () => Array.from(new Set(visiblePosts.map((p) => p.author.username))),
-    [visiblePosts]
-  );
+  // Кадром становится запись целиком: заголовок, начало текста, счётчики, а
+  // картинка — фоном под ними, если она есть (см. StoryViewer).
+  const stories = useMemo(() => storiesFrom(visiblePosts), [visiblePosts]);
 
   return (
     <div className="flex flex-1 flex-col items-center">
       <main className="below-header flex w-full max-w-2xl flex-col gap-4 px-4 pb-8">
         <StoriesBar
-          usernames={storyUsernames}
+          stories={stories}
           currentUserLetter={session?.user.email?.[0]?.toUpperCase()}
         />
 

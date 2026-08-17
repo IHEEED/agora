@@ -23,5 +23,25 @@ export function setFoldOrigin(rect: DOMRect | null) {
 export function takeFoldOrigin(): DOMRect | null {
   const value = origin;
   origin = null;
-  return value;
+  // Нулевая рамка — это не точка, а скрытый элемент: display: none отдаёт
+  // getBoundingClientRect() из нулей, и разворот пошёл бы из левого верхнего
+  // угла окна. Лучше без анимации, чем из ниоткуда.
+  return value && value.width > 0 ? value : null;
+}
+
+/**
+ * Найти кнопку, в которую складываться.
+ *
+ * Именно видимую. Одна и та же кнопка есть и в шапке, и в боковой панели:
+ * панель скрыта на телефоне, шапка — на широком экране, а querySelector отдаёт
+ * первую по разметке независимо от того, видна она или нет. Скрытая отдаёт
+ * нулевую рамку, и экран складывался в левый верхний угол.
+ */
+export function findFoldTarget(selector: string): DOMRect | null {
+  if (typeof document === 'undefined') return null;
+  for (const element of document.querySelectorAll<HTMLElement>(selector)) {
+    const rect = element.getBoundingClientRect();
+    if (rect.width > 0 && rect.height > 0) return rect;
+  }
+  return null;
 }

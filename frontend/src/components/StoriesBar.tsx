@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
-import { SegmentRing, segmentsFor } from '@/components/SegmentRing';
+import { useEffect, useRef, useState } from 'react';
+import { SegmentRing } from '@/components/SegmentRing';
+import { Story, StoryViewer } from '@/components/StoryViewer';
 import { DefaultAvatar } from '@/components/DefaultAvatar';
 import { useT } from '@/lib/i18n';
 
@@ -30,13 +31,16 @@ function StoryRing({
 }
 
 export function StoriesBar({
-  usernames,
+  stories,
   currentUserLetter,
 }: {
-  usernames: string[];
+  stories: Story[];
   currentUserLetter?: string;
 }) {
   const { t } = useT();
+  // Какая история открыта. −1 — закрыто; индексом, а не флагом, потому что из
+  // одной истории просмотр уходит в следующую, и «какая именно» — это состояние.
+  const [open, setOpen] = useState(-1);
   const trackRef = useRef<HTMLDivElement>(null);
   const drag = useRef({ active: false, startX: 0, startScroll: 0, lastX: 0, velocity: 0 });
   const inertia = useRef<number | null>(null);
@@ -84,6 +88,7 @@ export function StoriesBar({
   }
 
   return (
+    <>
     <div
       ref={trackRef}
       onPointerDown={onPointerDown}
@@ -144,16 +149,33 @@ export function StoriesBar({
         </div>
       )}
 
-      {usernames.map((username) => (
-        <div key={username} className="min-w-0 flex flex-col items-center gap-1.5" style={{ flex: `0 0 ${RING_SIZE}px` }}>
-          <StoryRing name={username} segments={segmentsFor(username)} />
+      {stories.map((story, position) => (
+        <button
+          key={story.username}
+          type="button"
+          onClick={() => setOpen(position)}
+          className="min-w-0 flex flex-col items-center gap-1.5 transition-transform active:scale-95"
+          style={{ flex: `0 0 ${RING_SIZE}px` }}
+        >
+          {/* Дуг столько, сколько кадров в истории, — не хеш от имени, как было.
+              Хеш давал стабильное, но лживое число: кружок обещал четыре
+              истории, внутри оказывалась одна. */}
+          <StoryRing name={story.username} segments={story.posts.length} />
           {/* Ник обрезается многоточием, а не жмётся: ячейка равна кружку, и
               длинное имя иначе раздвигало бы ряд. */}
           <span className="w-full truncate text-center text-[10.5px] text-[var(--text-muted)]">
-            {username}
+            {story.username}
           </span>
-        </div>
+        </button>
       ))}
     </div>
+
+    <StoryViewer
+      stories={stories}
+      index={open}
+      onIndex={setOpen}
+      onClose={() => setOpen(-1)}
+    />
+    </>
   );
 }

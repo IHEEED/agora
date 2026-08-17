@@ -52,11 +52,18 @@ export function PageTransition({ children }: { children: React.ReactNode }) {
   const isDetail =
     pathname.startsWith('/posts/') ||
     pathname.startsWith('/u/') ||
-    pathname === '/settings' ||
     pathname.startsWith('/c/') ||
-    /^\/messages/.test(pathname);
+    pathname.startsWith('/messages/');
 
-  const animation = silent ? '' : isDetail ? 'page-push' : 'page-enter';
+  // Экраны, которые разворачиваются из своей кнопки в шапке, анимируют себя
+  // сами (см. unfoldFrom). Общий переход им не только не нужен, но и мешает:
+  // page-push начинается с translateX(100%), и экран в момент замера точки
+  // роста стоит за правой кромкой — разворот получался из места, которого на
+  // экране нет. Отсюда и «мессенджер разворачивается непонятно откуда».
+  const foldsItself =
+    pathname === '/search' || pathname === '/settings' || pathname === '/messages';
+
+  const animation = silent || foldsItself ? '' : isDetail ? 'page-push' : 'page-enter';
 
   return (
     // data-screen — метка для тех, кто уводит с экрана снаружи него: кнопка

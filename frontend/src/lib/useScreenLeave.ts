@@ -1,9 +1,10 @@
 'use client';
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { markGoingBack } from '@/lib/navDirection';
-import { peelScreen } from '@/lib/peelScreen';
+import { foldScreenTo, peelScreen, unfoldFrom } from '@/lib/peelScreen';
+import { findFoldTarget, takeFoldOrigin } from '@/lib/foldOrigin';
 
 /** Ширина полосы у левой кромки, с которой начинается жест. */
 const EDGE_ZONE = 32;
@@ -16,7 +17,7 @@ const DISMISS_RATIO = 0.3;
  *
  * Экран не гаснет и не уезжает сам по себе — с него снимают слой. Маршрут
  * меняется в тот же кадр, в который нажали, поэтому под уходящим экраном сразу
- * настоящая лента; вправо уезжает его снимок (см. peelScreen).
+ * настоящая лента; уезжает его снимок (см. peelScreen).
  *
  * Прежде было наоборот: экран сначала отыгрывал уход, и только потом менялся
  * маршрут. Лента при этом появлялась после — то самое «сначала пустой экран, а
@@ -24,14 +25,29 @@ const DISMISS_RATIO = 0.3;
  *
  * Жест ловим только у самой кромки: начнись он посреди экрана — и любое
  * горизонтальное движение по списку закрывало бы страницу.
+ *
+ * @param fold  Селектор кнопки, из которой экран открыли. Задан — экран
+ *              разворачивается из неё и складывается обратно (так открываются
+ *              поиск, мессенджер и настройки: у них есть своя кнопка в шапке, и
+ *              связь «нажал вот это — выросло вот это» стоит показать). Не задан
+ *              — экран уезжает вправо, как вложенный.
  */
-export function useScreenLeave() {
+export function useScreenLeave(fold?: string) {
   const router = useRouter();
   const [dragX, setDragX] = useState(0);
   const [dragging, setDragging] = useState(false);
   const from = useRef<number | null>(null);
   /** Узел экрана — с него снимается копия. Ставится на корень через ref. */
   const screenRef = useRef<HTMLDivElement>(null);
+
+  // Разворот из кнопки. Точку запомнила сама кнопка в момент нажатия
+  // (см. foldOrigin): мерить её отсюда поздно — глиф в шапке к этому кадру
+  // уже превращается в крестик, и рамка читается не той.
+  useLayoutEffect(() => {
+    if (!fold) return;
+    unfoldFrom(screenRef.current, takeFoldOrigin());
+  }, [fold]);
+
   /**
    * Уже уходим. Отдельный ref, а не проверка внутри setState.
    *
@@ -48,16 +64,27 @@ export function useScreenLeave() {
    */
   const going = useRef(false);
 
-  const goBack = useCallback((fromX = 0) => {
-    if (going.current) return;
-    going.current = true;
-    // Помечаем направление: экран, на который вернёмся, уже был показан, и
-    // проигрывать ему анимацию появления незачем (см. PageTransition).
-    markGoingBack();
-    // Снимок снимаем до смены маршрута — после неё узла уже нет.
-    peelScreen(screenRef.current, fromX);
-    router.back();
-  }, [router]);
+  const goBack = useCallback(
+    (fromX = 0) => {
+      if (going.current) return;
+      going.current = true;
+      // Помечаем направление: экран, на который вернёмся, уже был показан, и
+      // проигрывать ему анимацию появления незачем (см. PageTransition).
+      markGoingBack();
+      // Снимок снимаем до смены маршрута — после неё узла уже нет.
+      //
+      // Утащили пальцем — уезжаем вбок, куда тащили: направление задал жест, и
+      // складываться после него в кнопку было бы спором с рукой. Нажали кнопку
+      // — складываемся в неё.
+      if (fold && !fromX) {
+        foldScreenTo(screenRef.current, findFoldTarget(fold));
+      } else {
+        peelScreen(screenRef.current, fromX);
+      }
+      router.back();
+    },
+    [router, fold]
+  );
 
   /** Для onClick: обработчик события получил бы событие вместо сдвига. */
   const onBack = useCallback(() => goBack(0), [goBack]);

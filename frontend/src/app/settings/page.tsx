@@ -189,7 +189,10 @@ function LocalToggle({ storageKey, defaultOn = false }: { storageKey: string; de
 export default function SettingsPage() {
   const { session } = useSession();
   const { requestVerification } = usePhoneGate();
-  const { goBack, style: leaveStyle, swipeHandlers } = useScreenLeave();
+  // Настройки разворачиваются из шестерни в шапке и складываются обратно в неё.
+  // Та же кнопка их и открыла — движение связывает одно с другим, и не нужно
+  // догадываться, откуда экран взялся и куда денется.
+  const { goBack, style: leaveStyle, swipeHandlers } = useScreenLeave('[data-header-action]');
   const { t, locale, setLocale } = useT();
 
   // До монтирования значения неизвестны — читаем их уже в браузере,

@@ -14,6 +14,7 @@ import { RollingNumber } from '@/components/RollingNumber';
 import { VoteBlock } from '@/components/VoteBlock';
 import { PollBlock } from '@/components/PollBlock';
 import { PostMenuSheet } from '@/components/PostMenuSheet';
+import { ImageViewer } from '@/components/ImageViewer';
 import { useSession } from '@/lib/useSession';
 
 export function PostCard({
@@ -38,6 +39,13 @@ export function PostCard({
   // Удалённая запись убирается из ленты сразу: ждать перезагрузки списка,
   // глядя на то, что уже удалил, — странно.
   const [removed, setRemoved] = useState(false);
+  // Какая картинка открыта во весь экран. −1 — закрыто; индексом, а не флагом,
+  // потому что просмотрщик листает, и «какая именно» — это состояние.
+  const [viewing, setViewing] = useState(-1);
+  // Список, а не одна картинка: у записи пока одно поле image_url, но
+  // просмотрщик и вёрстка уже работают со списком, и добавление второго снимка
+  // не потребует менять ни то, ни другое.
+  const images = post.image_url ? [post.image_url] : [];
   const { session } = useSession();
 
   async function remove() {
@@ -179,16 +187,38 @@ export function PostCard({
 
       {hasChain && <ChainTail chain={post.chain!} total={post.chain!.length + 1} />}
 
-      {post.image_url && (
-        // eslint-disable-next-line @next/next/no-img-element -- источник картинок произвольный, next/image требует настройки доменов
-        <img
-          src={post.image_url}
-          alt=""
-          loading="lazy"
-          className="relative w-full rounded-2xl border border-[var(--border)] object-cover"
+      {/* Картинка открывается во весь экран. В колонке шириной в телефон её
+          обрезает по 340 пикселям высоты, и всё, что мельче лица крупным
+          планом, разглядеть было нельзя. Кнопка, а не div с обработчиком:
+          открывать можно и с клавиатуры.
+
+          images массивом, хотя пока у записи одна: просмотрщик умеет листать, и
+          когда у записи будет несколько снимков, менять здесь придётся один
+          список, а не механику. */}
+      {images.length > 0 && (
+        <button
+          type="button"
+          onClick={() => setViewing(0)}
+          className="relative block w-full overflow-hidden rounded-2xl border border-[var(--border)] transition-transform active:scale-[0.995]"
           style={{ maxHeight: 340 }}
-        />
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element -- источник картинок произвольный, next/image требует настройки доменов */}
+          <img
+            src={images[0]}
+            alt=""
+            loading="lazy"
+            className="w-full object-cover"
+            style={{ maxHeight: 340 }}
+          />
+        </button>
       )}
+
+      <ImageViewer
+        images={images}
+        index={viewing}
+        onIndex={setViewing}
+        onClose={() => setViewing(-1)}
+      />
 
       {post.pollOptions?.length > 0 && (
         <PollBlock postId={post.id} options={post.pollOptions} myVote={post.myPollVote} />
