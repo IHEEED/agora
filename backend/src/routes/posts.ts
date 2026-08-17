@@ -81,6 +81,50 @@ async function enrichPosts<T extends { id: string; author?: { id?: string | null
   }));
 }
 
+/**
+ * Собирает цепочки «вслед» и оставляет в списке только их начала.
+ *
+ * Продолжение — не отдельная запись в ленте, а часть той, за которой оно
+ * написано: показать их как соседей значило бы разорвать одну мысль на куски и
+ * разложить их по разным местам, между чужими постами.
+ *
+ * Цепочка идёт по ссылкам от начала: у каждой записи ровно одно продолжение
+ * (за этим следит триггер в базе), поэтому обход линеен и не может закольцеваться
+ * — но счётчик шагов всё равно ставим. Испорченные данные не должны вешать
+ * сервер, а ссылка на предка технически возможна, пока её не запретили
+ * ограничением.
+ *
+ * Записи, чьё начало не попало в выборку, остаются в списке сами по себе:
+ * иначе продолжение, начало которого старше сотни последних постов, исчезло бы
+ * из ленты вовсе.
+ */
+function foldChains<T extends { id: string; continues_post_id?: string | null }>(posts: T[]) {
+  const byParent = new Map<string, T>();
+  const present = new Set(posts.map((post) => post.id));
+
+  for (const post of posts) {
+    if (post.continues_post_id) byParent.set(post.continues_post_id, post);
+  }
+
+  const heads = posts.filter(
+    (post) => !post.continues_post_id || !present.has(post.continues_post_id)
+  );
+
+  return heads.map((head) => {
+    const chain: T[] = [];
+    let cursor = byParent.get(head.id);
+    let guard = 0;
+
+    while (cursor && guard < 20) {
+      chain.push(cursor);
+      cursor = byParent.get(cursor.id);
+      guard += 1;
+    }
+
+    return { ...head, chain };
+  });
+}
+
 async function getVoteInfoByPostId(postIds: string[], userId?: string) {
   const scores = new Map<string, number>();
   const myVotes = new Map<string, 1 | -1>();
@@ -191,7 +235,15 @@ async function getPollsByPostId(postIds: string[], userId?: string) {
 }
 
 router.post('/', requireAuth, requirePhoneVerified, async (req, res) => {
-  const { title, body, community_id, image_url, poll_options, post_as_community } = req.body;
+  const {
+    title,
+    body,
+    community_id,
+    image_url,
+    poll_options,
+    post_as_community,
+    continues_post_id,
+  } = req.body;
   const author_id = req.user!.id;
 
   if (!title) {
@@ -216,12 +268,23 @@ router.post('/', requireAuth, requirePhoneVerified, async (req, res) => {
       // Флаг отвечает только за подпись поста, не за принадлежность:
       // сообщество у записи есть в любом случае.
       post_as_community: Boolean(post_as_community),
+      // Поле подставляем только когда пишут вслед. Колонка появляется
+      // миграцией 010, и упоминать её в каждой вставке значило бы сломать
+      // публикацию у всех, кто её не выполнил: PostgREST отвергает запрос с
+      // неизвестной колонкой целиком, даже если значение в ней null.
+      ...(continues_post_id ? { continues_post_id: String(continues_post_id) } : null),
     })
     .select('*, author:users!posts_author_id_fkey(id, username), community:communities(id, name)')
     .single();
 
   if (error) {
     console.error('posts: request failed', error);
+    // Триггер posts_chain_guard (миграция 010) отвергает попытку продолжить
+    // чужую запись или дописать вслед второй раз, и говорит об этом словами.
+    // Пересказывать их своими значило бы потерять причину отказа.
+    if (error.code === 'P0001') {
+      return res.status(400).json({ error: error.message });
+    }
     return res.status(500).json({ error: 'Не удалось выполнить запрос, попробуйте ещё раз' });
   }
 
@@ -376,7 +439,10 @@ router.get('/', optionalAuth, async (req, res) => {
     return res.status(500).json({ error: 'Не удалось выполнить запрос, попробуйте ещё раз' });
   }
 
-  res.json(sortPosts(await enrichPosts(data, req.user?.id), sort));
+  // Цепочки сворачиваем после обогащения: продолжения тоже должны нести свои
+  // голоса и счётчики — они полноценные записи, просто показанные внутри
+  // начала.
+  res.json(foldChains(sortPosts(await enrichPosts(data, req.user?.id), sort)));
 });
 
 router.get('/community/:communityId', optionalAuth, async (req, res) => {
@@ -394,7 +460,7 @@ router.get('/community/:communityId', optionalAuth, async (req, res) => {
     return res.status(500).json({ error: 'Не удалось выполнить запрос, попробуйте ещё раз' });
   }
 
-  res.json(sortPosts(await enrichPosts(data, req.user?.id), sort));
+  res.json(foldChains(sortPosts(await enrichPosts(data, req.user?.id), sort)));
 });
 
 // Лента конкретного автора — используется на странице профиля.
@@ -414,7 +480,7 @@ router.get('/user/:userId', optionalAuth, async (req, res) => {
     return res.status(500).json({ error: 'Не удалось выполнить запрос, попробуйте ещё раз' });
   }
 
-  res.json(sortPosts(await enrichPosts(data, req.user?.id), sort));
+  res.json(foldChains(sortPosts(await enrichPosts(data, req.user?.id), sort)));
 });
 
 router.get('/:id', optionalAuth, async (req, res) => {

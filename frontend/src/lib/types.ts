@@ -65,6 +65,13 @@ export interface UserProfile extends UserSummary {
 
 export interface Post {
   id: string;
+  /** Какую запись эта продолжает. Появляется миграцией 010. */
+  continues_post_id?: string | null;
+  /**
+   * Записи, написанные вслед за этой, по порядку. Собирает сервер: в ленту
+   * попадает только начало цепочки, продолжения показываются внутри него.
+   */
+  chain?: Post[];
   title: string;
   body: string | null;
   author_id: string;

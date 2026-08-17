@@ -1,6 +1,7 @@
 'use client';
 
 import { useLayoutEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { BottomSheet } from '@/components/BottomSheet';
 
 /** Причины жалобы. Тот же короткий список, что у Reddit и Threads. */
@@ -42,13 +43,21 @@ export function PostMenuSheet({
   url,
   isMine,
   onDelete,
+  continueHref,
 }: {
   open: boolean;
   onClose: () => void;
   url: string;
   isMine: boolean;
   onDelete?: () => void;
+  /**
+   * Куда вести за продолжением записи. Задан только у своих записей, у которых
+   * продолжения ещё нет: цепочка — одна мысль одного человека, и ветвиться ей
+   * нечем (за этим следит и триггер в базе).
+   */
+  continueHref?: string;
 }) {
+  const router = useRouter();
   const [step, setStep] = useState<Step>('menu');
   const [copied, setCopied] = useState(false);
 
@@ -112,6 +121,25 @@ export function PostMenuSheet({
       onSelect: () => setStep('report'),
     },
   ];
+
+  if (continueHref) {
+    // Первым пунктом: из всего меню это единственное действие, которое
+    // что-то создаёт, а не сообщает о записи.
+    items.unshift({
+      key: 'continue',
+      label: 'Написать вслед',
+      icon: (
+        <>
+          <path d="M6 4v10a3 3 0 0 0 3 3h9" />
+          <path d="m14 13 4 4-4 4" />
+        </>
+      ),
+      onSelect: () => {
+        onClose();
+        router.push(continueHref);
+      },
+    });
+  }
 
   if (isMine && onDelete) {
     items.push({

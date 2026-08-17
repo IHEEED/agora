@@ -71,6 +71,9 @@ export function PostCard({
 
   if (removed) return null;
 
+  const isMine = Boolean(post.author.id) && post.author.id === session?.user.id;
+  const hasChain = (post.chain?.length ?? 0) > 0;
+
   return (
     // Ни рамки, ни фона: пост отделяется от соседа полоской, которую рисует
     // список. Горизонтальных полей тоже нет — текст идёт во всю ширину колонки.
@@ -174,6 +177,8 @@ export function PostCard({
         )}
       </div>
 
+      {hasChain && <ChainTail chain={post.chain!} total={post.chain!.length + 1} />}
+
       {post.image_url && (
         // eslint-disable-next-line @next/next/no-img-element -- источник картинок произвольный, next/image требует настройки доменов
         <img
@@ -266,9 +271,71 @@ export function PostCard({
         open={menuOpen}
         onClose={() => setMenuOpen(false)}
         url={typeof window === 'undefined' ? '' : `${window.location.origin}/posts/${post.id}`}
-        isMine={Boolean(post.author.id) && post.author.id === session?.user.id}
+        isMine={isMine}
         onDelete={remove}
+        // Продолжить можно только своё и только то, у чего продолжения ещё нет:
+        // цепочка — одна мысль одного человека, и ветвиться ей нечем.
+        continueHref={
+          isMine && !hasChain ? `/create?after=${post.id}` : undefined
+        }
       />
     </article>
+  );
+}
+
+/**
+ * Продолжения записи — то, что написано вслед за ней.
+ *
+ * Рисуются внутри начала цепочки, а не отдельными постами в ленте: это одна
+ * мысль, разложенная на несколько заходов, и раскидывать её куски между чужими
+ * записями значит её потерять. Слева — линия принадлежности, та же, что у
+ * ветки ответов в комментариях: она показывает, что записи связаны, не занимая
+ * места подписью у каждой.
+ */
+function ChainTail({ chain, total }: { chain: Post[]; total: number }) {
+  return (
+    <div className="mt-1 flex flex-col gap-3 pl-[19px]" style={{ position: 'relative' }}>
+      {/* Ствол на всю высоту хвоста. Волосяной и приглушённый — служебная
+          разметка не должна перебивать текст, который она размечает. */}
+      <span
+        aria-hidden
+        style={{
+          position: 'absolute',
+          left: 0,
+          top: -4,
+          bottom: 8,
+          width: 1.5,
+          borderRadius: 999,
+          background: 'color-mix(in srgb, var(--border) 75%, transparent)',
+        }}
+      />
+
+      {chain.map((part, index) => (
+        <div key={part.id} className="flex flex-col gap-1">
+          <span className="text-[11.5px] font-medium text-[var(--text-muted)]">
+            Вслед · <span className="font-num">{index + 2}</span> из{' '}
+            <span className="font-num">{total}</span>
+          </span>
+          <p className="display-type whitespace-pre-line text-[15px] leading-snug text-[var(--text)]">
+            {part.title}
+          </p>
+          {part.body && (
+            <p className="whitespace-pre-line text-[13.5px] leading-relaxed text-[var(--text)]">
+              {part.body}
+            </p>
+          )}
+          {part.image_url && (
+            // eslint-disable-next-line @next/next/no-img-element -- источник произвольный, next/image требует настройки доменов
+            <img
+              src={part.image_url}
+              alt=""
+              loading="lazy"
+              className="w-full rounded-xl border border-[var(--border)] object-cover"
+              style={{ maxHeight: 260 }}
+            />
+          )}
+        </div>
+      ))}
+    </div>
   );
 }

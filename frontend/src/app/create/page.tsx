@@ -63,11 +63,16 @@ function CreatePost() {
   // Пришли со страницы сообщества — оно уже выбрано, и спрашивать «куда
   // опубликовать» значит переспрашивать очевидное: человек стоял на его
   // странице и нажал «Опубликовать пост» именно там.
-  const presetCommunity = useSearchParams().get('community');
+  const params = useSearchParams();
+  const presetCommunity = params.get('community');
+  // Пришли по «Написать вслед» — запись продолжает указанную. Выбор клуба тогда
+  // тоже не нужен: продолжение живёт там же, где начало, и спрашивать об этом
+  // значило бы предлагать разорвать цепочку между двумя лентами.
+  const continuesPostId = params.get('after');
 
   // Два шага: сначала выбор сообщества, потом сам текст.
   const [step, setStep] = useState<'community' | 'compose'>(
-    presetCommunity ? 'compose' : 'community'
+    presetCommunity || continuesPostId ? 'compose' : 'community'
   );
   const [communityQuery, setCommunityQuery] = useState('');
   const [asCommunity, setAsCommunity] = useState(Boolean(presetCommunity));
@@ -271,6 +276,7 @@ function CreatePost() {
             ? pollOptions!.map((option) => option.trim()).filter(Boolean)
             : [],
           post_as_community: asCommunity,
+          continues_post_id: continuesPostId,
         }),
       });
       // Лента закеширована — без сброса свежий пост в ней не появится.
@@ -473,6 +479,28 @@ function CreatePost() {
           </svg>
           {chosenCommunity?.name ?? t('create.personal')}
         </button>
+
+        {/* Пишем вслед — говорим об этом прямо. Без подписи экран ничем не
+            отличался бы от обычной новой записи, а уйдёт она не в ленту сама
+            по себе, а под ту, которую продолжает. */}
+        {continuesPostId && (
+          <div
+            className="flex items-center gap-2.5 rounded-2xl px-3 py-2.5"
+            style={{ background: 'var(--accent-soft)' }}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" className="flex-none">
+              <path d="M6 4v10a3 3 0 0 0 3 3h9" />
+              <path d="m14 13 4 4-4 4" />
+            </svg>
+            <span className="min-w-0 text-[13.5px] leading-snug text-[var(--text)]">
+              Запись уйдёт{' '}
+              <span className="font-semibold" style={{ color: 'var(--accent)' }}>
+                вслед
+              </span>{' '}
+              за предыдущей и появится под ней.
+            </span>
+          </div>
+        )}
 
         {/* Сообщество уже выбрано шагом раньше — второй раз спрашивать «от чьего
             имени» незачем: человек ответил на этот вопрос, когда выбирал, куда
