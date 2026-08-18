@@ -1,10 +1,12 @@
 @echo off
-chcp 65001 >nul
-rem Сервер разработки для установленного на телефон приложения.
-rem Бэкенд при этом должен работать в отдельном окне: backend\npm run dev
+rem Server razrabotki dlya ustanovlennogo na telefon prilozheniya.
+rem Bekend pri etom dolzhen rabotat v otdelnom okne.
 cd /d "%~dp0"
-echo Запускаю сервер разработки. Открывайте PARAFRAZ на телефоне.
-echo Телефон и компьютер должны быть в одном Wi-Fi.
+
+echo Server razrabotki. Otkryvayte PARAFRAZ na telefone.
+echo Telefon i kompyuter dolzhny byt v odnom Wi-Fi.
 echo.
-npx expo start --dev-client
+rem --host lan obyazatelno: bez nego Metro zhdet na localhost, a telefonu
+rem nuzhen adres kompyutera v seti. QR togda vedet v nikuda.
+call npx expo start --dev-client --host lan --clear
 pause

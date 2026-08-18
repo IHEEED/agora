@@ -1,20 +1,22 @@
 @echo off
-chcp 65001 >nul
-rem Вход в Expo одним запуском.
+rem Vhod v Expo odnim zapuskom.
 rem
-rem Файл, а не команда в терминале, по одной причине: путь к eas-cli длинный, а
-rem разделители команд у cmd и PowerShell разные — набирая вручную, ошибиться
-rem проще, чем не ошибиться. Здесь всё уже записано верно.
+rem Fayl, a ne komanda v terminale: put k eas-cli dlinnyy, a razdeliteli
+rem komand u cmd i PowerShell raznye - nabiraya vruchnuyu, oshibitsya proshche.
+rem
+rem Perevody strok obyazany byt CRLF. S yuniksovymi LF cmd chitaet fayl
+rem vperemeshku i otvechaet "Sisteme ne udaetsya nayti ukazannyy put" -
+rem pro put, kotorogo v fayle net.
 cd /d "%~dp0"
 
 set "EAS=%APPDATA%\npm\eas.cmd"
 if not exist "%EAS%" set "EAS=eas"
 
-echo Вход в Expo. Спросит имя пользователя и пароль с expo.dev.
-echo Пароль при вводе не отображается — это нормально.
+echo Vhod v Expo. Sprosit login i parol s expo.dev.
+echo Parol pri vvode ne otobrazhaetsya - eto normalno.
 echo.
 call "%EAS%" login
 
 echo.
-echo Готово. Дальше запустите ios-build.cmd
+echo Gotovo. Dalshe zapustite ios-build.cmd
 pause
