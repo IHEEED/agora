@@ -10,14 +10,13 @@
       "ios": {
         "simulator": false,
         "resourceClass": "m-medium"
-      },
-      "env": {
-        "EXPO_PUBLIC_API_URL": "http://192.168.1.118:4000"
       }
     },
     "preview": {
       "distribution": "internal",
-      "ios": { "simulator": false }
+      "ios": {
+        "simulator": false
+      }
     },
     "production": {
       "autoIncrement": true
