@@ -2,15 +2,38 @@ import { supabase } from './supabase';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL!;
 
+/**
+ * Токен держим в памяти и обновляем по событию, а не спрашиваем перед каждым
+ * запросом. getSession() — асинхронный вызов с обращением к хранилищу, и он
+ * стоял отдельным шагом перед любым обращением к API: на экране с тремя
+ * запросами это три лишних ожидания подряд ещё до того, как ушёл первый байт.
+ */
+let cachedToken: string | null = null;
+let tokenReady: Promise<void> | null = null;
+
+function ensureToken(): Promise<void> {
+  if (tokenReady) return tokenReady;
+
+  tokenReady = supabase.auth.getSession().then(({ data }) => {
+    cachedToken = data.session?.access_token ?? null;
+  });
+
+  // Дальше за актуальностью следит сам Supabase: событие приходит и при входе,
+  // и при выходе, и при автоматическом обновлении протухшего токена.
+  supabase.auth.onAuthStateChange((_event, session) => {
+    cachedToken = session?.access_token ?? null;
+  });
+
+  return tokenReady;
+}
+
 export async function apiFetch<T = unknown>(path: string, options: RequestInit = {}): Promise<T> {
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
+  await ensureToken();
 
   const headers = new Headers(options.headers);
   headers.set('Content-Type', 'application/json');
-  if (session?.access_token) {
-    headers.set('Authorization', `Bearer ${session.access_token}`);
+  if (cachedToken) {
+    headers.set('Authorization', `Bearer ${cachedToken}`);
   }
 
   const res = await fetch(`${API_URL}${path}`, { ...options, headers });

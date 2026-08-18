@@ -3,75 +3,86 @@
 import { useState, SubmitEvent } from 'react';
 import { apiFetch } from '@/lib/api';
 import { useSession } from '@/lib/useSession';
-import { useVote } from '@/lib/useVote';
-import { formatRelativeDate } from '@/lib/formatDate';
+import { formatCompactAge } from '@/lib/formatDate';
 import { pluralizeReplies } from '@/lib/pluralize';
+import Link from 'next/link';
+import { isPhoneNotVerifiedError, usePhoneGate } from '@/components/PhoneGateContext';
+import { VoteBlock } from '@/components/VoteBlock';
+import { DefaultAvatar } from '@/components/DefaultAvatar';
 import { Comment } from '@/lib/types';
 
-function countDescendants(comment: Comment): number {
-  return comment.replies.reduce((sum, reply) => sum + 1 + countDescendants(reply), 0);
+/** Лежит ли искомый комментарий где-то в этой ветке. */
+function contains(comment: Comment, id: string): boolean {
+  return comment.replies.some((reply) => reply.id === id || contains(reply, id));
 }
 
-function truncateWords(text: string, wordCount = 8): string {
-  const words = text.trim().split(/\s+/);
-  if (words.length <= wordCount) return text;
-  return `${words.slice(0, wordCount).join(' ')}…`;
-}
-
-function VoteArrows({
-  score,
-  myVote,
-  onVote,
-}: {
-  score: number;
-  myVote: 1 | -1 | null;
-  onVote: (value: 1 | -1) => void;
-}) {
-  return (
-    <div className="flex items-center gap-1">
-      <button
-        onClick={() => onVote(1)}
-        aria-label="Голосовать за"
-        className={`text-xs leading-none hover:text-orange-500 ${myVote === 1 ? 'text-orange-500' : 'text-zinc-400'}`}
-      >
-        ▲
-      </button>
-      <span className="text-xs font-medium text-zinc-600 dark:text-zinc-400">{score}</span>
-      <button
-        onClick={() => onVote(-1)}
-        aria-label="Голосовать против"
-        className={`text-xs leading-none hover:text-blue-500 ${myVote === -1 ? 'text-blue-500' : 'text-zinc-400'}`}
-      >
-        ▼
-      </button>
-    </div>
-  );
-}
-
+/**
+ * Ветка комментариев. Раньше здесь жила вёрстка, оставшаяся до редизайна:
+ * захардкоженная палитра Tailwind (bg-zinc, text-black), стрелки символами
+ * «▲▼» и рамки в оттенках, которых нет в теме. Отсюда и вид «текст в ворде на
+ * чёрном фоне» — экран просто не участвовал в общем оформлении.
+ */
 export function CommentThread({
   comment,
   postId,
   onAdded,
-  isExpanded,
-  onToggleExpand,
+  isCollapsed,
+  onToggleCollapse,
+  depth = 0,
+  highlightId,
 }: {
   comment: Comment;
   postId: string;
   onAdded: () => void;
-  isExpanded: (commentId: string) => boolean;
-  onToggleExpand: (commentId: string) => void;
+  isCollapsed: (commentId: string) => boolean;
+  onToggleCollapse: (commentId: string) => void;
+  /** Уровень вложенности: от него зависит сдвиг ответа вправо. */
+  depth?: number;
+  /** Комментарий, к которому пришли по ссылке, — подсвечивается на секунду. */
+  highlightId?: string | null;
 }) {
   const { session } = useSession();
-  const { score, myVote, vote, error: voteError, message } = useVote(comment.id, comment.score, comment.myVote, 'comment');
+  const { requestVerification } = usePhoneGate();
 
   const [replying, setReplying] = useState(false);
   const [body, setBody] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [replyError, setReplyError] = useState<string | null>(null);
 
+  // Автор комментария может не иметь id, если бэкенд отдал только имя —
+  // тогда ссылка никуда не ведёт, но разметка не ломается.
+  const authorHref = comment.author.id ? `/u/${comment.author.id}` : '#';
+  const highlighted = highlightId === comment.id;
   const hasReplies = comment.replies.length > 0;
-  const collapsed = hasReplies && !isExpanded(comment.id);
-  const descendantCount = hasReplies ? countDescendants(comment) : 0;
+  // Ветку с искомым комментарием держим раскрытой принудительно: свёрнутая
+  // не рендерит ответы, и прокручивать было бы не к чему.
+  const holdsTarget = Boolean(highlightId) && contains(comment, highlightId!);
+
+  /**
+   * Раз ветку раскрыли ради перехода — она такой и остаётся.
+   *
+   * Раньше holdsTarget держал её открытой ровно пока горит подсветка, а через
+   * полторы секунды ветка схлопывалась обратно к сохранённому состоянию: человек
+   * читал ответ, и тот на глазах сворачивался сам. Решение «свернуть» за него
+   * никто не принимал — оно осталось от прошлого визита, когда он свернул эту
+   * ветку по своей воле, но пришёл-то он сюда именно за ответом внутри неё.
+   *
+   * Флаг живёт в самой ветке и снимается только её же кнопкой.
+   */
+  const [pinnedOpen, setPinnedOpen] = useState(false);
+  const [wasHolding, setWasHolding] = useState(holdsTarget);
+  if (wasHolding !== holdsTarget) {
+    setWasHolding(holdsTarget);
+    // Подсветка гаснет — фиксируем то состояние, в котором ветка сейчас есть.
+    if (holdsTarget) setPinnedOpen(true);
+  }
+
+  // Ветка открыта, пока её не свернули. Прошлая схема показывала часть ответов
+  // и прятала остальные — на одну кнопку приходилось три состояния, и было
+  // непонятно, что она сделает: «Свернуть» убирала не всё, «Ещё» открывала не
+  // с начала. Теперь состояний два, и оба видно по подписи.
+  const collapsed = hasReplies && isCollapsed(comment.id) && !holdsTarget && !pinnedOpen;
+  const replyCount = comment.replies.length;
 
   async function submitReply(e: SubmitEvent) {
     e.preventDefault();
@@ -87,6 +98,11 @@ export function CommentThread({
       setReplying(false);
       onAdded();
     } catch (err) {
+      if (isPhoneNotVerifiedError(err)) {
+        setReplying(false);
+        requestVerification();
+        return;
+      }
       setReplyError(err instanceof Error ? err.message : 'Не удалось отправить ответ');
     } finally {
       setSubmitting(false);
@@ -94,94 +110,159 @@ export function CommentThread({
   }
 
   return (
-    <div className="flex flex-col gap-2 border-l border-black/[.08] pl-4 dark:border-white/[.145]">
-      {collapsed ? (
-        <div className="flex flex-col gap-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <VoteArrows score={score} myVote={myVote} onVote={vote} />
-            <button
-              onClick={() => onToggleExpand(comment.id)}
-              aria-label="Развернуть ветку"
-              className="text-xs font-medium text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+    <div
+      id={`comment-${comment.id}`}
+      // holdsTarget здесь не только про раскрытие ветки: пока действует
+      // указание, все комментарии, кроме искомого, приглушаются, а
+      // прозрачность наследуется по дереву — не пометив ветку, мы приглушили
+      // бы вместе с ней и саму цель. Отмечать предков в CSS через :has()
+      // не вышло: Lightning CSS выбрасывает такое правило из сборки целиком.
+      className={`flex flex-col gap-2 ${
+        highlighted ? 'comment-highlight' : holdsTarget ? 'comment-holds-target' : ''
+      }`}
+    >
+      <div className="flex gap-2.5">
+        <Link href={authorHref} className="flex-none">
+          <DefaultAvatar name={comment.author.username} size={30} />
+        </Link>
+
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
+          <div className="flex items-center gap-2 text-[13px]">
+            <Link
+              href={authorHref}
+              className="font-semibold text-[var(--text)] hover:underline"
             >
-              [+] {descendantCount} {pluralizeReplies(descendantCount)}
-            </button>
-            <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300">{comment.author.username}</span>
-            <span className="text-xs text-zinc-500 dark:text-zinc-400">{formatRelativeDate(comment.created_at)}</span>
-          </div>
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">{truncateWords(comment.body)}</p>
-        </div>
-      ) : (
-        <div className="flex gap-2">
-          <div className="flex flex-col items-center gap-0.5 pt-0.5">
-            <VoteArrows score={score} myVote={myVote} onVote={vote} />
+              {comment.author.username}
+            </Link>
+            <span className="text-[var(--text-muted)]">{formatCompactAge(comment.created_at)}</span>
           </div>
 
-          <div className="flex flex-1 flex-col gap-1">
-            <div className="flex items-center gap-2">
-              {hasReplies && (
-                <button
-                  onClick={() => onToggleExpand(comment.id)}
-                  aria-label="Свернуть ветку"
-                  className="text-xs font-medium text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
-                >
-                  [–]
-                </button>
-              )}
-              <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300">{comment.author.username}</span>
-              <span className="text-xs text-zinc-500 dark:text-zinc-400">{formatRelativeDate(comment.created_at)}</span>
-            </div>
+          <p className="text-[13.5px] leading-relaxed text-[var(--text)]">{comment.body}</p>
 
-            <p className="text-sm text-black dark:text-zinc-50">{comment.body}</p>
-
-            {message && <p className="text-xs font-medium text-emerald-600 dark:text-emerald-400">{message}</p>}
-            {voteError && <p className="text-xs text-red-600 dark:text-red-400">{voteError}</p>}
-
+          <div className="mt-0.5 flex items-center gap-2">
+            <VoteBlock
+              id={comment.id}
+              score={comment.score}
+              myVote={comment.myVote}
+              kind="comment"
+              compact
+            />
             {session && (
               <button
                 onClick={() => setReplying((v) => !v)}
-                className="self-start text-xs font-medium text-zinc-500 hover:underline"
+                className="rounded-full px-2 py-1 text-[12.5px] font-medium text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-2)]"
               >
                 {replying ? 'Отмена' : 'Ответить'}
               </button>
             )}
-
-            {replying && (
-              <form onSubmit={submitReply} className="flex flex-col gap-2">
-                <textarea
-                  required
-                  rows={2}
-                  value={body}
-                  onChange={(e) => setBody(e.target.value)}
-                  placeholder="Ваш ответ…"
-                  className="rounded-md border border-black/[.08] px-2 py-1 text-sm text-black dark:border-white/[.145] dark:bg-zinc-900 dark:text-zinc-50"
-                />
-                {replyError && <p className="text-xs text-red-600 dark:text-red-400">{replyError}</p>}
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="self-start rounded-full bg-foreground px-4 py-1 text-xs font-medium text-background disabled:opacity-50 dark:hover:bg-[#ccc]"
-                >
-                  Отправить
-                </button>
-              </form>
-            )}
           </div>
-        </div>
-      )}
 
-      {!collapsed && hasReplies && (
-        <div className="mt-1 flex flex-col gap-3">
-          {comment.replies.map((reply) => (
-            <CommentThread
-              key={reply.id}
-              comment={reply}
-              postId={postId}
-              onAdded={onAdded}
-              isExpanded={isExpanded}
-              onToggleExpand={onToggleExpand}
-            />
-          ))}
+          {replying && (
+            <form onSubmit={submitReply} className="mt-1 flex flex-col gap-2">
+              <textarea
+                // autoFocus поднимает клавиатуру сразу: без него человек жмёт
+                // «Ответить», а потом ещё раз — по самому полю.
+                autoFocus
+                required
+                rows={2}
+                value={body}
+                onChange={(e) => setBody(e.target.value)}
+                placeholder="Ваш ответ…"
+                className="resize-none rounded-2xl border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 text-[14px] text-[var(--text)] outline-none focus:border-[var(--accent)]"
+              />
+              {replyError && (
+                <p className="text-[12.5px]" style={{ color: 'var(--down)' }}>{replyError}</p>
+              )}
+              <button
+                type="submit"
+                disabled={submitting}
+                className="self-start rounded-full px-4 py-1.5 text-[13px] font-medium disabled:opacity-50"
+                style={{ background: 'var(--accent)', color: 'var(--accent-contrast)' }}
+              >
+                Отправить
+              </button>
+            </form>
+          )}
+        </div>
+      </div>
+
+      {/* Ответы уходят правее, а слева их держит изогнутая линия принадлежности:
+          она отходит от аватарки родителя и загибается к первому ответу. Прямая
+          вертикальная черта такого родства не показывала — было непонятно,
+          откуда ветка растёт. Глубже четвёртого уровня сдвиг не наращиваем,
+          иначе на телефоне не остаётся ширины под текст. */}
+      {hasReplies && (
+        <div
+          className="reply-branch flex flex-col gap-4"
+          style={{ marginLeft: depth < 4 ? 15 : 0 }}
+        >
+          {/* Ветка схлопывается по высоте, а не выдёргивается из разметки:
+              grid-rows от 1fr к 0fr — единственный способ анимировать высоту
+              содержимого, размер которого заранее неизвестен. Ответы при этом
+              остаются в разметке, поэтому схлопывать есть что. */}
+          <div
+            className="grid"
+            style={{
+              gridTemplateRows: collapsed ? '0fr' : '1fr',
+              opacity: collapsed ? 0 : 1,
+              transition:
+                'grid-template-rows 0.34s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.24s ease',
+            }}
+          >
+            <div className="overflow-hidden">
+              <div className="flex flex-col gap-4">
+                {comment.replies.map((reply) => (
+                  <CommentThread
+                    key={reply.id}
+                    comment={reply}
+                    postId={postId}
+                    onAdded={onAdded}
+                    isCollapsed={isCollapsed}
+                    onToggleCollapse={onToggleCollapse}
+                    depth={depth + 1}
+                    highlightId={highlightId}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Подписи лежат друг на друге в одной клетке грида и меняются
+              перекрёстным затуханием: смена текста в один кадр дёргала
+              ширину кнопки. */}
+          <button
+            onClick={() => {
+              // Своё «оставить раскрытой» снимаем здесь же: нажатие по кнопке —
+              // это и есть решение человека, а оно сильнее нашего.
+              setPinnedOpen(false);
+              onToggleCollapse(comment.id);
+            }}
+            className="grid self-start rounded-lg text-[13px] font-medium transition-transform active:scale-95"
+            style={{ color: 'var(--accent)' }}
+          >
+            {[
+              {
+                key: 'more',
+                show: collapsed,
+                text: `Показать ${replyCount} ${pluralizeReplies(replyCount)}`,
+              },
+              { key: 'less', show: !collapsed, text: 'Свернуть' },
+            ].map((label) => (
+              <span
+                key={label.key}
+                aria-hidden={!label.show}
+                className="col-start-1 row-start-1 whitespace-nowrap text-left"
+                style={{
+                  opacity: label.show ? 1 : 0,
+                  transform: label.show ? 'none' : 'translateY(-3px)',
+                  pointerEvents: label.show ? 'auto' : 'none',
+                  transition: 'opacity 0.22s ease, transform 0.22s cubic-bezier(0.32, 0.72, 0, 1)',
+                }}
+              >
+                {label.text}
+              </span>
+            ))}
+          </button>
         </div>
       )}
     </div>

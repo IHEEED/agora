@@ -1,117 +1,100 @@
 'use client';
 
-import { useEffect, useState, SubmitEvent } from 'react';
+import { useMemo } from 'react';
 import Link from 'next/link';
-import { apiFetch } from '@/lib/api';
+import { useApiData } from '@/lib/useApiData';
 import { useSession } from '@/lib/useSession';
-import { Community } from '@/lib/types';
+import { Post } from '@/lib/types';
+import { PostCard } from '@/components/PostCard';
+import { StoriesBar } from '@/components/StoriesBar';
+import { storiesFrom } from '@/components/StoryViewer';
+import { DefaultAvatar } from '@/components/DefaultAvatar';
+import { SuggestedPeople } from '@/components/SuggestedPeople';
+import { useBlockedUsers } from '@/lib/blockedUsers';
+import { SkeletonList, SkeletonPost } from '@/components/Skeleton';
+import { OverlayLink } from '@/components/OverlayLink';
+import { useT } from '@/lib/i18n';
 
-export default function Home() {
+export default function FeedPage() {
   const { session } = useSession();
-  const [communities, setCommunities] = useState<Community[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { t } = useT();
+  // Данные берём из кеша: возврат в ленту рисует её мгновенно, а свежий
+  // запрос уходит фоном. Раньше каждый заход начинался с пустого экрана.
+  const { data, error, loading } = useApiData<Post[]>('/posts?sort=hot');
+  // Через useMemo, а не через ?? прямо в теле: иначе каждый рендер создаёт
+  // новый пустой массив и пересчитывает список историй ниже без причины.
+  const posts = useMemo(() => data ?? [], [data]);
 
-  const [showForm, setShowForm] = useState(false);
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
-  const [formError, setFormError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
+  // Записи заблокированных не показываем. Фильтруем здесь, а не на сервере:
+  // список живёт на устройстве, сервер о нём не знает (см. blockedUsers).
+  const blocked = useBlockedUsers();
+  const visiblePosts = useMemo(
+    () => posts.filter((post) => !post.author.id || !blocked.includes(post.author.id)),
+    [posts, blocked]
+  );
 
-  useEffect(() => {
-    apiFetch<Community[]>('/communities')
-      .then(setCommunities)
-      .catch((err) => setError(err.message))
-      .finally(() => setLoading(false));
-  }, []);
-
-  async function handleCreate(e: SubmitEvent) {
-    e.preventDefault();
-    setFormError(null);
-    setSubmitting(true);
-
-    try {
-      const community = await apiFetch<Community>('/communities', {
-        method: 'POST',
-        body: JSON.stringify({ name, description }),
-      });
-      setCommunities((prev) => [community, ...prev]);
-      setName('');
-      setDescription('');
-      setShowForm(false);
-    } catch (err) {
-      setFormError(err instanceof Error ? err.message : 'Не удалось создать сообщество');
-    } finally {
-      setSubmitting(false);
-    }
-  }
+  // Истории собираем из записей ленты — своей таблицы у них пока нет.
+  // Из отфильтрованных: заблокированный не должен остаться кружком наверху.
+  // Кадром становится запись целиком: заголовок, начало текста, счётчики, а
+  // картинка — фоном под ними, если она есть (см. StoryViewer).
+  const stories = useMemo(() => storiesFrom(visiblePosts), [visiblePosts]);
 
   return (
-    <div className="flex flex-1 flex-col items-center bg-zinc-50 dark:bg-black">
-      <main className="flex w-full max-w-2xl flex-col gap-4 py-12 px-4">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold text-black dark:text-zinc-50">Сообщества</h1>
-          {session && (
-            <button
-              onClick={() => setShowForm((v) => !v)}
-              className="rounded-full bg-foreground px-4 py-1.5 text-sm font-medium text-background hover:bg-[#383838] dark:hover:bg-[#ccc]"
-            >
-              {showForm ? 'Отмена' : '+ Сообщество'}
-            </button>
-          )}
-        </div>
+    <div className="flex flex-1 flex-col items-center">
+      <main className="below-header flex w-full max-w-2xl flex-col gap-4 px-4 pb-8">
+        <StoriesBar
+          stories={stories}
+          currentUserLetter={session?.user.email?.[0]?.toUpperCase()}
+        />
 
-        {showForm && (
-          <form
-            onSubmit={handleCreate}
-            className="flex flex-col gap-3 rounded-lg border border-black/[.08] bg-white p-4 dark:border-white/[.145] dark:bg-zinc-950"
-          >
-            <input
-              placeholder="Название"
-              required
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="rounded-md border border-black/[.08] px-3 py-2 text-sm text-black dark:border-white/[.145] dark:bg-zinc-900 dark:text-zinc-50"
-            />
-            <textarea
-              placeholder="Описание (необязательно)"
-              rows={2}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className="rounded-md border border-black/[.08] px-3 py-2 text-sm text-black dark:border-white/[.145] dark:bg-zinc-900 dark:text-zinc-50"
-            />
-            {formError && <p className="text-sm text-red-600 dark:text-red-400">{formError}</p>}
-            <button
-              type="submit"
-              disabled={submitting}
-              className="self-start rounded-full bg-foreground px-4 py-1.5 text-sm font-medium text-background disabled:opacity-50 dark:hover:bg-[#ccc]"
-            >
-              Создать
-            </button>
-          </form>
+        <OverlayLink
+          href="/create"
+          // Строка, а не плашка: скруглённая обойма читалась кнопкой,
+          // а не местом, куда пишут. Отрицательные поля выводят черту за
+          // поля колонки — она идёт от края до края, а не обрубается
+          // на ширине текста.
+          className="field-line -mx-4 mt-3 flex items-center gap-3 px-5 py-3 text-left"
+        >
+          <DefaultAvatar name={(session?.user.email ?? '?').split('@')[0]} size={32} />
+          <span className="text-[15px] text-[var(--text-muted)]">{t('feed.whatsNew')}</span>
+        </OverlayLink>
+
+        {/* Заглушки по геометрии настоящих карточек: подмена не двигает
+            раскладку, и анимация появления не проигрывается на прыгающем
+            экране. Именно это и выглядело рвано. */}
+        {loading && (
+          <div className="feed-list flex flex-col">
+            <SkeletonList count={3}>
+              <SkeletonPost />
+            </SkeletonList>
+          </div>
         )}
+        {error && <p style={{ color: 'var(--down)' }}>{error}</p>}
 
-        {loading && <p className="text-zinc-600 dark:text-zinc-400">Загрузка…</p>}
-        {error && <p className="text-red-600 dark:text-red-400">{error}</p>}
+        {/* Лента — сплошной список, разделённый полосками, а не набор плиток.
+            Отдельные карточки дробили экран на прямоугольники и съедали ширину
+            под поля; полоска отделяет ровно настолько, насколько нужно. */}
+        <SuggestedPeople />
 
-        <div className="flex flex-col gap-3">
-          {communities.map((community) => (
-            <Link
-              key={community.id}
-              href={`/c/${community.id}`}
-              className="rounded-lg border border-black/[.08] bg-white p-4 transition-colors hover:bg-black/[.03] dark:border-white/[.145] dark:bg-zinc-950 dark:hover:bg-[#1a1a1a]"
-            >
-              <h2 className="font-medium text-black dark:text-zinc-50">{community.name}</h2>
-              <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                создано {community.creator.username}
-              </span>
-              {community.description && (
-                <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">{community.description}</p>
-              )}
-            </Link>
+        <div className="feed-list flex flex-col">
+          {visiblePosts.map((post) => (
+            <PostCard
+              key={post.id}
+              post={post}
+              // Подписаться можно на кого угодно, кроме себя.
+              canFollow={post.author.id !== session?.user.id}
+            />
           ))}
-          {!loading && !error && communities.length === 0 && (
-            <p className="text-zinc-600 dark:text-zinc-400">Сообществ пока нет.</p>
+          {!loading && !error && visiblePosts.length === 0 && (
+            <div className="flex flex-col items-center gap-3 py-16 text-center">
+              <p className="text-[var(--text-muted)]">{t('feed.empty')}</p>
+              <Link
+                href="/communities"
+                className="rounded-full bg-[var(--accent)] px-5 py-2.5 text-sm font-medium text-[var(--accent-contrast)]"
+              >
+                {t('feed.findCommunities')}
+              </Link>
+            </div>
           )}
         </div>
       </main>
