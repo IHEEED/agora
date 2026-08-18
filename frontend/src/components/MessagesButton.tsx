@@ -7,7 +7,6 @@ import { apiFetch } from '@/lib/api';
 import { markGoingBack } from '@/lib/navDirection';
 import { foldCurrentScreen } from '@/lib/peelScreen';
 import { setFoldOrigin } from '@/lib/foldOrigin';
-import { holdBackdrop } from '@/lib/screenBackdrop';
 import { useT } from '@/lib/i18n';
 import { haptic } from '@/lib/haptics';
 
@@ -84,12 +83,6 @@ export function MessagesButton({
           // Запоминаем рамку до перехода: экран мессенджера прочитает её на
           // монтировании и развернётся отсюда (см. foldOrigin).
           setFoldOrigin(rect);
-          // И замораживаем ленту под ним. Мессенджер разворачивается поверх
-          // неё, а складываясь — открывает обратно: без снимка на этом месте
-          // секунду висел пустой экран, пока лента монтировалась заново.
-          // У поиска этой заминки не было заметно только потому, что его
-          // складывание короче, — а причина та же.
-          holdBackdrop();
           return;
         }
         event.preventDefault();

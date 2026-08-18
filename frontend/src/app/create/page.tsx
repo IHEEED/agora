@@ -97,7 +97,7 @@ function describeUploadError(message: string): string {
  */
 export default function CreatePostPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen" />}>
+    <Suspense fallback={<div className="min-h-[100dvh]" />}>
       <CreatePost />
     </Suspense>
   );
@@ -217,7 +217,21 @@ function CreatePost() {
 
   const [composeLeaving, setComposeLeaving] = useState(false);
   const [communityId, setCommunityId] = useState(presetCommunity ?? '');
+  /**
+   * Заголовок и текст — снова два поля.
+   *
+   * Одно поле, у которого первая строка молча становилась заголовком, экономило
+   * место и врало: набранное выглядело сплошным текстом, а в ленте первая
+   * строка вдруг оказывалась набрана газетной антиквой вдвое крупнее. Человек
+   * узнавал о существовании заголовка после публикации — и обычно не тем, каким
+   * хотел бы.
+   *
+   * Заголовок при этом остаётся необязательным: без него запись уходит как
+   * есть, первой строкой текста. Обязательным его делать нельзя — короткая
+   * реплика в три слова заголовка не имеет и не должна его выдумывать.
+   */
   const [title, setTitle] = useState('');
+  const [body, setBody] = useState('');
 
   /**
    * Снимки записи. Список, а не одно поле.
@@ -418,7 +432,7 @@ function CreatePost() {
   }
 
   // Сообщество больше не обязательно: без него пост личный.
-  const canSubmit = title.trim() && !submitting && !uploading;
+  const canSubmit = (title.trim() || body.trim()) && !submitting && !uploading;
   /** Загруженные снимки в том порядке, в каком их выбрали. */
   const ready = shots.map((shot) => shot.url).filter((url): url is string => Boolean(url));
   const chosenCommunity = communities.find((c) => c.id === communityId);
@@ -434,7 +448,7 @@ function CreatePost() {
       open={sheetOpen}
       onClose={closeSheet}
       title={title}
-      height="84vh"
+      height="84dvh"
       footer={footer}
     >
       {children}
@@ -664,18 +678,28 @@ function CreatePost() {
             через пустоту, которую ничего не заполняло. Теперь поле начинается с
             двух строк и добирает высоту по мере набора — вложения всё время
             стоят прямо под последней написанной строкой. */}
-        <textarea
+        {/* Заголовок — той же антиквой, какой он выйдет в ленте. Поле, которое
+            показывает результат, а не обещает его: набирая, человек сразу
+            видит, что это именно заголовок, и незачем объяснять это подписью. */}
+        <input
           autoFocus
-          required
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          maxLength={300}
+          placeholder={t('create.titlePlaceholder')}
+          className="display-type border-none bg-transparent px-1 text-[21px] leading-snug text-[var(--text)] outline-none placeholder:font-normal"
+        />
+
+        <textarea
           rows={2}
           ref={textRef}
           placeholder={t('create.placeholder')}
-          value={title}
+          value={body}
           onChange={(e) => {
-            setTitle(e.target.value);
+            setBody(e.target.value);
             grow(e.currentTarget);
           }}
-          className="resize-none overflow-hidden border-none bg-transparent px-1 text-[16px] leading-relaxed text-[var(--text)] outline-none"
+          className="-mt-2 resize-none overflow-hidden border-none bg-transparent px-1 text-[16px] leading-relaxed text-[var(--text)] outline-none"
         />
 
         {/* Панель вложений сразу под строкой, а не у нижней кромки шторки:

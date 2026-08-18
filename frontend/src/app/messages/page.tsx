@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { useApiData } from '@/lib/useApiData';
 import { MessageThread, UserSummary } from '@/lib/types';
@@ -10,7 +10,7 @@ import { SkeletonList, SkeletonRow } from '@/components/Skeleton';
 import { formatCompactAge } from '@/lib/formatDate';
 import { useBlockedUsers } from '@/lib/blockedUsers';
 import { useScreenLeave } from '@/lib/useScreenLeave';
-import { holdBackdrop, releaseBackdrop } from '@/lib/screenBackdrop';
+import { holdBackdrop } from '@/lib/screenBackdrop';
 import { useT } from '@/lib/i18n';
 
 /**
@@ -29,21 +29,6 @@ export default function MessagesPage() {
   // нечем, кроме той же кнопки.
   const { goBack, style: leaveStyle, swipeHandlers } = useScreenLeave('[data-messages-button]');
 
-  // Снимок ленты держится под мессенджером всё время, пока он открыт, и
-  // снимается, когда уходим (см. screenBackdrop). Проверка маршрута нужна из-за
-  // двойного прогона эффектов в разработке — иначе первый же cleanup убрал бы
-  // снимок сразу после открытия.
-  useEffect(
-    () => () => {
-      // startsWith, а не строгое равенство. Уходя в переписку, список отдаёт
-      // снимок ей: чат тянется пальцем поверх него. Строгая проверка снимала
-      // снимок ровно в тот момент, когда он и нужен, — и за чатом снова
-      // оказывалась пустота.
-      if (!window.location.pathname.startsWith('/messages')) releaseBackdrop();
-    },
-    []
-  );
-
   const threadsResult = useApiData<MessageThread[]>('/messages/threads');
   // Переписки с заблокированными убираем из списка: смысл блокировки в том,
   // чтобы человек не попадался на глаза, а строка в мессенджере — ровно то
@@ -58,14 +43,7 @@ export default function MessagesPage() {
   const peopleResult = useApiData<UserSummary[]>(picking ? '/users' : null);
 
   return (
-    <div
-      // screen-opaque: под мессенджером лежит замороженный снимок ленты (он
-      // держится, чтобы закрытие не ждало её отрисовки). Экран прозрачен, и без
-      // собственного фона лента просвечивала сквозь список переписок.
-      className="screen-opaque flex flex-1 flex-col items-center"
-      style={leaveStyle}
-      {...swipeHandlers}
-    >
+    <div className="flex flex-1 flex-col items-center" style={leaveStyle} {...swipeHandlers}>
       <main className="below-header flex w-full max-w-2xl flex-col gap-2.5 px-2.5 pb-10">
         <div className="flex items-center gap-2 px-2">
           {/* Стрелка слева от заголовка. Мессенджер открывается из шапки, а не

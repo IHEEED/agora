@@ -15,7 +15,7 @@ export function AppGate({ children }: { children: React.ReactNode }) {
   const { session, loading } = useSession();
 
   if (loading) {
-    return <div className="min-h-screen bg-[var(--bg)]" />;
+    return <div className="min-h-[100dvh] bg-[var(--bg)]" />;
   }
 
   if (!session) {

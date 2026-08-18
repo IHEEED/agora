@@ -34,7 +34,7 @@ export function AuthScreen() {
     // ни вылезать за него, ни всплывать над карточкой формы.
     // Прижато к верху, а не по центру: на телефоне клавиатура забирает нижнюю
     // половину экрана, и отцентрованная форма уезжала бы под неё.
-    <div className="relative isolate flex min-h-screen flex-col items-center gap-7 overflow-hidden bg-[var(--bg)] px-6 pb-12 pt-[12vh]">
+    <div className="relative isolate flex min-h-[100dvh] flex-col items-center gap-7 overflow-hidden bg-[var(--bg)] px-6 pb-12 pt-[12vh]">
       <PixelWall />
 
       {/* Тем же знаком, что и в шапке приложения. Пиксельный шрифт ушёл

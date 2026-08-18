@@ -213,7 +213,7 @@ export default function ProfilePage() {
   // AppGate уже гарантировал сессию раньше, чем эта страница смонтировалась —
   // отдельный экран «войдите» здесь не нужен, разве что на миг до первого рендера.
   if (sessionLoading || !session) {
-    return <div className="min-h-screen" />;
+    return <div className="min-h-[100dvh]" />;
   }
 
   // Юзернейм выводим из почты: отдельного поля под него в профиле ещё нет.
@@ -380,7 +380,7 @@ export default function ProfilePage() {
 
             min-height, а не фиксированная высота: длинному списку она не
             мешает, а короткому не даёт утащить страницу за собой. */}
-        <section className="glass min-h-screen rounded-2xl px-4 pb-2">
+        <section className="glass min-h-[100dvh] rounded-2xl px-4 pb-2">
           {/* Тот же переключатель, что и в чужом профиле. Здесь стояли свои
               вкладки с полупрозрачной каплей и чертой под ними — те же три
               раздела, но нарисованные иначе, и переход между своим и чужим

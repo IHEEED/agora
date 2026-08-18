@@ -223,7 +223,7 @@ export default function UserProfilePage() {
             вкладками.
 
             min-height, а не фиксированная высота: длинному списку она не
-            мешает, а короткому не даёт утащить страницу за собой. */}        <section className="glass min-h-screen rounded-2xl px-4 pb-2">
+            мешает, а короткому не даёт утащить страницу за собой. */}        <section className="glass min-h-[100dvh] rounded-2xl px-4 pb-2">
           <div className="py-3">
             <SegmentedControl
               value={tab}

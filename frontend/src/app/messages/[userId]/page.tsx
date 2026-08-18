@@ -297,6 +297,9 @@ export default function ChatPage() {
   function onPointerDown(event: React.PointerEvent) {
     if (event.clientX > EDGE_ZONE || leaveGuard.current) return;
     dragFrom.current = event.clientX;
+    // Перехватываем указатель: иначе курсор, ушедший за пределы экрана,
+    // перестаёт слать события и переписка застревает на полпути.
+    event.currentTarget.setPointerCapture?.(event.pointerId);
     document.documentElement.dataset.chatDragging = '1';
     setDragging(true);
   }
@@ -560,6 +563,9 @@ export default function ChatPage() {
         transform: dragX ? `translateX(${dragX}px)` : 'none',
         // Пока тянут пальцем — без перехода, иначе экран отстаёт от руки.
         transition: dragging ? 'none' : 'transform var(--enter-ms) var(--enter-ease)',
+        // Вертикаль остаётся браузеру, горизонталь забираем себе: иначе жест от
+        // кромки уходит в системный «назад» и переписка за пальцем не идёт.
+        touchAction: 'pan-y',
       }}
     >
       <main className="below-header relative flex w-full max-w-2xl flex-1 flex-col px-2.5 pb-28">

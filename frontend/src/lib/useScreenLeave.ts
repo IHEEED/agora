@@ -90,10 +90,18 @@ export function useScreenLeave(fold?: string) {
   const onBack = useCallback(() => goBack(0), [goBack]);
 
   function onPointerDown(event: React.PointerEvent) {
-    // Мышь исключена намеренно: на настольном экране протаскивание от левого
-    // края — это выделение текста, а не навигация.
-    if (event.pointerType === 'mouse' || event.clientX > EDGE_ZONE || going.current) return;
+    // Мышь тоже тянет.
+    //
+    // Раньше она была исключена: считалось, что протаскивание от левого края на
+    // настольном экране — это выделение текста. На кромке в тридцать два
+    // пикселя выделять нечего (там поле колонки), а жест человек ищет один и
+    // тот же независимо от того, палец у него или курсор. Отказ работал ровно
+    // как «свайпов нигде нет».
+    if (event.clientX > EDGE_ZONE || going.current) return;
     from.current = event.clientX;
+    // Перехватываем указатель: без этого курсор, ушедший за пределы узла,
+    // перестаёт слать события, и экран замирает на полпути.
+    event.currentTarget.setPointerCapture?.(event.pointerId);
     setDragging(true);
   }
 
@@ -128,6 +136,10 @@ export function useScreenLeave(fold?: string) {
     transform: dragX ? `translateX(${dragX}px)` : 'none',
     // Пока тянут пальцем — без перехода, иначе экран отстаёт от руки.
     transition: dragging ? 'none' : 'transform var(--enter-ms) var(--enter-ease)',
+    // Вертикальную прокрутку браузер обрабатывает сам, горизонтальную забираем
+    // себе. Без этого на телефоне жест от кромки уходил в системный «назад»
+    // или в прокрутку, и экран за пальцем не шёл.
+    touchAction: 'pan-y',
   };
 
   return { goBack: onBack, style, swipeHandlers };
