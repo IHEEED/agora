@@ -1,3 +1,7 @@
+// Первым импортом, до всего остального: он настраивает пул соединений, и
+// клиент Supabase должен создаваться уже с ним (см. config/http).
+import './config/http';
+import { supabase } from './config/supabase';
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
@@ -55,4 +59,24 @@ app.use('/stories', storiesRouter);
 
 app.listen(port, () => {
   console.log(`Server running on http://localhost:${port}`);
+
+  /**
+   * Греем соединение до Supabase сразу, не дожидаясь первого посетителя.
+   *
+   * Первое обращение платит за DNS, TCP и TLS — по замерам от двух до
+   * двенадцати секунд, и достаётся этот счёт тому, кто открыл приложение
+   * первым. Дальше соединение живёт в пуле и запросы идут за сотни
+   * миллисекунд (см. config/http).
+   *
+   * Ответ не нужен и ошибка не важна: единственная задача запроса — открыть
+   * соединение. Поэтому и таблица взята самая маленькая, с limit 1.
+   */
+  void (async () => {
+    try {
+      await supabase.from('users').select('id').limit(1);
+      console.log('Supabase: соединение прогрето');
+    } catch {
+      // Не важно: соединение открылось даже если запрос не удался.
+    }
+  })();
 });
