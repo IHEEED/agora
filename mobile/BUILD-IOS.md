@@ -38,6 +38,11 @@ Instagram и Threads рисует не приложение, а сама iOS: `U
 cd C:\Users\fbodr\agora\mobile
 ```
 
+Если терминал отвечает, что `eas` не найден, — он открыт раньше, чем eas-cli
+установился, и держит устаревший PATH. Либо откройте новое окно, либо зовите
+по полному пути: `C:\Users\fbodr\AppData\Roaming\npm\eas.cmd`
+вместо `eas`.
+
 ```powershell
 eas login
 ```
