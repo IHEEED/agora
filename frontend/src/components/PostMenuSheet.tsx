@@ -17,9 +17,9 @@ const REPORT_REASONS: TranslationKey[] = [
   'reason.other',
 ];
 
-type Step = 'menu' | 'report' | 'done';
+type Step = 'menu' | 'story' | 'report' | 'done';
 
-const STEPS: readonly Step[] = ['menu', 'report', 'done'];
+const STEPS: readonly Step[] = ['menu', 'story', 'report', 'done'];
 
 type Item = {
   key: string;
@@ -71,11 +71,13 @@ export function PostMenuSheet({
   // Отправлено ли в историю. Ставим до ответа сервера: действие мгновенное по
   // ощущению, а откатываем только на ошибке.
   const [sentToStory, setSentToStory] = useState(false);
+  const [sending, setSending] = useState(false);
   const [storyError, setStoryError] = useState<string | null>(null);
 
   const stackRef = useRef<HTMLDivElement>(null);
   const stepRefs = useRef<Record<Step, HTMLDivElement | null>>({
     menu: null,
+    story: null,
     report: null,
     done: null,
   });
@@ -170,17 +172,11 @@ export function PostMenuSheet({
           <path d="M12 8.6v6.8M8.6 12h6.8" />
         </>
       ),
-      onSelect: async () => {
-        if (sentToStory) return;
-        setSentToStory(true);
-        try {
-          await apiFetch('/stories', { method: 'POST', body: JSON.stringify({ post_id: postId }) });
-          invalidate('/stories');
-        } catch (err) {
-          setSentToStory(false);
-          setStoryError(err instanceof Error ? err.message : 'Не удалось');
-        }
-      },
+      // Не отправляем сразу. История висит сутки и видна всем, кто читает
+      // автора, — это публикация, а не пометка «нравится». Отменить её потом
+      // можно, но человек к этому моменту уже показал запись тем, кому,
+      // возможно, не собирался.
+      onSelect: () => setStep('story'),
     });
   }
 
@@ -205,9 +201,11 @@ export function PostMenuSheet({
   const title =
     step === 'menu'
       ? t('post.menuTitle')
-      : step === 'report'
-        ? t('post.reportTitle')
-        : t('post.reportDone');
+      : step === 'story'
+        ? t('story.confirmTitle')
+        : step === 'report'
+          ? t('post.reportTitle')
+          : t('post.reportDone');
 
   /** Оформление одного шага: активный в кадре, соседние разъехались по краям. */
   function stepStyle(name: Step): React.CSSProperties {
@@ -260,6 +258,59 @@ export function PostMenuSheet({
                 {storyError}
               </p>
             )}
+          </div>
+        </div>
+
+        <div
+          ref={(node) => {
+            stepRefs.current.story = node;
+          }}
+          style={stepStyle('story')}
+        >
+          <div className="flex flex-col gap-4 px-1 py-2" style={padBottom}>
+            <p className="text-[14.5px] leading-relaxed text-[var(--text)]">
+              {t('story.confirmBody')}
+            </p>
+            {storyError && (
+              <p className="text-[12.5px]" style={{ color: 'var(--down)' }}>
+                {storyError}
+              </p>
+            )}
+            <div className="flex gap-2.5">
+              <button
+                type="button"
+                onClick={() => setStep('menu')}
+                className="flex-1 rounded-full py-2.5 text-[14px] font-medium transition-transform active:scale-[0.98]"
+                style={{ background: 'var(--surface-2)', color: 'var(--text)' }}
+              >
+                {t('action.cancel')}
+              </button>
+              <button
+                type="button"
+                disabled={sending}
+                onClick={async () => {
+                  setSending(true);
+                  setStoryError(null);
+                  try {
+                    await apiFetch('/stories', {
+                      method: 'POST',
+                      body: JSON.stringify({ post_id: postId }),
+                    });
+                    invalidate('/stories');
+                    setSentToStory(true);
+                    onClose();
+                  } catch (err) {
+                    setStoryError(err instanceof Error ? err.message : 'Не удалось');
+                  } finally {
+                    setSending(false);
+                  }
+                }}
+                className="flex-1 rounded-full py-2.5 text-[14px] font-semibold transition-transform active:scale-[0.98] disabled:opacity-60"
+                style={{ background: 'var(--accent)', color: 'var(--accent-contrast)' }}
+              >
+                {t('story.confirmAction')}
+              </button>
+            </div>
           </div>
         </div>
 

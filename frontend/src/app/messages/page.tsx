@@ -58,7 +58,14 @@ export default function MessagesPage() {
   const peopleResult = useApiData<UserSummary[]>(picking ? '/users' : null);
 
   return (
-    <div className="flex flex-1 flex-col items-center" style={leaveStyle} {...swipeHandlers}>
+    <div
+      // screen-opaque: под мессенджером лежит замороженный снимок ленты (он
+      // держится, чтобы закрытие не ждало её отрисовки). Экран прозрачен, и без
+      // собственного фона лента просвечивала сквозь список переписок.
+      className="screen-opaque flex flex-1 flex-col items-center"
+      style={leaveStyle}
+      {...swipeHandlers}
+    >
       <main className="below-header flex w-full max-w-2xl flex-col gap-2.5 px-2.5 pb-10">
         <div className="flex items-center gap-2 px-2">
           {/* Стрелка слева от заголовка. Мессенджер открывается из шапки, а не

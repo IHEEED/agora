@@ -16,6 +16,21 @@ import { StoryGroup, StoryItem } from '@/lib/types';
 import { apiFetch } from '@/lib/api';
 import { useT } from '@/lib/i18n';
 
+/**
+ * Разворот из кружка и складывание обратно.
+ *
+ * Одно число на оба конца: открытие и закрытие — это один и тот же путь, просто
+ * пройденный в разные стороны, и разная длительность превращала бы возврат в
+ * другое движение. Сто двадцать миллисекунд — у самой границы, за которой глаз
+ * перестаёт видеть путь и видит подмену кадра; здесь путь ещё читается, но
+ * ждать его уже не приходится.
+ *
+ * Прежние 320 на вход и 260 на выход были той самой «долгой» анимацией: история
+ * открывается по нажатию на кружок, и всё, что дольше трети секунды, стоит
+ * между нажатием и тем, ради чего нажимали.
+ */
+const STORY_MORPH_MS = 120;
+
 /** Сколько держится один кадр, если его не пролистали. */
 const FRAME_MS = 5000;
 
@@ -152,7 +167,7 @@ export function StoryViewer({
         ];
 
     const animation = panel.animate(frames, {
-      duration: 260,
+      duration: STORY_MORPH_MS,
       easing: 'cubic-bezier(0.4, 0, 1, 1)',
       fill: 'forwards',
     });
@@ -303,7 +318,7 @@ export function StoryViewer({
         },
         { transform: 'none', borderRadius: '0px', opacity: 1 },
       ],
-      { duration: 320, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' }
+      { duration: STORY_MORPH_MS, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' }
     );
   }, [open, origin]);
 
