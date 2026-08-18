@@ -15,6 +15,10 @@ import { formatCompactAge } from '@/lib/formatDate';
 import { StoryGroup, StoryItem } from '@/lib/types';
 import { apiFetch } from '@/lib/api';
 import { useT } from '@/lib/i18n';
+import { haptic } from '@/lib/haptics';
+import { setStoriesHidden, useAreStoriesHidden } from '@/lib/hiddenStories';
+import { BottomSheet } from '@/components/BottomSheet';
+import { useRouter } from 'next/navigation';
 
 /**
  * Разворот из кружка и складывание обратно.
@@ -118,6 +122,7 @@ export function StoryViewer({
   onClose: () => void;
 }) {
   const { t } = useT();
+  const router = useRouter();
   const mounted = useSyncExternalStore(
     () => () => {},
     () => true,
@@ -188,6 +193,27 @@ export function StoryViewer({
    * Без этого значения полоска после отпускания прыгала бы к началу кадра.
    */
   const [resumeFrom, setResumeFrom] = useState(0);
+  // Действия над записью, из которой сделана история. Ставим отметку сразу и
+  // не откатываем: промах здесь ничего не ломает, а мигающая кнопка — ломает.
+  const [liked, setLiked] = useState(false);
+  const [reposted, setReposted] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const hidden = useAreStoriesHidden(story?.author.id);
+
+  function likePost(postId: string) {
+    haptic();
+    setLiked(true);
+    apiFetch('/votes', {
+      method: 'POST',
+      body: JSON.stringify({ post_id: postId, value: 1 }),
+    }).catch(() => setLiked(false));
+  }
+
+  function repostPost(postId: string) {
+    haptic();
+    setReposted(true);
+    apiFetch(`/posts/${postId}/repost`, { method: 'POST' }).catch(() => setReposted(false));
+  }
 
   // Новая история — с первого кадра. Правим в рендере, а не эффектом: иначе
   // между сменой истории и сбросом кадра проходит лишняя отрисовка, в которой
@@ -332,6 +358,7 @@ export function StoryViewer({
   const dismiss = Math.min(1, dragY / 220);
 
   return createPortal(
+    <>
     <div
       className="fixed inset-0 z-[96] flex items-center justify-center"
       style={{
@@ -434,28 +461,194 @@ export function StoryViewer({
           </button>
         </div>
 
-        {/* Ссылка на саму запись: история — витрина, а обсуждение живёт в ленте.
-            Ниже кадра, поверх затемнения, и нажатие по ней не листает. */}
-        {item.postId && (
-        <Link
-          href={`/posts/${item.postId}`}
-          onClick={(event) => event.stopPropagation()}
+        {/* Ряд действий поверх кадра.
+            Всё, что здесь есть, относится к записи, из которой сделана история:
+            история — окно в неё, а не самостоятельная публикация. Поэтому
+            «нравится» ставится записи, репост уходит записи, а обсуждение
+            остаётся в записи. Заводить истории собственные счётчики значило бы
+            разложить один разговор по двум местам.
+
+            Нажатия не листают кадр: каждое действие гасит событие у себя. */}
+        <div
+          className="absolute inset-x-0 flex items-center justify-center gap-2 px-3"
+          style={{ bottom: 'calc(16px + env(safe-area-inset-bottom))' }}
           onPointerDown={(event) => event.stopPropagation()}
-          className="absolute left-1/2 flex -translate-x-1/2 items-center gap-1.5 rounded-full px-4 py-2 text-[13px] font-medium text-white"
-          style={{
-            bottom: 'calc(16px + env(safe-area-inset-bottom))',
-            background: 'rgba(255,255,255,0.16)',
-            backdropFilter: 'blur(14px)',
-          }}
+          onPointerUp={(event) => event.stopPropagation()}
         >
-          {t('story.readFull')}
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="m9 6 6 6-6 6" />
-          </svg>
-        </Link>
-        )}
+          {item.postId && (
+            <>
+              <StoryAction
+                label={liked ? 'Нравится' : 'Нравится'}
+                active={liked}
+                onClick={() => likePost(item.postId!)}
+              >
+                <path d="M12 20.5S3.8 15.4 3.8 9.9A4.6 4.6 0 0 1 12 7a4.6 4.6 0 0 1 8.2 2.9c0 5.5-8.2 10.6-8.2 10.6Z" />
+              </StoryAction>
+
+              <StoryAction
+                label="Репост"
+                active={reposted}
+                onClick={() => repostPost(item.postId!)}
+              >
+                <path d="M4 9.5A3.5 3.5 0 0 1 7.5 6H18m0 0-3-3m3 3-3 3" />
+                <path d="M20 14.5a3.5 3.5 0 0 1-3.5 3.5H6m0 0 3 3m-3-3 3-3" />
+              </StoryAction>
+
+              <Link
+                href={`/posts/${item.postId}`}
+                onClick={(event) => event.stopPropagation()}
+                className="flex items-center gap-1.5 rounded-full px-3.5 py-2 text-[13px] font-medium text-white"
+                style={{ background: 'rgba(255,255,255,0.16)', backdropFilter: 'blur(14px)' }}
+              >
+                {t('story.readFull')}
+              </Link>
+            </>
+          )}
+
+          {/* Ответ уходит в личные сообщения, а не в комментарии под записью:
+              на историю отвечают ей самой и её автору, а не залу. */}
+          {story.author.id && (
+            <StoryAction
+              label="Ответить в личные"
+              onClick={() => {
+                closeSmoothly();
+                router.push(`/messages/${story.author.id}`);
+              }}
+            >
+              <path d="M11 5.5 4 12l7 6.5V15c4 0 7 1.2 9 4-.6-4.8-3.6-8.4-9-9Z" />
+            </StoryAction>
+          )}
+
+          <StoryAction label="Ещё" onClick={() => setMenuOpen(true)}>
+            <circle cx="5" cy="12" r="1.6" fill="currentColor" stroke="none" />
+            <circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none" />
+            <circle cx="19" cy="12" r="1.6" fill="currentColor" stroke="none" />
+          </StoryAction>
+        </div>
       </div>
-    </div>,
+    </div>
+
+      <StoryMenu
+        open={menuOpen}
+        onClose={() => setMenuOpen(false)}
+        postId={item.postId}
+        hidden={hidden}
+        onToggleHidden={() => {
+          if (story.author.id) setStoriesHidden(story.author.id, !hidden);
+          setMenuOpen(false);
+          closeSmoothly();
+        }}
+      />
+    </>,
     document.body
+  );
+}
+
+/**
+ * Кнопка поверх кадра. Не из палитры: она лежит на произвольной фотографии, и
+ * читаться обязана одинаково на светлой и на тёмной — отсюда белое на дымке.
+ */
+function StoryAction({
+  label,
+  active,
+  onClick,
+  children,
+}: {
+  label: string;
+  active?: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={(event) => {
+        event.stopPropagation();
+        onClick();
+      }}
+      aria-label={label}
+      aria-pressed={active}
+      className="flex h-10 w-10 flex-none items-center justify-center rounded-full text-white transition-transform active:scale-90"
+      style={{
+        background: active ? 'rgba(255,255,255,0.34)' : 'rgba(255,255,255,0.16)',
+        backdropFilter: 'blur(14px)',
+      }}
+    >
+      <svg width="19" height="19" viewBox="0 0 24 24" fill={active ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+        {children}
+      </svg>
+    </button>
+  );
+}
+
+/**
+ * «Ещё» над историей: поделиться, скопировать ссылку, скрыть, пожаловаться.
+ *
+ * Отдельным компонентом, а не веткой внутри просмотрщика: там он оказывался
+ * посреди разметки кадра, между полосками прогресса и кнопками, и читать это
+ * место становилось незачем — оно про совсем другое.
+ */
+function StoryMenu({
+  open,
+  onClose,
+  postId,
+  hidden,
+  onToggleHidden,
+}: {
+  open: boolean;
+  onClose: () => void;
+  /** Есть только у историй, сделанных из записи: делиться иначе нечем. */
+  postId: string | null;
+  hidden: boolean;
+  onToggleHidden: () => void;
+}) {
+  const { t } = useT();
+  const url = postId && typeof window !== 'undefined' ? `${window.location.origin}/posts/${postId}` : null;
+
+  const rows = [
+    url && {
+      key: 'share',
+      label: t('share.title'),
+      onSelect: () => {
+        if (navigator.share) navigator.share({ url }).catch(() => undefined);
+        else navigator.clipboard?.writeText(url).catch(() => undefined);
+        onClose();
+      },
+    },
+    url && {
+      key: 'copy',
+      label: t('action.copyLink'),
+      onSelect: () => {
+        navigator.clipboard?.writeText(url).catch(() => undefined);
+        onClose();
+      },
+    },
+    {
+      key: 'hide',
+      label: hidden ? 'Показывать истории' : 'Скрыть истории',
+      onSelect: onToggleHidden,
+    },
+    { key: 'report', label: t('action.report'), danger: true, onSelect: onClose },
+  ].filter(Boolean) as { key: string; label: string; danger?: boolean; onSelect: () => void }[];
+
+  return (
+    <BottomSheet open={open} onClose={onClose} title="История" height="auto">
+      <div
+        className="flex flex-col py-1"
+        style={{ paddingBottom: 'calc(18px + env(safe-area-inset-bottom))' }}
+      >
+        {rows.map((row) => (
+          <button
+            key={row.key}
+            type="button"
+            onClick={row.onSelect}
+            className="rounded-xl px-1 py-3.5 text-left text-[15px] transition-colors hover:bg-[var(--surface-2)]"
+            style={{ color: row.danger ? 'var(--down)' : 'var(--text)' }}
+          >
+            {row.label}
+          </button>
+        ))}
+      </div>
+    </BottomSheet>
   );
 }

@@ -11,6 +11,7 @@ import { StoriesBar } from '@/components/StoriesBar';
 import { DefaultAvatar } from '@/components/DefaultAvatar';
 import { SuggestedPeople } from '@/components/SuggestedPeople';
 import { useBlockedUsers } from '@/lib/blockedUsers';
+import { useHiddenStorytellers } from '@/lib/hiddenStories';
 import { SkeletonList, SkeletonPost } from '@/components/Skeleton';
 import { OverlayLink } from '@/components/OverlayLink';
 import { useT } from '@/lib/i18n';
@@ -41,9 +42,15 @@ export default function FeedPage() {
   // Заблокированных отсеиваем здесь же: список живёт на устройстве, сервер о
   // нём не знает.
   const storyGroups = useApiData<StoryGroup[]>('/stories').data;
+  // Плюс те, чьи истории человек скрыл: это настройка своего экрана, а не
+  // отношение к автору — его записи в ленте остаются (см. hiddenStories).
+  const hiddenStories = useHiddenStorytellers();
   const stories = useMemo(
-    () => (storyGroups ?? []).filter((group) => !blocked.includes(group.author.id)),
-    [storyGroups, blocked]
+    () =>
+      (storyGroups ?? []).filter(
+        (group) => !blocked.includes(group.author.id) && !hiddenStories.includes(group.author.id)
+      ),
+    [storyGroups, blocked, hiddenStories]
   );
 
   return (

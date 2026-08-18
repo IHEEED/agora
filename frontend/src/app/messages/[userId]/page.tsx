@@ -170,19 +170,15 @@ export default function ChatPage() {
   }, [userId, messages.length]);
 
   // Бар уезжает вниз: на этом экране его место занимает строка ввода.
-  // Заодно поднимаем обои переписки: сам слой живёт в разметке приложения, вне
-  // анимируемого дерева (см. Wallpaper), а этот атрибут его показывает.
+  // Атрибут на корне нужен ещё и стилям: под переписку поднимается снимок
+  // предыдущего экрана, и она обязана его закрывать (см. globals.css).
   useEffect(() => {
     const root = document.documentElement;
     setNavHidden(true);
     root.dataset.inChat = '1';
     return () => {
       setNavHidden(false);
-      // Атрибут снимаем сразу: обои гаснут прозрачностью и успевают уйти
-      // плавно, пока экран уезжает (см. .chat-wallpaper в globals.css).
-      delete document.documentElement.dataset.inChat;
-      root.style.removeProperty('--chat-wall-fade');
-      delete root.dataset.chatDragging;
+      delete root.dataset.inChat;
     };
   }, []);
 
@@ -270,9 +266,6 @@ export default function ChatPage() {
     if (leaveGuard.current) return;
     leaveGuard.current = true;
     markGoingBack();
-    // Обои уходят вместе со слоем, а не сами по себе: их прозрачность привязана
-    // к тому же движению вправо (см. --chat-wall-fade).
-    document.documentElement.style.setProperty('--chat-wall-fade', '0');
     peelScreen(screenRef.current, fromX);
     // Замороженный список больше не нужен: сверху уже лежит снимок переписки, и
     // держать под ним копию списка рядом с настоящим значит показывать два
@@ -283,20 +276,6 @@ export default function ChatPage() {
 
   /** Для onClick: обработчик получил бы событие вместо сдвига. */
   const onLeave = useCallback(() => leave(0), [leave]);
-
-  /**
-   * Обои гаснут ровно на ту долю, на которую экран уехал вправо.
-   *
-   * Не «через полсекунды после ухода» и не «мгновенно»: фон занимает всю
-   * площадь экрана, и любая его собственная жизнь, не связанная с рукой,
-   * читается как рывок. Пока палец ведёт — обои ведут себя как часть того же
-   * листа; отпустили назад — возвращаются вместе с ним.
-   */
-  function fadeWallpaper(shift: number) {
-    const root = document.documentElement;
-    const share = Math.min(1, Math.max(0, shift / window.innerWidth));
-    root.style.setProperty('--chat-wall-fade', String(1 - share));
-  }
 
   function onPointerDown(event: React.PointerEvent) {
     if (event.clientX > EDGE_ZONE || leaveGuard.current) return;
@@ -310,9 +289,7 @@ export default function ChatPage() {
 
   function onPointerMove(event: React.PointerEvent) {
     if (dragFrom.current === null) return;
-    const shift = Math.max(0, event.clientX - dragFrom.current);
-    setDragX(shift);
-    fadeWallpaper(shift);
+    setDragX(Math.max(0, event.clientX - dragFrom.current));
   }
 
   function onPointerUp() {
@@ -320,18 +297,10 @@ export default function ChatPage() {
     const far = dragX > window.innerWidth / 3;
     dragFrom.current = null;
     setDragging(false);
-    const root = document.documentElement;
-    // Переход обратно включаем в любом случае: и возврат на место, и досыл
-    // вправо дальше идут анимацией, а не рукой.
-    delete root.dataset.chatDragging;
     if (far) {
-      // Дотягиваем гашение до конца за то же время, что едет слой.
-      root.style.setProperty('--chat-wall-fade', '0');
       haptic('unlock');
       // Слой продолжает движение с того сдвига, на котором отпустили.
       leave(dragX);
-    } else {
-      root.style.removeProperty('--chat-wall-fade');
     }
     setDragX(0);
   }

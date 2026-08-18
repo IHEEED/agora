@@ -199,9 +199,6 @@ const DICTIONARY = {
     'person.unblock': 'Разблокировать',
     'story.readFull': 'Читать целиком',
     'story.yours': 'Ваша история',
-    'settings.chatWall': 'Обои переписки',
-    'settings.wallpaperOff': 'Без',
-    'settings.chatWallHint': 'Фон под сообщениями. Виден только вам.',
     'settings.style': 'Стиль',
     'settings.styleHint':
       'Фон, цвета, шрифт заголовков и фактура подобраны вместе — стиль меняется целиком.',
@@ -419,9 +416,6 @@ const DICTIONARY = {
     'person.unblock': 'Unblock',
     'story.readFull': 'Read in full',
     'story.yours': 'Your story',
-    'settings.chatWall': 'Chat wallpaper',
-    'settings.wallpaperOff': 'None',
-    'settings.chatWallHint': 'The backdrop behind messages. Only you see it.',
     'settings.style': 'Style',
     'settings.styleHint':
       'Background, colours, heading type and texture are chosen together — the style changes as a whole.',
@@ -639,9 +633,6 @@ const DICTIONARY = {
     'person.unblock': 'Desbloquear',
     'story.readFull': 'Leer completo',
     'story.yours': 'Tu historia',
-    'settings.chatWall': 'Fondo del chat',
-    'settings.wallpaperOff': 'Sin',
-    'settings.chatWallHint': 'El fondo tras los mensajes. Solo tú lo ves.',
     'settings.style': 'Estilo',
     'settings.styleHint':
       'Fondo, colores, tipografía de titulares y textura van juntos: el estilo cambia entero.',

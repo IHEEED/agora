@@ -32,34 +32,14 @@ export type StyleId = 'chronicle' | 'atelier' | 'midnight' | 'garden' | 'signal'
  * они при этом не трогают: обои, лезущие в ленту, — это уже не оформление,
  * а помеха чтению.
  */
-export type ChatWallId =
-  | 'none'
-  | 'style'
-  | 'dawn'
-  | 'sea'
-  | 'dusk'
-  | 'grove'
-  | 'powder'
-  | 'graphite';
 
 export const THEME_STORAGE_KEY = 'parafraz-theme';
 export const STYLE_STORAGE_KEY = 'parafraz-style';
-export const CHAT_WALL_STORAGE_KEY = 'parafraz-chat-wall';
 
 /**
  * Только идентификаторы и подписи: сами оттенки живут в globals.css рядом с
  * градиентом, который их читает, и оттуда же их берёт образец в настройках.
  */
-export const CHAT_WALLS: ReadonlyArray<{ id: ChatWallId; label: string }> = [
-  { id: 'none', label: 'Без обоев' },
-  { id: 'style', label: 'По стилю' },
-  { id: 'dawn', label: 'Рассвет' },
-  { id: 'sea', label: 'Море' },
-  { id: 'dusk', label: 'Сумерки' },
-  { id: 'grove', label: 'Роща' },
-  { id: 'powder', label: 'Пудра' },
-  { id: 'graphite', label: 'Графит' },
-];
 
 /**
  * Описания для карточек выбора в настройках.
@@ -202,12 +182,4 @@ export function readStyle(): StyleId {
  * а анимировать то, чего человек сейчас не видит, — впустую гонять снимок
  * всей страницы через видеокарту.
  */
-export function applyChatWall(wall: ChatWallId) {
-  document.documentElement.setAttribute('data-chat-wall', wall);
-  window.localStorage.setItem(CHAT_WALL_STORAGE_KEY, wall);
-}
 
-export function readChatWall(): ChatWallId {
-  const stored = window.localStorage.getItem(CHAT_WALL_STORAGE_KEY);
-  return CHAT_WALLS.some((w) => w.id === stored) ? (stored as ChatWallId) : 'none';
-}

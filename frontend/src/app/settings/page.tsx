@@ -7,16 +7,12 @@ import { haptic } from '@/lib/haptics';
 import { useSession } from '@/lib/useSession';
 import { usePhoneGate } from '@/components/PhoneGateContext';
 import {
-  CHAT_WALLS,
-  ChatWallId,
   DEFAULT_STYLE,
   STYLES,
   StyleId,
   ThemePreference,
-  applyChatWall,
   applyStyle,
   applyTheme,
-  readChatWall,
   readStyle,
   readThemePreference,
 } from '@/lib/appearance';
@@ -200,7 +196,6 @@ export default function SettingsPage() {
   // иначе серверный рендер разойдётся с localStorage.
   const [theme, setTheme] = useState<ThemePreference | null>(null);
   const [style, setStyle] = useState<StyleId | null>(null);
-  const [chatWall, setChatWall] = useState<ChatWallId | null>(null);
   // Образцы рисуются в той теме, что сейчас на экране, — иначе тёмный стиль
   // предлагался бы светлой плашкой и наоборот. «Системную» для этого
   // приходится разрешить в конкретное значение.
@@ -214,7 +209,6 @@ export default function SettingsPage() {
   useEffect(() => {
     setTheme(readThemePreference());
     setStyle(readStyle());
-    setChatWall(readChatWall());
   }, []);
 
   // При «системной» теме следим за настройкой ОС и переключаемся вместе с ней.
@@ -241,10 +235,6 @@ export default function SettingsPage() {
     applyStyle(next);
   }
 
-  function chooseChatWall(next: ChatWallId) {
-    setChatWall(next);
-    applyChatWall(next);
-  }
 
   const phoneVerified = Boolean(session?.user.phone_confirmed_at);
 
@@ -323,43 +313,6 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          {/* Обои переписки живут здесь, а не в самом чате: это настройка, а не
-              действие, и менять её посреди разговора незачем. */}
-          <div className="mt-4 border-t border-[var(--border)] pt-4">
-            <p className="text-[15px] text-[var(--text)]">{t('settings.chatWall')}</p>
-            <p className="mb-3 text-[12.5px] leading-snug text-[var(--text-muted)]">
-              {t('settings.chatWallHint')}
-            </p>
-            <div className="grid grid-cols-4 gap-2.5">
-              {CHAT_WALLS.map((option) => {
-                const selected = chatWall === option.id;
-                return (
-                  <button
-                    key={option.id}
-                    onClick={() => chooseChatWall(option.id)}
-                    title={option.label}
-                    aria-label={option.label}
-                    aria-pressed={selected}
-                    className="chat-wall-swatch flex items-center justify-center transition-transform active:scale-95"
-                    // Тот же атрибут, что и на <html>: оттенки образец берёт из
-                    // общего правила, а не из второй копии палитры.
-                    data-chat-wall={option.id}
-                    style={{
-                      boxShadow: selected
-                        ? '0 0 0 2px var(--surface), 0 0 0 4px var(--accent)'
-                        : 'none',
-                    }}
-                  >
-                    {option.id === 'none' && (
-                      <span className="text-[11px] text-[var(--text-muted)]">
-                        {t('settings.wallpaperOff')}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
 
           <div className="mt-4 flex flex-col gap-2 border-t border-[var(--border)] pt-4">
             <span className="text-[15px] text-[var(--text)]">{t('settings.language')}</span>

@@ -42,6 +42,17 @@ export function ImageViewer({
   const [drag, setDrag] = useState({ x: 0, y: 0 });
   const [dragging, setDragging] = useState(false);
   const from = useRef<{ x: number; y: number } | null>(null);
+  /**
+   * Текущий сдвиг — ещё и в ref, не только в состоянии.
+   *
+   * Состояние нужно отрисовке, а решение «пролистали или вернулись» принимается
+   * в момент отпускания и обязано опираться на настоящую величину. Обработчик
+   * же видит то значение, что было на его рендере: React успевает применить
+   * setDrag не всегда, и быстрый короткий взмах — когда движение и отпускание
+   * попадают в один кадр — читался как нулевой сдвиг. Со стороны это ровно
+   * «крупнее не листается».
+   */
+  const offset = useRef({ x: 0, y: 0 });
   // Какую ось человек выбрал первым движением. Без фиксации картинка ездила
   // по диагонали и не понимала, листают её или закрывают.
   const axis = useRef<'x' | 'y' | null>(null);
@@ -79,6 +90,9 @@ export function ImageViewer({
   function onPointerDown(event: React.PointerEvent) {
     from.current = { x: event.clientX, y: event.clientY };
     axis.current = null;
+    // Без захвата указатель, ушедший за пределы окна или на элемент выше,
+    // перестаёт слать события — картинка застревает на полпути.
+    event.currentTarget.setPointerCapture?.(event.pointerId);
     setDragging(true);
   }
 
@@ -89,16 +103,18 @@ export function ImageViewer({
     if (!axis.current && Math.hypot(dx, dy) > 8) {
       axis.current = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
     }
-    if (axis.current === 'x') setDrag({ x: dx, y: 0 });
+    if (axis.current === 'x') offset.current = { x: dx, y: 0 };
     // Вверх не тянем: закрывать движением вверх некуда — там шапка.
-    if (axis.current === 'y') setDrag({ x: 0, y: Math.max(0, dy) });
+    if (axis.current === 'y') offset.current = { x: 0, y: Math.max(0, dy) };
+    setDrag(offset.current);
   }
 
   function onPointerUp() {
     if (!from.current) return;
-    const { x, y } = drag;
+    const { x, y } = offset.current;
     from.current = null;
     axis.current = null;
+    offset.current = { x: 0, y: 0 };
     setDragging(false);
     setDrag({ x: 0, y: 0 });
 
@@ -121,6 +137,12 @@ export function ImageViewer({
       className="fixed inset-0 z-[95] flex items-center justify-center"
       style={{
         background: `rgba(0, 0, 0, ${0.94 - dismissProgress * 0.5})`,
+        // Жест целиком наш: и вбок, и вниз. touch-action по умолчанию отдаёт
+        // горизонталь браузеру, и на телефоне палец просто ничего не двигал —
+        // это и было «крупнее не листается». Выделение отключаем по той же
+        // причине: мышью протаскивание по картинке начиналось как выделение.
+        touchAction: 'none',
+        userSelect: 'none',
         // Затемнение появляется само, а картинка приезжает из мелкого масштаба —
         // как будто её вынули из ленты, а не открыли отдельным экраном.
         animation: 'image-viewer-in 200ms cubic-bezier(0.22, 1, 0.36, 1)',
