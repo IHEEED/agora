@@ -1,5 +1,5 @@
 @echo off
-rem Vhod v Expo.
+rem Proverka: nahoditsya li eas-cli i kto voshel.
 cd /d "%~dp0"
 
 rem Ishem eas-cli po ochered: shim v APPDATA, potom PATH, potom pryamoy
@@ -20,16 +20,21 @@ if not defined EAS (
   exit /b 1
 )
 
-echo Vhod v Expo. Sprosit login i parol s expo.dev.
-echo Parol pri vvode ne otobrazhaetsya - eto normalno.
+echo Nashel eas: %EAS%
 echo.
 echo %EAS% | find "node|" >nul
 if errorlevel 1 (
-  call "%EAS%" login
+  call "%EAS%" --version
 ) else (
-  for /f "tokens=1,* delims=|" %%a in ("%EAS%") do call node "%%b" login
+  for /f "tokens=1,* delims=|" %%a in ("%EAS%") do call node "%%b" --version
+)
+
+echo %EAS% | find "node|" >nul
+if errorlevel 1 (
+  call "%EAS%" whoami
+) else (
+  for /f "tokens=1,* delims=|" %%a in ("%EAS%") do call node "%%b" whoami
 )
 
 echo.
-echo Gotovo. Dalshe zapustite ios-build.cmd
 pause
