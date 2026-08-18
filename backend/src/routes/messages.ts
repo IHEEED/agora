@@ -17,9 +17,12 @@ type MessageRow = {
   id: string;
   sender_id: string;
   recipient_id: string;
-  body: string;
+  body: string | null;
   created_at: string;
   read_at: string | null;
+  image_url?: string | null;
+  audio_url?: string | null;
+  audio_seconds?: number | null;
 };
 
 /** Сколько последних писем вообще смотрим, собирая список переписок. */
@@ -111,7 +114,15 @@ router.get('/threads', requireAuth, async (req, res) => {
       user: people.get(thread.userId) ?? { id: thread.userId, username: '—' },
       unread: thread.unread,
       lastMessage: {
-        body: thread.lastMessage.body,
+        // Вложение без подписи в списке переписок описываем словом: пустая
+        // строка там читалась бы как «сообщение не загрузилось».
+        body:
+          thread.lastMessage.body ||
+          (thread.lastMessage.audio_url
+            ? 'Голосовое сообщение'
+            : thread.lastMessage.image_url
+              ? 'Фотография'
+              : ''),
         created_at: thread.lastMessage.created_at,
         mine: thread.lastMessage.sender_id === me,
       },
@@ -124,11 +135,20 @@ router.post('/', requireAuth, async (req, res) => {
   const recipientId = String(req.body?.recipient_id ?? '');
   const body = String(req.body?.body ?? '').trim();
   const replyToId = req.body?.reply_to_id ? String(req.body.reply_to_id) : null;
+  // Вложения: снимок и голосовое (миграция 012). Длительность присылает тот, кто
+  // записывал: по файлу её пришлось бы вычислять, а полоску рисовать до загрузки.
+  const imageUrl = req.body?.image_url ? String(req.body.image_url) : null;
+  const audioUrl = req.body?.audio_url ? String(req.body.audio_url) : null;
+  const audioSeconds = Number.isFinite(Number(req.body?.audio_seconds))
+    ? Math.max(1, Math.min(600, Math.round(Number(req.body.audio_seconds))))
+    : null;
 
   if (!recipientId || recipientId === me) {
     return res.status(400).json({ error: 'Некому отправлять' });
   }
-  if (!body) {
+  // Реплика может состоять из одного вложения: снимок без подписи — обычное
+  // сообщение, а не пустое.
+  if (!body && !imageUrl && !audioUrl) {
     return res.status(400).json({ error: 'Пустое сообщение отправить нельзя' });
   }
 
@@ -141,8 +161,14 @@ router.post('/', requireAuth, async (req, res) => {
     .insert({
       sender_id: me,
       recipient_id: recipientId,
-      body,
+      body: body || null,
       ...(replyToId ? { reply_to_id: replyToId } : null),
+      // Колонки вложений подставляем только когда они есть — по той же причине,
+      // что и reply_to_id выше: PostgREST отвергает запрос с неизвестной
+      // колонкой целиком, и у тех, кто не выполнил 012, сломалась бы вся
+      // отправка, а не только снимки.
+      ...(imageUrl ? { image_url: imageUrl } : null),
+      ...(audioUrl ? { audio_url: audioUrl, audio_seconds: audioSeconds } : null),
     })
     // Звёздочка, а не перечисление колонок: edited_at появляется миграцией 008, и
     // явное имя ломало бы переписку у тех, кто выполнил только 007.

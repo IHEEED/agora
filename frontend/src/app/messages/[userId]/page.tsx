@@ -26,12 +26,18 @@ import { createPortal } from 'react-dom';
 import { peelScreen } from '@/lib/peelScreen';
 import { releaseBackdrop } from '@/lib/screenBackdrop';
 import { haptic } from '@/lib/haptics';
+import { useVoiceRecorder } from '@/lib/useVoiceRecorder';
+import { VoiceBubble } from '@/components/VoiceBubble';
+import { supabase } from '@/lib/supabase';
 
 /** Как часто перечитываем переписку, пока она открыта.
     Раньше был 4000 — при плохой сети задержка на запросе могла совпасть
     с exit-анимацией и дать lag. Теперь реже, но и при плохой сети одна
     зависшая очередь не заблокирует экран. */
 const POLL_MS = 6000;
+
+/** Тот же бакет, что у картинок записей: правила доступа одни и те же. */
+const MEDIA_BUCKET = 'post-media';
 
 /** Сколько уходит удаляемое сообщение. Совпадает с transition в разметке. */
 const REMOVE_MS = 240;
@@ -162,6 +168,97 @@ export default function ChatPage() {
    */
   const [justSent, setJustSent] = useState<string | null>(null);
   const [sendDistance, setSendDistance] = useState(56);
+
+  /**
+   * Вложения: снимок и голосовое.
+   *
+   * Оба уходят в то же хранилище, что и картинки записей, только в свою папку.
+   * Отдельного бакета им не надо: правила доступа те же, а лишний бакет — лишнее
+   * место, где эти правила могут разойтись.
+   *
+   * Снимок загружается сразу при выборе, а не при отправке: пока человек
+   * дописывает подпись, файл уже едет, и «отправить» срабатывает мгновенно.
+   */
+  const photoInputRef = useRef<HTMLInputElement>(null);
+  const [photo, setPhoto] = useState<{ preview: string; url: string | null } | null>(null);
+  const voice = useVoiceRecorder();
+
+  async function upload(file: Blob, extension: string): Promise<string | null> {
+    const path = `chat/${me ?? 'anon'}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${extension}`;
+    const { error: uploadError } = await supabase.storage
+      .from(MEDIA_BUCKET)
+      .upload(path, file, { cacheControl: '3600', upsert: false });
+    if (uploadError) {
+      setError(
+        /row-level security|unauthorized/i.test(uploadError.message)
+          ? `Supabase не разрешает запись в «${MEDIA_BUCKET}» — нужны политики (миграция 003).`
+          : uploadError.message
+      );
+      return null;
+    }
+    return supabase.storage.from(MEDIA_BUCKET).getPublicUrl(path).data.publicUrl;
+  }
+
+  async function pickPhoto(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    // Сбрасываем поле сразу: без этого повторный выбор того же файла не даёт
+    // события change, и снимок «не выбирается» со второго раза.
+    event.target.value = '';
+    if (!file) return;
+
+    setError(null);
+    const preview = URL.createObjectURL(file);
+    setPhoto({ preview, url: null });
+    const url = await upload(file, file.name.split('.').pop() ?? 'jpg');
+    if (!url) {
+      URL.revokeObjectURL(preview);
+      setPhoto(null);
+      return;
+    }
+    setPhoto({ preview, url });
+  }
+
+  function dropPhoto() {
+    if (photo) URL.revokeObjectURL(photo.preview);
+    setPhoto(null);
+  }
+
+  function startVoice() {
+    haptic('open');
+    void voice.start();
+  }
+
+  /** Остановить запись и отправить её как реплику. */
+  async function sendVoice() {
+    const recorded = await voice.stop();
+    // Промах по кнопке: записи короче секунды не отправляем, но и не ругаемся —
+    // человек и так понял, что не получилось.
+    if (!recorded) return;
+
+    haptic();
+    setSending(true);
+    try {
+      const url = await upload(recorded.blob, 'webm');
+      if (!url) return;
+      const created = await apiFetch<Message>('/messages', {
+        method: 'POST',
+        body: JSON.stringify({
+          recipient_id: userId,
+          audio_url: url,
+          audio_seconds: recorded.seconds,
+          reply_to_id: replyTo?.id ?? null,
+        }),
+      });
+      setMessages((prev) => [...prev, created]);
+      setReplyTo(null);
+      setJustSent(created.id);
+      setSendDistance(distanceToComposer());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Не удалось отправить');
+    } finally {
+      setSending(false);
+    }
+  }
 
   /** Сколько пикселей от низа списка до строки ввода. */
   function distanceToComposer() {
@@ -335,7 +432,8 @@ export default function ChatPage() {
   async function send(e: SubmitEvent) {
     e.preventDefault();
     const text = body.trim();
-    if (!text || sending) return;
+    // Снимок без подписи — обычная реплика, а не пустая.
+    if ((!text && !photo?.url) || sending) return;
 
     setSending(true);
     setError(null);
@@ -353,6 +451,7 @@ export default function ChatPage() {
           body: JSON.stringify({
             recipient_id: userId,
             body: text,
+            image_url: photo?.url ?? null,
             reply_to_id: replyTo?.id ?? null,
           }),
         });
@@ -375,6 +474,7 @@ export default function ChatPage() {
         setSendDistance(distanceToComposer());
       }
       setBody('');
+      dropPhoto();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Не удалось отправить');
     } finally {
@@ -434,7 +534,7 @@ export default function ChatPage() {
   function startEditing(message: Message) {
     setMenuFor(null);
     setEditing(message);
-    setBody(message.body);
+    setBody(message.body ?? '');
     // Фокус через кадр: шторка ещё закрывается и забирает его себе.
     requestAnimationFrame(() => inputRef.current?.focus());
   }
@@ -754,7 +854,7 @@ export default function ChatPage() {
                     // Пузырю с цитатой нужна ширина: внутри него ещё одна
                     // карточка со своими полями и кромкой, и на узком месте от
                     // цитаты остаётся вертикальная полоска из двух букв.
-                    minWidth: message.replyTo ? 200 : undefined,
+                    minWidth: message.replyTo || message.audio_url ? 200 : undefined,
                     // Открытое сообщение остаётся поверх размытия — меню
                     // относится к нему, и оно должно читаться.
                     zIndex: menuFor?.id === message.id ? 72 : undefined,
@@ -826,9 +926,32 @@ export default function ChatPage() {
                     </span>
                   )}
 
-                  <p className="whitespace-pre-wrap break-words text-[15px] leading-relaxed">
-                    {message.body}
-                  </p>
+                  {/* Снимок внутри пузыря, во всю его ширину. Отдельной
+                      карточкой рядом он был бы вторым сообщением — а это одна
+                      реплика, у которой есть картинка и, может быть, подпись. */}
+                  {message.image_url && (
+                    // eslint-disable-next-line @next/next/no-img-element -- произвольный источник
+                    <img
+                      src={message.image_url}
+                      alt=""
+                      loading="lazy"
+                      className="-mx-2 mb-1 max-h-[320px] w-[calc(100%+16px)] rounded-2xl object-cover"
+                    />
+                  )}
+
+                  {message.audio_url && (
+                    <VoiceBubble
+                      src={message.audio_url}
+                      seconds={message.audio_seconds ?? 0}
+                      mine={mine}
+                    />
+                  )}
+
+                  {message.body && (
+                    <p className="whitespace-pre-wrap break-words text-[15px] leading-relaxed">
+                      {message.body}
+                    </p>
+                  )}
 
                 </button>
 
@@ -973,31 +1096,128 @@ export default function ChatPage() {
           </div>
         </div>
 
-        <div className="glass flex w-full max-w-2xl items-center gap-2 rounded-full py-1 pl-4 pr-1.5">
-          <input
-            ref={inputRef}
-            value={body}
-            onChange={(e) => setBody(e.target.value)}
-            placeholder="Сообщение"
-            enterKeyHint="send"
-            className="min-w-0 flex-1 border-none bg-transparent py-2.5 text-[15px] text-[var(--text)] outline-none"
-          />
-          {/* Кнопка отправки вырастает, когда есть что отправлять: пустая
-              строка не предлагает нажать. */}
+        {/* Выбранный снимок — над строкой, до отправки. Показать его надо
+            обязательно: файл выбирают в системном окне, и без подтверждения
+            непонятно, тот ли это снимок и вообще выбрался ли он. */}
+        {photo && (
+          <div
+            className="mb-1.5 flex w-full max-w-2xl items-center gap-2.5 rounded-2xl p-2"
+            style={{ background: 'var(--surface-2)' }}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element -- локальное превью */}
+            <img
+              src={photo.preview}
+              alt=""
+              className="h-14 w-14 flex-none rounded-xl object-cover"
+              style={{ opacity: photo.url ? 1 : 0.5 }}
+            />
+            <span className="min-w-0 flex-1 text-[13px] text-[var(--text-muted)]">
+              {photo.url ? 'Снимок готов к отправке' : 'Загружаем…'}
+            </span>
+            <button
+              type="button"
+              onClick={dropPhoto}
+              aria-label="Убрать снимок"
+              className="flex h-8 w-8 flex-none items-center justify-center rounded-full text-[var(--text-muted)]"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+                <path d="M6 6l12 12M18 6 6 18" />
+              </svg>
+            </button>
+          </div>
+        )}
+
+        <div className="glass flex w-full max-w-2xl items-center gap-1 rounded-full py-1 pl-1.5 pr-1.5">
+          {/* Запись занимает всю строку, а не встаёт рядом с полем: печатать
+              голосом всё равно нечем, а до «отмены» на телефоне надо дотянуться
+              большим пальцем — в углу она была бы недосягаема. */}
+          {voice.recording ? (
+            <>
+              <span className="flex h-9 w-9 flex-none items-center justify-center">
+                <span className="voice-dot" />
+              </span>
+              <span className="font-num flex-1 text-[15px] text-[var(--text)]">
+                {Math.floor(voice.seconds / 60)}:{String(voice.seconds % 60).padStart(2, '0')}
+              </span>
+              <button
+                type="button"
+                onClick={() => voice.cancel()}
+                className="flex-none rounded-full px-3 py-2 text-[14px] font-medium text-[var(--text-muted)]"
+              >
+                Отмена
+              </button>
+              <button
+                type="button"
+                onClick={sendVoice}
+                aria-label="Отправить голосовое"
+                className="flex h-9 w-9 flex-none items-center justify-center rounded-full"
+                style={{ background: 'var(--accent)', color: 'var(--accent-contrast)' }}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M5 12h13M12 6l6 6-6 6" />
+                </svg>
+              </button>
+            </>
+          ) : (
+            <>
+              <input
+                ref={photoInputRef}
+                type="file"
+                accept="image/*"
+                onChange={pickPhoto}
+                className="hidden"
+                id="chat-photo"
+              />
+              <label
+                htmlFor="chat-photo"
+                aria-label="Снимок"
+                className="flex h-9 w-9 flex-none cursor-pointer items-center justify-center rounded-full text-[var(--control)] transition-transform active:scale-90"
+              >
+                <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="4.5" width="18" height="15" rx="3" />
+                  <circle cx="8.5" cy="10" r="1.6" />
+                  <path d="m4 17 5-4.5 4.5 4 3-2.5L20 18" />
+                </svg>
+              </label>
+
+              <input
+                ref={inputRef}
+                value={body}
+                onChange={(e) => setBody(e.target.value)}
+                placeholder="Сообщение"
+                enterKeyHint="send"
+                className="min-w-0 flex-1 border-none bg-transparent py-2.5 text-[15px] text-[var(--text)] outline-none"
+              />
+
+              {/* Микрофон стоит на месте отправки и меняется с ней: пока писать
+                  нечего — предлагаем голос, появился текст — отправку. Две
+                  кнопки рядом заставляли бы выбирать там, где выбор очевиден. */}
+              {!body.trim() && !photo && !editing ? (
+                <button
+                  type="button"
+                  onClick={startVoice}
+                  aria-label="Записать голосовое"
+                  className="flex h-9 w-9 flex-none items-center justify-center rounded-full text-[var(--control)] transition-transform active:scale-90"
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="9" y="3" width="6" height="11" rx="3" />
+                    <path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3" />
+                  </svg>
+                </button>
+              ) : (
           <button
             type="submit"
-            disabled={!body.trim() || sending}
+            disabled={(!body.trim() && !photo?.url) || sending}
             aria-label={editing ? 'Сохранить' : 'Отправить'}
             className="flex h-9 w-9 flex-none items-center justify-center rounded-full"
             style={{
               background: 'var(--accent)',
               color: 'var(--accent-contrast)',
-              transform: body.trim() ? 'scale(1)' : 'scale(0.7)',
-              opacity: body.trim() ? 1 : 0.35,
               transition:
                 'transform 0.24s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.2s ease',
             }}
           >
+
             {editing ? (
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
                 <path d="m5 12.5 4.5 4.5L19 7.5" />
@@ -1008,8 +1228,18 @@ export default function ChatPage() {
               </svg>
             )}
           </button>
+              )}
+            </>
+          )}
         </div>
+
+        {voice.error && (
+          <p className="pt-1 text-[12.5px]" style={{ color: 'var(--down)' }}>
+            {voice.error}
+          </p>
+        )}
       </form>,
+
           document.body
         )}
 
@@ -1068,7 +1298,7 @@ export default function ChatPage() {
               </>
             ),
             onSelect: () => {
-              if (menuFor) navigator.clipboard?.writeText(menuFor.body).catch(() => undefined);
+              if (menuFor?.body) navigator.clipboard?.writeText(menuFor.body).catch(() => undefined);
               setMenuFor(null);
             },
           },

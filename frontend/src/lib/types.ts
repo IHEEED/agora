@@ -35,7 +35,8 @@ export interface Message {
   id: string;
   sender_id: string;
   recipient_id: string;
-  body: string;
+  /** У реплики из одного вложения текста нет. */
+  body: string | null;
   created_at: string;
   read_at: string | null;
   /** Когда сообщение поправили. null — не правили. */
@@ -44,9 +45,14 @@ export interface Message {
   /** На какое сообщение это ответ. Появляется миграцией 009. */
   reply_to_id?: string | null;
   /** Оригинал ответа, собранный сервером из той же переписки. */
-  replyTo?: { id: string; body: string; mine: boolean } | null;
+  replyTo?: { id: string; body: string | null; mine: boolean } | null;
   /** Когда сообщение закрепили. null — не закреплено. */
   pinned_at?: string | null;
+  /** Снимок в реплике. Появляется миграцией 012. */
+  image_url?: string | null;
+  /** Голосовое. Длительность присылает тот, кто записывал (см. миграцию 012). */
+  audio_url?: string | null;
+  audio_seconds?: number | null;
 }
 
 /** Строка в списке переписок: собеседник и последнее письмо. */
