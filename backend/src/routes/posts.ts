@@ -240,6 +240,7 @@ router.post('/', requireAuth, requirePhoneVerified, async (req, res) => {
     body,
     community_id,
     image_url,
+    image_urls,
     poll_options,
     post_as_community,
     continues_post_id,
@@ -263,6 +264,14 @@ router.post('/', requireAuth, requirePhoneVerified, async (req, res) => {
       title,
       body,
       image_url: image_url || null,
+      // Колонку подставляем только когда снимков правда несколько. Она
+      // появляется миграцией 011, и упоминать её в каждой вставке значило бы
+      // сломать публикацию у всех, кто её ещё не выполнил: PostgREST отвергает
+      // запрос с неизвестной колонкой целиком, даже со значением null. Тот же
+      // приём, что и с continues_post_id ниже.
+      ...(Array.isArray(image_urls) && image_urls.length > 1
+        ? { image_urls: image_urls.filter((url: unknown) => typeof url === 'string') }
+        : null),
       author_id,
       community_id: community,
       // Флаг отвечает только за подпись поста, не за принадлежность:

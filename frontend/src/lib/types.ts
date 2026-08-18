@@ -83,6 +83,12 @@ export interface Post {
   author: Author;
   views: number;
   image_url: string | null;
+  /**
+   * Все снимки записи. Появляется миграцией 011; у записей, опубликованных до
+   * неё, здесь пусто, а обложка лежит в image_url — поэтому читать надо через
+   * postImages(), а не напрямую.
+   */
+  image_urls?: string[] | null;
   community?: { id: string; name: string } | null;
   /**
    * true — пост подписан сообществом: ник автора, стрелка, название сообщества
@@ -117,3 +123,34 @@ export interface Comment {
 export interface CommentWithPost extends Comment {
   post: { id: string; title: string } | null;
 }
+
+/**
+ * Снимки записи в правильном порядке.
+ *
+ * Двух источников не избежать: image_urls появился миграцией 011, а записи до
+ * неё несут только обложку в image_url. Собирать их по месту значило бы
+ * повторять эту оговорку в ленте, в профиле, в историях и в просмотрщике — и
+ * однажды где-нибудь забыть.
+ */
+export function postImages(post: Pick<Post, 'image_url' | 'image_urls'>): string[] {
+  if (post.image_urls && post.image_urls.length > 0) return post.image_urls;
+  return post.image_url ? [post.image_url] : [];
+}
+
+/** Одна история. Содержимое уже развёрнуто бэкендом — своё или из записи. */
+export type StoryItem = {
+  id: string;
+  created_at: string;
+  seen: boolean;
+  title: string | null;
+  body: string | null;
+  images: string[];
+  postId: string | null;
+};
+
+/** Истории одного автора: кружок в ленте — это он. */
+export type StoryGroup = {
+  author: UserSummary;
+  items: StoryItem[];
+  unseen: number;
+};

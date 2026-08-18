@@ -59,13 +59,23 @@
    листе. Фактура — типографское зерно, поэтому фон не выглядит залитым
    ровным цветом. */
 :root[data-style='chronicle'] {
-  --bg: light-dark(#faf7f2, #0d0b08);
-  --surface: light-dark(#fffdf9, #1a1712);
-  --surface-2: light-dark(#f1ebe0, #241f18);
-  --border: light-dark(#e6ddcf, rgba(240, 228, 205, 0.12));
-  --text: light-dark(#211e19, #f0ebe1);
-  --text-muted: light-dark(#726b5f, #a09889);
-  --accent: light-dark(#bf5b38, #e08a5f);
+  /* Бумага стала теплее и плотнее: было почти белое #faf7f2, читалось просто
+     «слегка небелым». Газета — это не белый лист с оранжевой кнопкой, а
+     бежевая бумага, коричневые чернила и киноварь заголовков. Раньше из всей
+     этой гаммы был только оранжевый акцент, и он тянул одеяло на себя.
+
+     Теперь бежевый несёт фон и поверхности, коричневый — текст, границы и
+     тени, а оранжевый остался ровно тем, чем был в типографии: краской для
+     того, на что нужно смотреть. */
+  --bg: light-dark(#f4ece0, #0d0b08);
+  --surface: light-dark(#fdf8f0, #1a1712);
+  --surface-2: light-dark(#eadfcd, #241f18);
+  --border: light-dark(#d8c8ae, rgba(240, 228, 205, 0.12));
+  /* Не чёрный, а тёмно-коричневый: чёрные чернила на бежевом дают контраст
+     печатной машинки, а не газетной полосы. */
+  --text: light-dark(#33261a, #f0ebe1);
+  --text-muted: light-dark(#7a6551, #a09889);
+  --accent: light-dark(#b5522f, #e08a5f);
   --accent-contrast: light-dark(#fffaf4, #16140f);
 
   --display-family: var(--font-display), Georgia, serif;
@@ -222,6 +232,23 @@
      репост выглядел ровно как неотданный: чёрное на чёрном. Янтарный
      различим на всех пяти фонах и не совпадает ни с одним акцентом, поэтому
      не путается ни с подпиской, ни с голосом. */
+  /* Заглушка аватарки: бледная, из акцента, но почти обесцвеченная.
+     Прежние двадцать процентов акцента под полноцветным силуэтом давали
+     кислотный кружок — на «Сигнале» ядовито-зелёный, на «Гламуре» малиновый, —
+     и заглушка кричала громче настоящих аватарок. Работа у неё обратная:
+     сказать «фото нет» и уйти в фон.
+
+     Смешиваем с поверхностью, а не с прозрачностью: прозрачный кружок
+     просвечивал бы карточку под собой и на каждом фоне выглядел по-разному. */
+  --avatar-bg: light-dark(
+    color-mix(in srgb, var(--accent) 9%, var(--surface-2)),
+    color-mix(in srgb, var(--accent) 11%, var(--surface-2))
+  );
+  --avatar-ink: light-dark(
+    color-mix(in srgb, var(--accent) 34%, var(--text-muted)),
+    color-mix(in srgb, var(--accent) 30%, var(--text-muted))
+  );
+
   --repost: light-dark(#c98a06, #f0b429);
   --repost-bg: color-mix(in srgb, var(--repost) 14%, transparent);
 }
@@ -839,6 +866,19 @@ label,
   opacity: 0;
   visibility: hidden;
   transition: opacity 220ms ease, visibility 220ms;
+  /* Своя непрозрачная подложка под узором.
+     Слой обоев рисует штриховку по прозрачному фону, а под перепиской теперь
+     лежит замороженный список переписок (его держат, чтобы чат можно было
+     тянуть пальцем). Сквозь прозрачные обои список просвечивал, и сообщения
+     ложились поверх чужих строк. Заливка цветом страницы закрывает его так же,
+     как это делал бы настоящий фон. */
+  background-color: var(--bg);
+}
+
+/* Экран переписки непрозрачен и без выбранных обоев: подложка нужна не узору,
+   а самой переписке — под ней лежит замороженный список. */
+:root[data-in-chat] [data-screen] {
+  background: var(--bg);
 }
 
 :root[data-in-chat][data-chat-wall]:not([data-chat-wall='none']) .chat-wallpaper {
@@ -1538,6 +1578,31 @@ label,
 
   --glow: 22%;
 }
+
+/* Леопард вместо заглушки аватарки — только в «Гламуре».
+   Пасхалка не заканчивается сменой палитры: тема должна дурачиться целиком,
+   иначе это просто розовый вариант того же приложения. Пятна нарисованы
+   радиальными градиентами по сетке — картинки не нужны, а размер кружка
+   произволен, и растровая текстура на крупной аватарке расползлась бы.
+
+   Силуэт при этом прячем: поверх пятен он читается грязью, а не человеком. */
+:root[data-style='glam'] .default-avatar {
+  background-color: #d9a441;
+  background-image:
+    radial-gradient(ellipse 26% 20% at 22% 26%, #3d2a14 0 60%, transparent 62%),
+    radial-gradient(ellipse 22% 17% at 68% 18%, #3d2a14 0 60%, transparent 62%),
+    radial-gradient(ellipse 24% 19% at 44% 52%, #3d2a14 0 60%, transparent 62%),
+    radial-gradient(ellipse 20% 16% at 80% 58%, #3d2a14 0 60%, transparent 62%),
+    radial-gradient(ellipse 23% 18% at 16% 74%, #3d2a14 0 60%, transparent 62%),
+    radial-gradient(ellipse 21% 17% at 62% 84%, #3d2a14 0 60%, transparent 62%),
+    radial-gradient(circle at 30% 34%, #a9701f 0 42%, transparent 44%),
+    radial-gradient(circle at 74% 70%, #a9701f 0 38%, transparent 40%);
+}
+
+:root[data-style='glam'] .default-avatar > svg {
+  display: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .page-push {
     animation: none;

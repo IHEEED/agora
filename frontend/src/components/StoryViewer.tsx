@@ -12,47 +12,15 @@ import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { DefaultAvatar } from '@/components/DefaultAvatar';
 import { formatCompactAge } from '@/lib/formatDate';
-import { Post } from '@/lib/types';
+import { StoryGroup, StoryItem } from '@/lib/types';
+import { apiFetch } from '@/lib/api';
+import { useT } from '@/lib/i18n';
 
 /** Сколько держится один кадр, если его не пролистали. */
 const FRAME_MS = 5000;
 
 /** Как часто двигаем полоску. Шестьдесят кадров тут не нужны — хватает тридцати. */
 const TICK_MS = 32;
-
-export type Story = {
-  username: string;
-  authorId?: string;
-  posts: Post[];
-};
-
-/**
- * Собрать истории из записей.
- *
- * Своей таблицы у историй пока нет, и рисовать вместо них заглушку было бы
- * честнее, но бесполезнее: кружки наверху ленты уже стоят, и нажатие по ним
- * обязано что-то показывать. Показываем то, что у автора действительно есть, —
- * его последние записи, по одной на кадр.
- *
- * Это не подмена понятий: история и есть «что у человека нового», просто взятая
- * из того, что он написал, а не снял. Как появится таблица, поменяется источник,
- * а не экран.
- */
-export function storiesFrom(posts: Post[]): Story[] {
-  const byAuthor = new Map<string, Story>();
-  for (const post of posts) {
-    const key = post.author.username;
-    const story = byAuthor.get(key);
-    if (story) {
-      // Больше трёх кадров на автора не набираем: истории смотрят подряд, и
-      // десять кадров одного человека — это уже не истории, а его лента.
-      if (story.posts.length < 3) story.posts.push(post);
-    } else {
-      byAuthor.set(key, { username: key, authorId: post.author.id, posts: [post] });
-    }
-  }
-  return [...byAuthor.values()];
-}
 
 /**
  * Кадр истории.
@@ -63,14 +31,14 @@ export function storiesFrom(posts: Post[]): Story[] {
  * заголовок газетной антиквой, крупно; ниже начало текста. Фон, когда снимка
  * нет, — градиент из акцента: не пустота и не серая плита.
  */
-function Frame({ post }: { post: Post }) {
+function Frame({ item }: { item: StoryItem }) {
   return (
     <div className="relative flex h-full w-full flex-col justify-end overflow-hidden">
-      {post.image_url ? (
+      {item.images[0] ? (
         <>
           {/* eslint-disable-next-line @next/next/no-img-element -- источник произвольный */}
           <img
-            src={post.image_url}
+            src={item.images[0]}
             alt=""
             className="absolute inset-0 h-full w-full object-cover"
           />
@@ -101,16 +69,11 @@ function Frame({ post }: { post: Post }) {
           className="display-type text-[27px] leading-[1.12] text-white"
           style={{ textShadow: '0 2px 24px rgba(0,0,0,0.5)' }}
         >
-          {post.title}
+          {item.title ?? item.body}
         </h2>
-        {post.body && (
-          <p className="line-clamp-4 text-[14.5px] leading-relaxed text-white/80">{post.body}</p>
+        {item.title && item.body && (
+          <p className="line-clamp-4 text-[14.5px] leading-relaxed text-white/80">{item.body}</p>
         )}
-        <div className="flex items-center gap-3 text-[12.5px] text-white/60">
-          <span className="font-num">{post.score > 0 ? `+${post.score}` : post.score}</span>
-          <span>·</span>
-          <span>{post.commentCount} в обсуждении</span>
-        </div>
       </div>
     </div>
   );
@@ -131,7 +94,7 @@ export function StoryViewer({
   onIndex,
   onClose,
 }: {
-  stories: Story[];
+  stories: StoryGroup[];
   /** Какая история открыта. −1 — закрыто. */
   index: number;
   /** Кружок, по которому нажали, — из него история и вырастает. */
@@ -139,6 +102,7 @@ export function StoryViewer({
   onIndex: (next: number) => void;
   onClose: () => void;
 }) {
+  const { t } = useT();
   const mounted = useSyncExternalStore(
     () => () => {},
     () => true,
@@ -147,6 +111,56 @@ export function StoryViewer({
 
   const open = index >= 0 && index < stories.length;
   const story = open ? stories[index] : null;
+
+  /**
+   * Закрытие — обратный ход разворота: история складывается в тот же кружок.
+   *
+   * Уходила она до сих пор мгновенно: onClose снимал разметку в тот же кадр, и
+   * полноэкранный кадр просто пропадал. Открытие при этом было длинным и
+   * подробным — несимметрично настолько, что закрытие читалось сбоем.
+   *
+   * Анимируем живую панель и только потом сообщаем наверх: пока идёт уход,
+   * история ещё смонтирована, и складываться есть чему.
+   */
+  const closing = useRef(false);
+  const closeSmoothly = useCallback(() => {
+    const panel = panelRef.current;
+    if (closing.current) return;
+    if (!panel || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      onClose();
+      return;
+    }
+    closing.current = true;
+
+    const to = origin;
+    const box = panel.getBoundingClientRect();
+    // Некуда складываться (пришли не из кружка) — просто гаснем на месте.
+    const frames: Keyframe[] = to
+      ? [
+          { transform: 'none', borderRadius: '0px', opacity: 1 },
+          {
+            transform: `translate(${to.left + to.width / 2 - (box.left + box.width / 2)}px, ${
+              to.top + to.height / 2 - (box.top + box.height / 2)
+            }px) scale(${Math.max(to.width / box.width, to.height / box.height)})`,
+            borderRadius: '50%',
+            opacity: 0.2,
+          },
+        ]
+      : [
+          { transform: 'none', opacity: 1 },
+          { transform: 'scale(0.92)', opacity: 0 },
+        ];
+
+    const animation = panel.animate(frames, {
+      duration: 260,
+      easing: 'cubic-bezier(0.4, 0, 1, 1)',
+      fill: 'forwards',
+    });
+    animation.onfinish = () => {
+      closing.current = false;
+      onClose();
+    };
+  }, [origin, onClose]);
 
   const [frame, setFrame] = useState(0);
   const [progress, setProgress] = useState(0);
@@ -171,7 +185,7 @@ export function StoryViewer({
     setResumeFrom(0);
   }
 
-  const total = story?.posts.length ?? 0;
+  const total = story?.items.length ?? 0;
 
   /** Вперёд: следующий кадр, а кончились — следующая история. */
   const next = useCallback(() => {
@@ -186,7 +200,7 @@ export function StoryViewer({
       onIndex(index + 1);
       return;
     }
-    onClose();
+    closeSmoothly();
   }, [story, frame, total, index, stories.length, onIndex, onClose]);
 
   const back = useCallback(() => {
@@ -220,10 +234,20 @@ export function StoryViewer({
     return () => window.clearInterval(timer);
   }, [open, held, frame, index, resumeFrom, next]);
 
+  // Отмечаем кадр просмотренным. Кружок гаснет у того, кто посмотрел, и
+  // остаётся ярким у остальных — ради этого в базе пара (история, зритель), а
+  // не счётчик. Ошибку глушим: непоставленная отметка стоит дешевле, чем
+  // сообщение об ошибке поверх истории.
+  const shown = story?.items[Math.min(frame, Math.max(0, total - 1))]?.id;
+  useEffect(() => {
+    if (!open || !shown) return;
+    apiFetch(`/stories/${shown}/seen`, { method: 'POST' }).catch(() => undefined);
+  }, [open, shown]);
+
   useEffect(() => {
     if (!open) return;
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
+      if (event.key === 'Escape') closeSmoothly();
       if (event.key === 'ArrowRight') next();
       if (event.key === 'ArrowLeft') back();
     };
@@ -289,7 +313,7 @@ export function StoryViewer({
 
   if (!mounted || !story) return null;
 
-  const post = story.posts[Math.min(frame, total - 1)];
+  const item = story.items[Math.min(frame, total - 1)];
   const dismiss = Math.min(1, dragY / 220);
 
   return createPortal(
@@ -317,7 +341,7 @@ export function StoryViewer({
         const moved = dragY;
         setDragY(0);
         if (start === null) return;
-        if (moved > 110) return onClose();
+        if (moved > 110) return closeSmoothly();
         // Не потащили — значит нажали. Правая треть вперёд, левая назад:
         // палец чаще всего справа, поэтому вперёд отдана большая доля.
         if (moved < 8) {
@@ -345,7 +369,7 @@ export function StoryViewer({
           transition: held ? 'none' : 'transform 240ms cubic-bezier(0.32,0.72,0,1)',
         }}
       >
-        <Frame post={post} />
+        <Frame item={item} />
 
         {/* Полоски по числу кадров. Пройденные залиты целиком, текущая едет,
             будущие приглушены — состояние читается одним взглядом. */}
@@ -353,7 +377,7 @@ export function StoryViewer({
           className="absolute inset-x-3 flex gap-1"
           style={{ top: 'calc(10px + env(safe-area-inset-top))' }}
         >
-          {story.posts.map((item, position) => (
+          {story.items.map((item, position) => (
             <span
               key={item.id}
               className="h-[2.5px] flex-1 overflow-hidden rounded-full"
@@ -376,15 +400,15 @@ export function StoryViewer({
           className="absolute inset-x-3 flex items-center gap-2.5"
           style={{ top: 'calc(22px + env(safe-area-inset-top))' }}
         >
-          <DefaultAvatar name={story.username} size={30} />
+          <DefaultAvatar name={story.author.username} size={30} />
           <span className="min-w-0 flex-1 truncate text-[14px] font-semibold text-white">
-            {story.username}
+            {story.author.username}
           </span>
-          <span className="text-[12.5px] text-white/60">{formatCompactAge(post.created_at)}</span>
+          <span className="text-[12.5px] text-white/60">{formatCompactAge(item.created_at)}</span>
           <button
             onClick={(event) => {
               event.stopPropagation();
-              onClose();
+              closeSmoothly();
             }}
             aria-label="Закрыть"
             className="-mr-1 flex h-9 w-9 flex-none items-center justify-center rounded-full text-white/85"
@@ -397,8 +421,9 @@ export function StoryViewer({
 
         {/* Ссылка на саму запись: история — витрина, а обсуждение живёт в ленте.
             Ниже кадра, поверх затемнения, и нажатие по ней не листает. */}
+        {item.postId && (
         <Link
-          href={`/posts/${post.id}`}
+          href={`/posts/${item.postId}`}
           onClick={(event) => event.stopPropagation()}
           onPointerDown={(event) => event.stopPropagation()}
           className="absolute left-1/2 flex -translate-x-1/2 items-center gap-1.5 rounded-full px-4 py-2 text-[13px] font-medium text-white"
@@ -408,11 +433,12 @@ export function StoryViewer({
             backdropFilter: 'blur(14px)',
           }}
         >
-          Читать целиком
+          {t('story.readFull')}
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
             <path d="m9 6 6 6-6 6" />
           </svg>
         </Link>
+        )}
       </div>
     </div>,
     document.body

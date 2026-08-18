@@ -4,10 +4,10 @@ import { useMemo } from 'react';
 import Link from 'next/link';
 import { useApiData } from '@/lib/useApiData';
 import { useSession } from '@/lib/useSession';
-import { Post } from '@/lib/types';
+import { Post, StoryGroup } from '@/lib/types';
 import { PostCard } from '@/components/PostCard';
 import { StoriesBar } from '@/components/StoriesBar';
-import { storiesFrom } from '@/components/StoryViewer';
+
 import { DefaultAvatar } from '@/components/DefaultAvatar';
 import { SuggestedPeople } from '@/components/SuggestedPeople';
 import { useBlockedUsers } from '@/lib/blockedUsers';
@@ -33,11 +33,18 @@ export default function FeedPage() {
     [posts, blocked]
   );
 
-  // Истории собираем из записей ленты — своей таблицы у них пока нет.
-  // Из отфильтрованных: заблокированный не должен остаться кружком наверху.
-  // Кадром становится запись целиком: заголовок, начало текста, счётчики, а
-  // картинка — фоном под ними, если она есть (см. StoryViewer).
-  const stories = useMemo(() => storiesFrom(visiblePosts), [visiblePosts]);
+  // Истории приходят с сервера отдельной сущностью, а не собираются из записей.
+  // Заглушка «последние записи автора» врала: история живёт сутки и не
+  // обсуждается, запись остаётся навсегда и обсуждается — выдать одно за другое
+  // нельзя, не сломав ожидания от обоих (см. миграцию 011).
+  //
+  // Заблокированных отсеиваем здесь же: список живёт на устройстве, сервер о
+  // нём не знает.
+  const storyGroups = useApiData<StoryGroup[]>('/stories').data;
+  const stories = useMemo(
+    () => (storyGroups ?? []).filter((group) => !blocked.includes(group.author.id)),
+    [storyGroups, blocked]
+  );
 
   return (
     <div className="flex flex-1 flex-col items-center">

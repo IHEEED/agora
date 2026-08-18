@@ -10,6 +10,7 @@ import { isPhoneNotVerifiedError, usePhoneGate } from '@/components/PhoneGateCon
 import { VoteBlock } from '@/components/VoteBlock';
 import { DefaultAvatar } from '@/components/DefaultAvatar';
 import { Comment } from '@/lib/types';
+import { useT } from '@/lib/i18n';
 
 /** Лежит ли искомый комментарий где-то в этой ветке. */
 function contains(comment: Comment, id: string): boolean {
@@ -42,6 +43,7 @@ export function CommentThread({
   highlightId?: string | null;
 }) {
   const { session } = useSession();
+  const { t } = useT();
   const { requestVerification } = usePhoneGate();
 
   const [replying, setReplying] = useState(false);
@@ -152,7 +154,7 @@ export function CommentThread({
                 onClick={() => setReplying((v) => !v)}
                 className="rounded-full px-2 py-1 text-[12.5px] font-medium text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-2)]"
               >
-                {replying ? 'Отмена' : 'Ответить'}
+                {replying ? t('action.cancel') : t('action.reply')}
               </button>
             )}
           </div>
@@ -179,7 +181,7 @@ export function CommentThread({
                 className="self-start rounded-full px-4 py-1.5 text-[13px] font-medium disabled:opacity-50"
                 style={{ background: 'var(--accent)', color: 'var(--accent-contrast)' }}
               >
-                Отправить
+                {t('action.send')}
               </button>
             </form>
           )}
@@ -246,7 +248,7 @@ export function CommentThread({
                 show: collapsed,
                 text: `Показать ${replyCount} ${pluralizeReplies(replyCount)}`,
               },
-              { key: 'less', show: !collapsed, text: 'Свернуть' },
+              { key: 'less', show: !collapsed, text: t('action.collapse') },
             ].map((label) => (
               <span
                 key={label.key}

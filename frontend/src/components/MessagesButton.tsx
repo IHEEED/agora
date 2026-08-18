@@ -8,6 +8,7 @@ import { markGoingBack } from '@/lib/navDirection';
 import { foldCurrentScreen } from '@/lib/peelScreen';
 import { setFoldOrigin } from '@/lib/foldOrigin';
 import { holdBackdrop } from '@/lib/screenBackdrop';
+import { useT } from '@/lib/i18n';
 import { haptic } from '@/lib/haptics';
 
 /** Как часто спрашиваем про непрочитанные. */
@@ -30,6 +31,7 @@ export function MessagesButton({
 }) {
   const pathname = usePathname();
   const router = useRouter();
+  const { t } = useT();
   const [unread, setUnread] = useState(0);
 
   useEffect(() => {
@@ -70,7 +72,7 @@ export function MessagesButton({
       // по той, где ты уже стоишь, обязано что-то делать, иначе кнопка выглядит
       // залипшей.
       href={active ? '/' : '/messages'}
-      aria-label={active ? 'В ленту' : 'Мессенджер'}
+      aria-label={active ? t('action.toFeed') : t('messenger.title')}
       // Кнопка — точка роста экрана. Наружу мессенджер складывается в неё же,
       // а не проявляется лентой с нуля: одно движение в две стороны связывает
       // раздел с тем, чем его открыли.
@@ -124,7 +126,7 @@ export function MessagesButton({
       </svg>
 
       {sidebar && (
-        <span className="text-center text-[9.5px] font-medium leading-none">Мессенджер</span>
+        <span className="text-center text-[9.5px] font-medium leading-none">{t('messenger.title')}</span>
       )}
 
       {unread > 0 && (

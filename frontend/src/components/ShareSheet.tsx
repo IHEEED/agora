@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { BottomSheet } from '@/components/BottomSheet';
+import { useT } from '@/lib/i18n';
 
 /**
  * Куда поделиться постом. Раньше кнопка молча копировала ссылку и подписывала
@@ -75,6 +76,7 @@ export function ShareSheet({
   url: string;
   text: string;
 }) {
+  const { t } = useT();
   const [copied, setCopied] = useState(false);
 
   async function copy() {
@@ -92,7 +94,7 @@ export function ShareSheet({
   }
 
   return (
-    <BottomSheet open={open} onClose={onClose} title="Поделиться в" height="42vh">
+    <BottomSheet open={open} onClose={onClose} title={t('share.title')} height="42vh">
       <div className="grid grid-cols-4 gap-3 py-4">
         {TARGETS.map((target) => (
           <a
@@ -124,7 +126,7 @@ export function ShareSheet({
             </svg>
           </span>
           <span className="text-[12px] text-[var(--text-muted)]">
-            {copied ? 'Готово' : 'Ссылка'}
+            {copied ? t('action.linkCopied') : t('share.link')}
           </span>
         </button>
       </div>

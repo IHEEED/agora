@@ -4,14 +4,17 @@ import { useLayoutEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { holdBackdrop } from '@/lib/screenBackdrop';
 import { BottomSheet } from '@/components/BottomSheet';
+import { apiFetch } from '@/lib/api';
+import { invalidate } from '@/lib/useApiData';
+import { TranslationKey, useT } from '@/lib/i18n';
 
 /** Причины жалобы. Тот же короткий список, что у Reddit и Threads. */
-const REPORT_REASONS = [
-  'Спам или реклама',
-  'Оскорбления и травля',
-  'Ложная информация',
-  'Жестокость или опасный контент',
-  'Другое',
+const REPORT_REASONS: TranslationKey[] = [
+  'reason.spam',
+  'reason.abuse',
+  'reason.false',
+  'reason.violence',
+  'reason.other',
 ];
 
 type Step = 'menu' | 'report' | 'done';
@@ -45,10 +48,13 @@ export function PostMenuSheet({
   isMine,
   onDelete,
   continueHref,
+  postId,
 }: {
   open: boolean;
   onClose: () => void;
   url: string;
+  /** Нужен для отправки записи в историю. */
+  postId: string;
   isMine: boolean;
   onDelete?: () => void;
   /**
@@ -59,8 +65,13 @@ export function PostMenuSheet({
   continueHref?: string;
 }) {
   const router = useRouter();
+  const { t } = useT();
   const [step, setStep] = useState<Step>('menu');
   const [copied, setCopied] = useState(false);
+  // Отправлено ли в историю. Ставим до ответа сервера: действие мгновенное по
+  // ощущению, а откатываем только на ошибке.
+  const [sentToStory, setSentToStory] = useState(false);
+  const [storyError, setStoryError] = useState<string | null>(null);
 
   const stackRef = useRef<HTMLDivElement>(null);
   const stepRefs = useRef<Record<Step, HTMLDivElement | null>>({
@@ -77,6 +88,8 @@ export function PostMenuSheet({
     if (open) {
       setStep('menu');
       setCopied(false);
+      setSentToStory(false);
+      setStoryError(null);
     }
   }
 
@@ -100,7 +113,7 @@ export function PostMenuSheet({
   const items: Item[] = [
     {
       key: 'copy',
-      label: copied ? 'Ссылка скопирована' : 'Скопировать ссылку',
+      label: copied ? t('action.linkCopied') : t('action.copyLink'),
       icon: (
         <>
           <rect x="9" y="9" width="11" height="11" rx="2.5" />
@@ -111,7 +124,7 @@ export function PostMenuSheet({
     },
     {
       key: 'report',
-      label: 'Пожаловаться',
+      label: t('action.report'),
       icon: (
         <>
           <path d="M5 21V4.5h9l-.8 3.2H19l-1 4.6H6" />
@@ -128,7 +141,7 @@ export function PostMenuSheet({
     // что-то создаёт, а не сообщает о записи.
     items.unshift({
       key: 'continue',
-      label: 'Написать вслед',
+      label: t('post.continue'),
       icon: (
         <>
           <path d="M6 4v10a3 3 0 0 0 3 3h9" />
@@ -145,10 +158,36 @@ export function PostMenuSheet({
     });
   }
 
+  // Своя запись — в свою историю. Ссылкой, а не копией: правка записи видна и
+  // в истории, удаление уносит её с собой (см. миграцию 011).
+  if (isMine) {
+    items.splice(1, 0, {
+      key: 'story',
+      label: sentToStory ? t('post.inStory') : t('post.toStory'),
+      icon: (
+        <>
+          <circle cx="12" cy="12" r="8.6" strokeDasharray="4.6 3.4" />
+          <path d="M12 8.6v6.8M8.6 12h6.8" />
+        </>
+      ),
+      onSelect: async () => {
+        if (sentToStory) return;
+        setSentToStory(true);
+        try {
+          await apiFetch('/stories', { method: 'POST', body: JSON.stringify({ post_id: postId }) });
+          invalidate('/stories');
+        } catch (err) {
+          setSentToStory(false);
+          setStoryError(err instanceof Error ? err.message : 'Не удалось');
+        }
+      },
+    });
+  }
+
   if (isMine && onDelete) {
     items.push({
       key: 'delete',
-      label: 'Удалить запись',
+      label: t('post.delete'),
       icon: (
         <>
           <path d="M5 7h14M10 7V5h4v2M6.5 7l.8 12.2h9.4L17.5 7" />
@@ -163,7 +202,12 @@ export function PostMenuSheet({
     });
   }
 
-  const title = step === 'menu' ? 'Запись' : step === 'report' ? 'Что не так?' : 'Жалоба принята';
+  const title =
+    step === 'menu'
+      ? t('post.menuTitle')
+      : step === 'report'
+        ? t('post.reportTitle')
+        : t('post.reportDone');
 
   /** Оформление одного шага: активный в кадре, соседние разъехались по краям. */
   function stepStyle(name: Step): React.CSSProperties {
@@ -211,6 +255,11 @@ export function PostMenuSheet({
                 <span className="text-[15px]">{item.label}</span>
               </button>
             ))}
+            {storyError && (
+              <p className="px-1 pb-2 text-[12.5px]" style={{ color: 'var(--down)' }}>
+                {storyError}
+              </p>
+            )}
           </div>
         </div>
 
@@ -228,7 +277,7 @@ export function PostMenuSheet({
                 onClick={() => setStep('done')}
                 className="rounded-xl px-1 py-3.5 text-left text-[15px] text-[var(--text)] transition-colors hover:bg-[var(--surface-2)]"
               >
-                {reason}
+                {t(reason)}
               </button>
             ))}
           </div>

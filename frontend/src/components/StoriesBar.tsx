@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { SegmentRing } from '@/components/SegmentRing';
-import { Story, StoryViewer } from '@/components/StoryViewer';
+import { StoryViewer } from '@/components/StoryViewer';
+import { StoryGroup } from '@/lib/types';
 import { haptic } from '@/lib/haptics';
 import { DefaultAvatar } from '@/components/DefaultAvatar';
 import { useT } from '@/lib/i18n';
@@ -35,7 +36,7 @@ export function StoriesBar({
   stories,
   currentUserLetter,
 }: {
-  stories: Story[];
+  stories: StoryGroup[];
   currentUserLetter?: string;
 }) {
   const { t } = useT();
@@ -154,7 +155,7 @@ export function StoriesBar({
 
       {stories.map((story, position) => (
         <button
-          key={story.username}
+          key={story.author.id}
           type="button"
           onClick={(event) => {
             haptic('open');
@@ -170,11 +171,18 @@ export function StoriesBar({
           {/* Дуг столько, сколько кадров в истории, — не хеш от имени, как было.
               Хеш давал стабильное, но лживое число: кружок обещал четыре
               истории, внутри оказывалась одна. */}
-          <StoryRing name={story.username} segments={story.posts.length} />
+          <StoryRing
+            name={story.author.username}
+            segments={story.items.length}
+            // Кольцо гаснет, когда всё просмотрено: непросмотренное — это
+            // единственная причина сюда смотреть, и отличать одно от другого
+            // человек должен не заходя внутрь.
+            viewed={story.unseen === 0}
+          />
           {/* Ник обрезается многоточием, а не жмётся: ячейка равна кружку, и
               длинное имя иначе раздвигало бы ряд. */}
           <span className="w-full truncate text-center text-[10.5px] text-[var(--text-muted)]">
-            {story.username}
+            {story.author.username}
           </span>
         </button>
       ))}

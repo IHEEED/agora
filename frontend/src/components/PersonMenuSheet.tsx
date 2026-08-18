@@ -3,14 +3,15 @@
 import { useLayoutEffect, useRef, useState } from 'react';
 import { BottomSheet } from '@/components/BottomSheet';
 import { setBlocked, useIsBlocked } from '@/lib/blockedUsers';
+import { TranslationKey, useT } from '@/lib/i18n';
 
 /** Причины жалобы. Тот же короткий список, что и у записи. */
-const REPORT_REASONS = [
-  'Спам или реклама',
-  'Оскорбления и травля',
-  'Выдаёт себя за другого',
-  'Жестокость или угрозы',
-  'Другое',
+const REPORT_REASONS: TranslationKey[] = [
+  'reason.spam',
+  'reason.abuse',
+  'reason.impersonation',
+  'reason.threats',
+  'reason.other',
 ];
 
 type Step = 'menu' | 'report' | 'done' | 'clear';
@@ -54,6 +55,7 @@ export function PersonMenuSheet({
   /** Есть только в переписке. Без него пункт очистки не показывается. */
   onClearChat?: () => Promise<void> | void;
 }) {
+  const { t } = useT();
   const [step, setStep] = useState<Step>('menu');
   const [copied, setCopied] = useState(false);
   const blocked = useIsBlocked(userId);
@@ -96,7 +98,7 @@ export function PersonMenuSheet({
   const items: Item[] = [
     {
       key: 'copy',
-      label: copied ? 'Ссылка скопирована' : 'Скопировать ссылку',
+      label: copied ? t('action.linkCopied') : t('action.copyLink'),
       icon: (
         <>
           <rect x="9" y="9" width="11" height="11" rx="2.5" />
@@ -107,7 +109,7 @@ export function PersonMenuSheet({
     },
     {
       key: 'block',
-      label: blocked ? 'Разблокировать' : 'Заблокировать',
+      label: blocked ? t('person.unblock') : t('person.block'),
       hint: blocked
         ? 'Записи снова появятся в ленте'
         : 'Записи и переписка скроются на этом устройстве',
@@ -130,7 +132,7 @@ export function PersonMenuSheet({
     },
     {
       key: 'report',
-      label: 'Пожаловаться',
+      label: t('action.report'),
       icon: (
         <>
           <path d="M5 21V4.5h9l-.8 3.2H19l-1 4.6H6" />
@@ -231,7 +233,7 @@ export function PersonMenuSheet({
                 onClick={() => setStep('done')}
                 className="rounded-xl px-1 py-3.5 text-left text-[15px] text-[var(--text)] transition-colors hover:bg-[var(--surface-2)]"
               >
-                {reason}
+                {t(reason)}
               </button>
             ))}
           </div>

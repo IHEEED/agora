@@ -3,6 +3,7 @@
 import { usePathname, useRouter } from 'next/navigation';
 import { requestScreenExit } from '@/lib/screenExit';
 import { setFoldOrigin } from '@/lib/foldOrigin';
+import { TranslationKey, useT } from '@/lib/i18n';
 
 /**
  * Правая часть шапки, зависит от экрана:
@@ -53,15 +54,16 @@ const GLYPH_NODE: Record<Glyph, () => React.ReactElement> = {
   cross: CrossGlyph,
 };
 
-const LABEL: Record<Glyph, string> = {
-  search: 'Поиск',
-  gear: 'Настройки',
-  cross: 'Закрыть',
+const LABEL: Record<Glyph, TranslationKey> = {
+  search: 'nav.search',
+  gear: 'nav.settings',
+  cross: 'action.close',
 };
 
 export function HeaderAction() {
   const pathname = usePathname();
   const router = useRouter();
+  const { t } = useT();
 
   // На поиске кнопка не уезжает, а превращается в крестик: уезжающая лупа
   // оставляла угол пустым, и закрывать экран приходилось вторым крестиком
@@ -87,7 +89,7 @@ export function HeaderAction() {
   return (
     <button
       onClick={handleClick}
-      aria-label={LABEL[glyph]}
+      aria-label={t(LABEL[glyph])}
       // Метка для экрана поиска: он разворачивается из этой кнопки и
       // складывается обратно в неё, а для этого ему нужно знать, где она.
       data-header-action

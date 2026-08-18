@@ -43,6 +43,20 @@ function sheetOutMs(): number {
   );
 }
 
+/**
+ * Снимок в работе: локальное превью появляется сразу, публичный адрес — когда
+ * файл доедет. Пока url пуст, снимок показан приглушённым и отправку держит.
+ */
+type Shot = { key: string; preview: string; url: string | null };
+
+/**
+ * Сколько снимков влезает в одну запись.
+ *
+ * Десять — не техническое ограничение, а редакторское: дальше это уже не
+ * запись со снимками, а альбом, который в ленте всё равно никто не долистает.
+ */
+const MAX_SHOTS = 10;
+
 /** Метка выбора «от своего имени» — идентификатором сообщества быть не может. */
 const PERSONAL = '__personal__';
 
@@ -205,9 +219,17 @@ function CreatePost() {
   const [communityId, setCommunityId] = useState(presetCommunity ?? '');
   const [title, setTitle] = useState('');
 
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
-  const [preview, setPreview] = useState<string | null>(null);
-  const [uploading, setUploading] = useState(false);
+  /**
+   * Снимки записи. Список, а не одно поле.
+   *
+   * Каждый снимок живёт двумя состояниями: сначала локальный preview (blob), он
+   * появляется мгновенно, затем — публичный адрес из хранилища. Держать их
+   * порознь нельзя: порядок снимков задаёт человек, и сопоставлять два списка
+   * по индексу пришлось бы при каждой отмене загрузки.
+   */
+  const [shots, setShots] = useState<Shot[]>([]);
+  const uploading = shots.some((shot) => shot.url === null);
+
 
   // null — опроса нет. Массив появляется по кнопке и стартует с двух пустых строк.
   const [pollOptions, setPollOptions] = useState<string[] | null>(null);
@@ -280,46 +302,69 @@ function CreatePost() {
   const communitiesResult = useApiData<Community[]>('/communities');
   const communities = useMemo(() => communitiesResult.data ?? [], [communitiesResult.data]);
 
-  // Локальный превью-URL живёт до размонтирования — иначе утечёт объект.
+  // Локальные превью живут до размонтирования — иначе утекут объекты.
   useEffect(() => {
+    const snapshot = shots;
     return () => {
-      if (preview) URL.revokeObjectURL(preview);
+      // Освобождаем blob-адреса: без этого каждый выбранный файл остаётся в
+      // памяти вкладки до её закрытия. Зависимость от списка обязательна —
+      // эффект с пустой освободил бы только тот набор, что был при первой
+      // отрисовке, то есть пустой.
+      for (const shot of snapshot) URL.revokeObjectURL(shot.preview);
     };
-  }, [preview]);
+  }, [shots]);
 
   async function handleFile(event: React.ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    if (!file) return;
+    const files = [...(event.target.files ?? [])].slice(0, MAX_SHOTS - shots.length);
+    // Поле сбрасываем сразу: без этого повторный выбор того же файла не даёт
+    // события change, и второй снимок «не добавляется».
+    event.target.value = '';
+    if (files.length === 0) return;
 
     setError(null);
-    setUploading(true);
-    setPreview(URL.createObjectURL(file));
 
-    const extension = file.name.split('.').pop() ?? 'bin';
-    const path = `${session?.user.id ?? 'anon'}/${Date.now()}.${extension}`;
+    // Все превью появляются разом, до единой загрузки: человек видит, что
+    // выбор принят, и может продолжать писать, пока снимки едут на сервер.
+    const added: Shot[] = files.map((file) => ({
+      key: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      preview: URL.createObjectURL(file),
+      url: null,
+    }));
+    setShots((current) => [...current, ...added]);
 
-    const { error: uploadError } = await supabase.storage
-      .from(MEDIA_BUCKET)
-      .upload(path, file, { cacheControl: '3600', upsert: false });
+    await Promise.all(
+      files.map(async (file, position) => {
+        const shot = added[position];
+        const extension = file.name.split('.').pop() ?? 'bin';
+        const path = `${session?.user.id ?? 'anon'}/${shot.key}.${extension}`;
 
-    if (uploadError) {
-      setUploading(false);
-      setPreview(null);
-      setImageUrl(null);
-      setError(describeUploadError(uploadError.message));
-      return;
-    }
+        const { error: uploadError } = await supabase.storage
+          .from(MEDIA_BUCKET)
+          .upload(path, file, { cacheControl: '3600', upsert: false });
 
-    const { data } = supabase.storage.from(MEDIA_BUCKET).getPublicUrl(path);
-    setImageUrl(data.publicUrl);
-    setUploading(false);
+        if (uploadError) {
+          // Убираем только упавший снимок, остальные продолжают ехать: одна
+          // неудача не повод отменять весь выбор.
+          setShots((current) => current.filter((item) => item.key !== shot.key));
+          URL.revokeObjectURL(shot.preview);
+          setError(describeUploadError(uploadError.message));
+          return;
+        }
+
+        const { data } = supabase.storage.from(MEDIA_BUCKET).getPublicUrl(path);
+        setShots((current) =>
+          current.map((item) => (item.key === shot.key ? { ...item, url: data.publicUrl } : item))
+        );
+      })
+    );
   }
 
-  function removeImage() {
-    setImageUrl(null);
-    setPreview(null);
-    if (fileInputRef.current) fileInputRef.current.value = '';
-    if (cameraInputRef.current) cameraInputRef.current.value = '';
+  function removeShot(key: string) {
+    setShots((current) => {
+      const gone = current.find((shot) => shot.key === key);
+      if (gone) URL.revokeObjectURL(gone.preview);
+      return current.filter((shot) => shot.key !== key);
+    });
   }
 
   async function handleSubmit(e: SubmitEvent) {
@@ -337,7 +382,11 @@ function CreatePost() {
           body: title.split('\n').slice(1).join('\n').trim() || null,
           // Пустая строка означает личный пост — на бэкенд уходит null.
           community_id: communityId || null,
-          image_url: imageUrl,
+          // Обложка и полный список. Обложку шлём отдельно, потому что на неё
+          // смотрят предпросмотр ссылки и мобильный клиент, который обновляется
+          // не одновременно с вебом.
+          image_url: ready[0] ?? null,
+          image_urls: ready,
           // Опрос, который уже схлопывается, отправлять не надо: для пользователя
           // он снят, даже если строки ещё живут в разметке.
           poll_options: pollShown
@@ -370,6 +419,8 @@ function CreatePost() {
 
   // Сообщество больше не обязательно: без него пост личный.
   const canSubmit = title.trim() && !submitting && !uploading;
+  /** Загруженные снимки в том порядке, в каком их выбрали. */
+  const ready = shots.map((shot) => shot.url).filter((url): url is string => Boolean(url));
   const chosenCommunity = communities.find((c) => c.id === communityId);
 
   // Шаг 1 — куда публиковать. Отдельным экраном, как в Reddit: выбор сообщества
@@ -646,6 +697,9 @@ function CreatePost() {
             ref={fileInputRef}
             type="file"
             accept="image/*"
+            // Несколько снимков за раз: выбирать их по одному, закрывая и
+            // открывая системное окно, — работа, которой человек не просил.
+            multiple
             onChange={handleFile}
             className="hidden"
             id="post-media"
@@ -708,30 +762,43 @@ function CreatePost() {
           </button>
         </div>
 
-        {(preview || imageUrl) && (
-          <div className="relative overflow-hidden rounded-2xl border border-[var(--border)]">
-            {/* eslint-disable-next-line @next/next/no-img-element -- превью локального файла и произвольный Storage-домен */}
-            <img
-              src={preview ?? imageUrl ?? ''}
-              alt=""
-              className="max-h-80 w-full object-cover"
-              style={{ opacity: uploading ? 0.5 : 1 }}
-            />
-            {uploading && (
-              <span className="absolute inset-0 flex items-center justify-center text-[14px] font-medium text-[var(--text)]">
-                Загружаем…
-              </span>
-            )}
-            <button
-              type="button"
-              onClick={removeImage}
-              aria-label="Убрать изображение"
-              className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-black/55 text-white"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                <path d="M6 6l12 12M18 6 6 18" />
-              </svg>
-            </button>
+        {/* Выбранные снимки — лентой, а не одним кадром на всю ширину.
+            Пока снимок один, лента и есть один кадр; как только их больше,
+            сразу видно порядок, число и то, что любой можно убрать. Полоса
+            прокручивается вбок: вертикальный список из пяти картинок занял бы
+            всю шторку и вытеснил поле, ради которого её открыли. */}
+        {shots.length > 0 && (
+          <div className="no-scrollbar -mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
+            {shots.map((shot) => (
+              <div
+                key={shot.key}
+                className="relative flex-none overflow-hidden rounded-2xl border border-[var(--border)]"
+                style={{ width: shots.length === 1 ? '100%' : 132, height: shots.length === 1 ? 280 : 132 }}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element -- превью локального файла и произвольный Storage-домен */}
+                <img
+                  src={shot.url ?? shot.preview}
+                  alt=""
+                  className="h-full w-full object-cover"
+                  style={{ opacity: shot.url ? 1 : 0.45 }}
+                />
+                {!shot.url && (
+                  <span className="absolute inset-0 flex items-center justify-center text-[12.5px] font-medium text-[var(--text)]">
+                    Загружаем…
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => removeShot(shot.key)}
+                  aria-label="Убрать снимок"
+                  className="absolute right-1.5 top-1.5 flex h-7 w-7 items-center justify-center rounded-full bg-black/55 text-white transition-transform active:scale-90"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+                    <path d="M6 6l12 12M18 6 6 18" />
+                  </svg>
+                </button>
+              </div>
+            ))}
           </div>
         )}
 

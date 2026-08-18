@@ -25,15 +25,21 @@ export function DefaultAvatar({
     <span
       role="img"
       aria-label={`Аватар ${name}`}
-      className="flex flex-none items-center justify-center"
+      className="default-avatar flex flex-none items-center justify-center"
       style={{
         width: size,
         height: size,
         // Сообщества — скруглённый квадрат, люди — круг. Та же разница, что и
         // между профилем человека и страницей сообщества.
         borderRadius: community ? size * 0.28 : '9999px',
-        background: 'color-mix(in srgb, var(--accent) 20%, transparent)',
-        color: 'var(--accent)',
+        // Не акцент, а его бледная тень. Двадцать процентов акцента под
+        // полноцветным силуэтом давали кислотный кружок: на «Сигнале» ядовито
+        // -зелёный, на «Гламуре» малиновый, — и заглушка кричала громче
+        // настоящих аватарок, хотя её работа ровно обратная: сказать «фото
+        // нет» и уйти в фон. Значения вынесены в тему, потому что на тёмных
+        // оформлениях нужны другие (см. --avatar-bg / --avatar-ink).
+        background: 'var(--avatar-bg)',
+        color: 'var(--avatar-ink)',
       }}
     >
       <svg
