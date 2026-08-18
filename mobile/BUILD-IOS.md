@@ -28,11 +28,22 @@ Instagram и Threads рисует не приложение, а сама iOS: `U
 
 ## Шаги
 
-```bash
-cd mobile
-npm install
-npx expo login
-npx eas build --profile development --platform ios
+Зависимости, `eas-cli` и проверка проекта уже сделаны: `expo-doctor` проходит
+все 18 проверок, типы чистые. Остались два шага, которые нельзя выполнить за
+вас, — оба спрашивают пароли и код двухфакторной проверки.
+
+В PowerShell команды идут по одной: `&&` там не разделитель.
+
+```powershell
+cd C:\Users\fbodr\agora\mobile
+```
+
+```powershell
+eas login
+```
+
+```powershell
+eas build --profile development --platform ios
 ```
 
 EAS спросит про подпись — согласитесь на автоматическую, введите Apple ID,
