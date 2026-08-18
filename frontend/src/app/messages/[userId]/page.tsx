@@ -274,6 +274,10 @@ export default function ChatPage() {
     // к тому же движению вправо (см. --chat-wall-fade).
     document.documentElement.style.setProperty('--chat-wall-fade', '0');
     peelScreen(screenRef.current, fromX);
+    // Замороженный список больше не нужен: сверху уже лежит снимок переписки, и
+    // держать под ним копию списка рядом с настоящим значит показывать два
+    // одинаковых экрана разом.
+    releaseBackdrop(true);
     router.back();
   }, [router]);
 

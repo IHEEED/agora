@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import Link from 'next/link';
 import { Post, postImages } from '@/lib/types';
 import { apiFetch } from '@/lib/api';
@@ -44,10 +44,20 @@ export function PostCard({
   // потому что просмотрщик листает, и «какая именно» — это состояние.
   const [viewing, setViewing] = useState(-1);
   const images = postImages(post);
-  // Какой снимок показан в карусели. Отдельно от viewing: в ленте листают
-  // мелко, во весь экран — крупно, и позиции у этих двух дел разные только до
-  // тех пор, пока одно не открывают из другого.
+  // Какой снимок сейчас в кадре. Значение выводится из прокрутки, а не задаёт
+  // её: строку двигает браузер, наше дело — прочитать, где она остановилась, и
+  // подсветить нужную точку.
   const [shown, setShown] = useState(0);
+  const stripRef = useRef<HTMLDivElement>(null);
+
+  function onStripScroll() {
+    const strip = stripRef.current;
+    if (!strip) return;
+    // Округляем к ближайшему кадру: пока строка едет, точка должна переключаться
+    // на середине пути, а не в момент полной остановки.
+    const next = Math.round(strip.scrollLeft / strip.clientWidth);
+    if (next !== shown) setShown(next);
+  }
   const { session } = useSession();
 
   async function remove() {
@@ -200,32 +210,37 @@ export function PostCard({
           список, а не механику. */}
       {images.length > 0 && (
         <div className="relative overflow-hidden rounded-2xl border border-[var(--border)]">
-          {/* Карусель прямо в ленте, а не только во весь экран. Записи с
-              несколькими снимками иначе показывали бы первый и молчали об
-              остальных: человек узнавал бы о них, только открыв картинку — то
-              есть случайно. Полоса едет трансформацией, снимки лежат рядом. */}
+          {/* Одна прокручиваемая строка, а не блоки со стрелками.
+              Стрелки были работой вместо жеста: снимки листают пальцем, и
+              каждая кнопка на этом пути — лишний прицел. Прокрутка при этом не
+              наша, а браузерная: у неё уже есть инерция, резина у краёв и
+              подхват трекпадом, и любая своя реализация оказалась бы хуже по
+              всем трём пунктам сразу.
+
+              scroll-snap держит кадр на месте: без него строка останавливается
+              где придётся и показывает половину одного снимка и половину
+              другого. */}
           <div
-            className="flex"
-            style={{
-              transform: `translate3d(${-shown * 100}%, 0, 0)`,
-              transition: 'transform 320ms cubic-bezier(0.32, 0.72, 0, 1)',
-            }}
+            ref={stripRef}
+            onScroll={onStripScroll}
+            className="no-scrollbar flex snap-x snap-mandatory overflow-x-auto"
+            style={{ scrollBehavior: 'auto', overscrollBehaviorX: 'contain' }}
           >
             {images.map((src, position) => (
               <button
                 key={`${src}-${position}`}
                 type="button"
                 onClick={() => setViewing(position)}
-                className="block w-full flex-none transition-transform active:scale-[0.995]"
-                style={{ maxHeight: 340 }}
+                className="block w-full flex-none snap-center transition-transform active:scale-[0.995]"
               >
                 {/* eslint-disable-next-line @next/next/no-img-element -- источник картинок произвольный, next/image требует настройки доменов */}
                 <img
                   src={src}
                   alt=""
                   loading={position === 0 ? 'lazy' : 'eager'}
+                  draggable={false}
                   className="w-full object-cover"
-                  style={{ maxHeight: 340, height: 340 }}
+                  style={{ height: 340 }}
                 />
               </button>
             ))}
@@ -233,15 +248,6 @@ export function PostCard({
 
           {images.length > 1 && (
             <>
-              {/* Стрелки только там, где есть куда идти: кнопка, которая ничего
-                  не делает, обещает больше, чем есть. */}
-              {shown > 0 && (
-                <CarouselArrow side="left" onClick={() => setShown(shown - 1)} />
-              )}
-              {shown < images.length - 1 && (
-                <CarouselArrow side="right" onClick={() => setShown(shown + 1)} />
-              )}
-
               <span
                 className="font-num pointer-events-none absolute right-3 top-3 rounded-full px-2 py-0.5 text-[12px] font-medium text-white"
                 style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(10px)' }}
@@ -274,7 +280,11 @@ export function PostCard({
         onClose={() => {
           // Возвращаемся в ленту на том снимке, до которого долистали во весь
           // экран: закрыть просмотр и обнаружить первый кадр — потерять место.
-          if (viewing >= 0) setShown(viewing);
+          // Прокруткой без анимации: это не переход, а восстановление положения.
+          const strip = stripRef.current;
+          if (viewing >= 0 && strip) {
+            strip.scrollTo({ left: viewing * strip.clientWidth, behavior: 'instant' as ScrollBehavior });
+          }
           setViewing(-1);
         }}
       />
@@ -431,28 +441,5 @@ function ChainTail({ chain, total }: { chain: Post[]; total: number }) {
         </div>
       ))}
     </div>
-  );
-}
-
-/**
- * Стрелка карусели. Полупрозрачный кружок поверх снимка — не кнопка интерфейса,
- * а указатель поверх картинки, поэтому без подложки из палитры: на любом
- * снимке она читается одинаково.
- */
-function CarouselArrow({ side, onClick }: { side: 'left' | 'right'; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label={side === 'left' ? 'Предыдущий снимок' : 'Следующий снимок'}
-      className={`absolute top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full text-white transition-transform active:scale-90 ${
-        side === 'left' ? 'left-2.5' : 'right-2.5'
-      }`}
-      style={{ background: 'rgba(0,0,0,0.42)', backdropFilter: 'blur(10px)' }}
-    >
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-        <path d={side === 'left' ? 'm14 6-6 6 6 6' : 'm10 6 6 6-6 6'} />
-      </svg>
-    </button>
   );
 }

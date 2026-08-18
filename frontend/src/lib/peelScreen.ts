@@ -76,6 +76,17 @@ function reducedMotion(): boolean {
 function snapshot(node: HTMLElement): HTMLElement | null {
   if (reducedMotion()) return null;
 
+  /**
+   * Что мы спрятали ради снимка.
+   *
+   * Прячем в расчёте на то, что React вот-вот снимет эти узлы сам. Если
+   * навигация не состоится — жест отменили, маршрут совпал, роутер не успел, —
+   * узлы останутся в разметке невидимыми, и человек получит пустой экран,
+   * с которого некуда деться. Возвращаем их, если к концу анимации они всё ещё
+   * на месте.
+   */
+  const hidden: HTMLElement[] = [];
+
   // Слой во всё окно, без обрезки по шапке.
   //
   // Обрезали — и по нижней кромке шапки вставала жёсткая горизонтальная черта:
@@ -121,6 +132,7 @@ function snapshot(node: HTMLElement): HTMLElement | null {
     // в разметке. Слой уезжал, из-под него показывался тот же экран, и только
     // потом — лента. Именно это и было «снимается, а под ним то же самое».
     source.style.visibility = 'hidden';
+    hidden.push(source);
   };
 
   place(node, true);
@@ -129,6 +141,11 @@ function snapshot(node: HTMLElement): HTMLElement | null {
   document.querySelectorAll<HTMLElement>(SCREEN_FIXED).forEach((el) => place(el, false));
 
   document.body.appendChild(layer);
+  layer.addEventListener('parafraz:done', () => {
+    for (const node of hidden) {
+      if (node.isConnected) node.style.visibility = '';
+    }
+  });
   return layer;
 }
 
@@ -160,10 +177,16 @@ function whenSwapped(run: () => void) {
 
 function play(layer: HTMLElement, frames: Keyframe[], duration: number, easing: string) {
   const animation = layer.animate(frames, { duration, easing, fill: 'forwards' });
-  animation.onfinish = () => layer.remove();
+  const done = () => {
+    // Событие сначала: слушатель возвращает видимость тем узлам, которые React
+    // так и не снял. После remove() слушателей на узле уже не дозваться.
+    layer.dispatchEvent(new Event('parafraz:done'));
+    layer.remove();
+  };
+  animation.onfinish = done;
   // Если анимацию отменят (вкладку свернули, элемент выкинули) — убрать всё
   // равно, иначе копия останется висеть поверх приложения.
-  animation.oncancel = () => layer.remove();
+  animation.oncancel = done;
 }
 
 /**

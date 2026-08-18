@@ -83,10 +83,22 @@ export function holdBackdrop() {
  */
 const RELEASE_WAIT_FRAMES = 12;
 
-export function releaseBackdrop() {
+export function releaseBackdrop(immediate = false) {
   const layer = held;
   held = null;
   if (!layer) return;
+
+  // Немедленно — когда поверх уже лежит снимок уходящего экрана.
+  //
+  // Иначе на экране оказывались два одинаковых списка разом: замороженный
+  // здесь и настоящий, который в этот момент монтируется. Совпадать они не
+  // обязаны — у одного своя прокрутка, у другого анимация появления, — и
+  // накладка читается как двоение экрана. Ждать первого кадра ленты имеет смысл
+  // только там, где под снимком ничего нет.
+  if (immediate) {
+    layer.remove();
+    return;
+  }
 
   let left = RELEASE_WAIT_FRAMES;
   const tick = () => {
