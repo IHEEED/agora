@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useVote } from '@/lib/useVote';
 import { RollingNumber } from '@/components/RollingNumber';
+import { haptic } from '@/lib/haptics';
 
 const ARROW_PATH =
   'M12 4.5c.45 0 .87.2 1.15.55l5.9 7.2c.65.8.08 2-.96 2H15.2v4.3c0 .8-.65 1.45-1.45 1.45h-3.5c-.8 0-1.45-.65-1.45-1.45V14.25H5.91c-1.04 0-1.61-1.2-.96-2l5.9-7.2c.28-.35.7-.55 1.15-.55Z';
@@ -80,6 +81,10 @@ export function VoteBlock({
 
   function handleVote(value: 1 | -1) {
     const direction = value === 1 ? 'up' : 'down';
+    // Толчок в палец. Голос — самое частое действие в приложении, и подтвердить
+    // его надо раньше, чем глаз проверит счётчик: палец в этот момент закрывает
+    // собой ровно ту стрелку, которая подсвечивается.
+    haptic();
     // Повторный клик по своей же стрелке снимает голос — такой откат
     // проходит без анимации, крутится только постановка реакции.
     if (vote.myVote !== value) {

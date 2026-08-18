@@ -15,6 +15,7 @@ import { VoteBlock } from '@/components/VoteBlock';
 import { PollBlock } from '@/components/PollBlock';
 import { PostMenuSheet } from '@/components/PostMenuSheet';
 import { ImageViewer } from '@/components/ImageViewer';
+import { haptic } from '@/lib/haptics';
 import { useSession } from '@/lib/useSession';
 
 export function PostCard({
@@ -59,6 +60,7 @@ export function PostCard({
   }
 
   async function handleRepost() {
+    haptic();
     // Считаем от текущего значения, а не изнутри апдейтера setReposted:
     // React прогоняет апдейтеры дважды (StrictMode в разработке), и вложенный
     // setRepostCount срабатывал два раза — счётчик прыгал через один.

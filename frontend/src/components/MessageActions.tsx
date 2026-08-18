@@ -1,7 +1,8 @@
 'use client';
 
-import { useLayoutEffect, useRef, useSyncExternalStore } from 'react';
+import { useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
+import { haptic } from '@/lib/haptics';
 
 /**
  * Плавающее меню действий над сообщением — то, что открывается удержанием.
@@ -55,10 +56,35 @@ export function MessageActions({
     if (!open || !panel || !anchor) return;
 
     const gap = 10;
-    const fitsBelow = window.innerHeight - anchor.bottom > panel.offsetHeight + gap + 16;
-    panel.style.top = fitsBelow
+    const margin = 16;
+    const below = window.innerHeight - anchor.bottom - gap - margin;
+    const above = anchor.top - gap - margin;
+
+    /**
+     * Меню не наезжает на сообщение — никогда.
+     *
+     * Раньше сторона выбиралась по принципу «влезает снизу или нет», а если не
+     * влезало ни снизу, ни сверху, верх прижимался к шестнадцати пикселям от
+     * кромки — и меню наползало на пузырь. Хуже того, пузырь на время меню
+     * поднимается над затемнением (z-index 72), так что меню уходило под него:
+     * получалось, что открытое меню наполовину спрятано за тем, к чему оно
+     * относится.
+     *
+     * Теперь выбираем ту сторону, где места больше, и ограничиваем высоту этим
+     * местом. Не поместившееся прокручивается внутри — список действий длинный
+     * только у своих сообщений, где есть и правка, и удаление.
+     */
+    const openDown = below >= above;
+    const room = Math.max(140, openDown ? below : above);
+    panel.style.maxHeight = `${room}px`;
+
+    const height = Math.min(panel.scrollHeight, room);
+    panel.style.top = openDown
       ? `${anchor.bottom + gap}px`
-      : `${Math.max(16, anchor.top - panel.offsetHeight - gap)}px`;
+      : `${anchor.top - gap - height}px`;
+    // Растёт меню от того края, к которому прижато, — иначе появление идёт
+    // в сторону сообщения и на кадр перекрывает его.
+    panel.style.transformOrigin = openDown ? 'top left' : 'bottom left';
 
     // По горизонтали держимся стороны сообщения, но в пределах экрана.
     const left = Math.min(
@@ -67,6 +93,14 @@ export function MessageActions({
     );
     panel.style.left = `${left}px`;
   }, [open, anchor]);
+
+  // Толчок на появление — как у шторок. Меню вызывают удержанием, и отклик
+  // здесь заодно говорит «удержание засчитано», а не «палец соскользнул».
+  const [wasOpen, setWasOpen] = useState(open);
+  if (wasOpen !== open) {
+    setWasOpen(open);
+    if (open) haptic('open');
+  }
 
   if (!mounted) return null;
 
@@ -92,11 +126,10 @@ export function MessageActions({
         ref={panelRef}
         role="menu"
         aria-hidden={!open}
-        className="fixed z-[71] flex w-[228px] flex-col gap-1.5"
+        className="no-scrollbar fixed z-[71] flex w-[228px] flex-col gap-1.5 overflow-y-auto"
         style={{
           opacity: open ? 1 : 0,
           transform: open ? 'scale(1)' : 'scale(0.92)',
-          transformOrigin: 'top left',
           pointerEvents: open ? 'auto' : 'none',
           visibility: open ? 'visible' : 'hidden',
           transition:

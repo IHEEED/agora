@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { SegmentRing } from '@/components/SegmentRing';
 import { Story, StoryViewer } from '@/components/StoryViewer';
+import { haptic } from '@/lib/haptics';
 import { DefaultAvatar } from '@/components/DefaultAvatar';
 import { useT } from '@/lib/i18n';
 
@@ -41,6 +42,8 @@ export function StoriesBar({
   // Какая история открыта. −1 — закрыто; индексом, а не флагом, потому что из
   // одной истории просмотр уходит в следующую, и «какая именно» — это состояние.
   const [open, setOpen] = useState(-1);
+  // Кружок, по которому нажали: из него история и вырастает (см. StoryViewer).
+  const [origin, setOrigin] = useState<DOMRect | null>(null);
   const trackRef = useRef<HTMLDivElement>(null);
   const drag = useRef({ active: false, startX: 0, startScroll: 0, lastX: 0, velocity: 0 });
   const inertia = useRef<number | null>(null);
@@ -153,7 +156,14 @@ export function StoriesBar({
         <button
           key={story.username}
           type="button"
-          onClick={() => setOpen(position)}
+          onClick={(event) => {
+            haptic('open');
+            // Рамку берём у самого кружка, а не у ячейки: подпись под ним в
+            // историю не превращается, и расти из неё нечему.
+            const ring = event.currentTarget.firstElementChild;
+            setOrigin(ring ? ring.getBoundingClientRect() : null);
+            setOpen(position);
+          }}
           className="min-w-0 flex flex-col items-center gap-1.5 transition-transform active:scale-95"
           style={{ flex: `0 0 ${RING_SIZE}px` }}
         >
@@ -173,6 +183,7 @@ export function StoriesBar({
     <StoryViewer
       stories={stories}
       index={open}
+      origin={origin}
       onIndex={setOpen}
       onClose={() => setOpen(-1)}
     />

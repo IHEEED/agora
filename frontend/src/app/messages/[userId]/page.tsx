@@ -24,6 +24,8 @@ import { setNavHidden } from '@/lib/navVisibility';
 import { markGoingBack } from '@/lib/navDirection';
 import { createPortal } from 'react-dom';
 import { peelScreen } from '@/lib/peelScreen';
+import { releaseBackdrop } from '@/lib/screenBackdrop';
+import { haptic } from '@/lib/haptics';
 
 /** Как часто перечитываем переписку, пока она открыта.
     Раньше был 4000 — при плохой сети задержка на запросе могла совпасть
@@ -171,15 +173,32 @@ export default function ChatPage() {
   // Заодно поднимаем обои переписки: сам слой живёт в разметке приложения, вне
   // анимируемого дерева (см. Wallpaper), а этот атрибут его показывает.
   useEffect(() => {
+    const root = document.documentElement;
     setNavHidden(true);
-    document.documentElement.dataset.inChat = '1';
+    root.dataset.inChat = '1';
     return () => {
       setNavHidden(false);
       // Атрибут снимаем сразу: обои гаснут прозрачностью и успевают уйти
       // плавно, пока экран уезжает (см. .chat-wallpaper в globals.css).
       delete document.documentElement.dataset.inChat;
+      root.style.removeProperty('--chat-wall-fade');
+      delete root.dataset.chatDragging;
     };
   }, []);
+
+  // Замороженный список переписок под чатом. Без него тянуть экран пальцем
+  // некуда: за ним пустой фон, и жест выглядит не «сдвинул верхний лист», а
+  // «отломал кусок экрана». Снимок снят в момент нажатия на переписку
+  // (см. screenBackdrop), отпускаем его, когда уходим с маршрута.
+  //
+  // Проверка маршрута обязательна: React в разработке прогоняет эффекты
+  // дважды, и первый же cleanup снял бы снимок, пока чат никуда не уходит.
+  useEffect(
+    () => () => {
+      if (!window.location.pathname.startsWith('/messages/')) releaseBackdrop();
+    },
+    []
+  );
 
   /**
    * Выход свайпом от левого края — тем же жестом, что и в системной навигации.
@@ -251,6 +270,9 @@ export default function ChatPage() {
     if (leaveGuard.current) return;
     leaveGuard.current = true;
     markGoingBack();
+    // Обои уходят вместе со слоем, а не сами по себе: их прозрачность привязана
+    // к тому же движению вправо (см. --chat-wall-fade).
+    document.documentElement.style.setProperty('--chat-wall-fade', '0');
     peelScreen(screenRef.current, fromX);
     router.back();
   }, [router]);
@@ -258,15 +280,32 @@ export default function ChatPage() {
   /** Для onClick: обработчик получил бы событие вместо сдвига. */
   const onLeave = useCallback(() => leave(0), [leave]);
 
+  /**
+   * Обои гаснут ровно на ту долю, на которую экран уехал вправо.
+   *
+   * Не «через полсекунды после ухода» и не «мгновенно»: фон занимает всю
+   * площадь экрана, и любая его собственная жизнь, не связанная с рукой,
+   * читается как рывок. Пока палец ведёт — обои ведут себя как часть того же
+   * листа; отпустили назад — возвращаются вместе с ним.
+   */
+  function fadeWallpaper(shift: number) {
+    const root = document.documentElement;
+    const share = Math.min(1, Math.max(0, shift / window.innerWidth));
+    root.style.setProperty('--chat-wall-fade', String(1 - share));
+  }
+
   function onPointerDown(event: React.PointerEvent) {
     if (event.clientX > EDGE_ZONE || leaveGuard.current) return;
     dragFrom.current = event.clientX;
+    document.documentElement.dataset.chatDragging = '1';
     setDragging(true);
   }
 
   function onPointerMove(event: React.PointerEvent) {
     if (dragFrom.current === null) return;
-    setDragX(Math.max(0, event.clientX - dragFrom.current));
+    const shift = Math.max(0, event.clientX - dragFrom.current);
+    setDragX(shift);
+    fadeWallpaper(shift);
   }
 
   function onPointerUp() {
@@ -274,8 +313,19 @@ export default function ChatPage() {
     const far = dragX > window.innerWidth / 3;
     dragFrom.current = null;
     setDragging(false);
-    // Слой продолжает движение с того сдвига, на котором отпустили.
-    if (far) leave(dragX);
+    const root = document.documentElement;
+    // Переход обратно включаем в любом случае: и возврат на место, и досыл
+    // вправо дальше идут анимацией, а не рукой.
+    delete root.dataset.chatDragging;
+    if (far) {
+      // Дотягиваем гашение до конца за то же время, что едет слой.
+      root.style.setProperty('--chat-wall-fade', '0');
+      haptic('unlock');
+      // Слой продолжает движение с того сдвига, на котором отпустили.
+      leave(dragX);
+    } else {
+      root.style.removeProperty('--chat-wall-fade');
+    }
     setDragX(0);
   }
 
@@ -726,22 +776,32 @@ export default function ChatPage() {
                     borderBottomLeftRadius: !mine && !groupEnd ? 8 : !mine ? 6 : 18,
                   }}
                 >
-                  {/* Цитата над ответом. Полоска слева и приглушённый текст —
-                      она подпись к реплике, а не сама реплика. */}
+                  {/* Цитата над ответом — отдельная карточка внутри пузыря.
+                      Прежде она была вжата в самый угол: полоска в два
+                      пикселя, кегль вдвое мельче реплики, отступы почти в ноль
+                      — и читалась не цитатой, а служебной сноской, набранной
+                      мелким шрифтом от нехватки места.
+
+                      Цитата — половина смысла ответа: без неё непонятно, на
+                      что отвечают. Поэтому она получила свою скруглённую
+                      подложку, полноценные поля и кегль всего на полтора
+                      пункта мельче основного текста. Полоска слева осталась,
+                      но толще — теперь это кромка карточки, а не черта на
+                      полях. */}
                   {message.replyTo && (
                     <span
-                      className="mb-1 flex flex-col gap-0.5 rounded-md py-0.5 pl-2 pr-1"
+                      className="mb-1.5 flex flex-col gap-0.5 overflow-hidden rounded-xl py-1.5 pl-2.5 pr-2.5"
                       style={{
-                        borderLeft: '2px solid currentColor',
+                        borderLeft: '3px solid currentColor',
                         background: mine
-                          ? 'color-mix(in srgb, var(--accent-contrast) 14%, transparent)'
-                          : 'color-mix(in srgb, var(--text) 7%, transparent)',
+                          ? 'color-mix(in srgb, var(--accent-contrast) 18%, transparent)'
+                          : 'color-mix(in srgb, var(--text) 9%, transparent)',
                       }}
                     >
-                      <span className="text-[11.5px] font-semibold" style={{ opacity: 0.85 }}>
+                      <span className="text-[12.5px] font-semibold" style={{ opacity: 0.9 }}>
                         {message.replyTo.mine ? 'Вы' : (person?.username ?? '…')}
                       </span>
-                      <span className="line-clamp-2 text-[12.5px]" style={{ opacity: 0.75 }}>
+                      <span className="line-clamp-3 text-[13.5px] leading-snug" style={{ opacity: 0.8 }}>
                         {message.replyTo.body}
                       </span>
                     </span>

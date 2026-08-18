@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useScreenLeave } from '@/lib/useScreenLeave';
+import { haptic } from '@/lib/haptics';
 import { useSession } from '@/lib/useSession';
 import { usePhoneGate } from '@/components/PhoneGateContext';
 import {
@@ -475,14 +476,31 @@ export default function SettingsPage() {
 /**
  * Пасхалка: «Гламур».
  *
- * Спрятана не за секретным жестом, а за простым любопытством — надо всего лишь
- * не остановиться там, где кончились настройки. Полтора экрана пустоты сами по
- * себе сообщение: человек, докрутивший до дна, понимает, что дно тут
- * нарочное.
+ * Спрятана не за секретным жестом, а за упрямством. Настройки кончаются, дальше
+ * полтора экрана пустоты — и на этом страница действительно заканчивается: дно
+ * настоящее, в него упираешься. Упрёшься второй раз — по-прежнему дно. И только
+ * на третий приложение уступает и пропускает дальше, к кнопке.
  *
- * Проявляется по мере приближения — так видно, что впереди что-то есть, и
- * находка не выглядит случайным сбоем.
+ * Смысл именно в отказе. Пасхалка, до которой достаточно долистать, — это не
+ * находка, а просто далеко расположенный пункт: его находят случайно и ничего
+ * при этом не чувствуют. Дверь, которая не поддалась дважды, превращает
+ * третью попытку в решение, и найденное за ней принадлежит нашедшему.
+ *
+ * Три — потому что два читаются как заминка прокрутки, а на четвёртом человек
+ * уже уходит, решив, что там и правда ничего нет.
  */
+
+/** Сколько раз надо упереться в дно, прежде чем оно уступит. */
+const GLAM_BUMPS = 3;
+
+/**
+ * Одно непрерывное движение — один упор.
+ *
+ * Колесо шлёт десятки событий подряд, палец — сотни; без паузы «три упора»
+ * набирались бы за один рывок, и никакого сопротивления человек бы не заметил.
+ */
+const REARM_MS = 380;
+
 function GlamEasterEgg({
   current,
   onFound,
@@ -491,7 +509,13 @@ function GlamEasterEgg({
   onFound: (style: StyleId) => void;
 }) {
   const [nearness, setNearness] = useState(0);
+  const [bumps, setBumps] = useState(0);
+  // Отдача: блок коротко подаётся вверх, как будто в него ткнулись. Без неё
+  // упор в дно ничем не отличается от обычного конца страницы.
+  const [recoil, setRecoil] = useState(0);
   const anchor = useRef<HTMLDivElement>(null);
+
+  const unlocked = bumps >= GLAM_BUMPS;
 
   useEffect(() => {
     function onScroll() {
@@ -513,6 +537,66 @@ function GlamEasterEgg({
     };
   }, []);
 
+  // Считаем упоры в дно. Пока не набрали — кнопки в разметке нет вовсе, то есть
+  // дно честное: не «прокрутка запрещена», а «страница кончилась».
+  useEffect(() => {
+    if (unlocked) return;
+
+    let armed = true;
+    let rearm: number | undefined;
+    let touchFrom: number | null = null;
+
+    function atBottom() {
+      const doc = document.documentElement;
+      return window.innerHeight + window.scrollY >= doc.scrollHeight - 2;
+    }
+
+    function push(down: number) {
+      if (down <= 0 || !armed || !atBottom()) return;
+      armed = false;
+      window.clearTimeout(rearm);
+      rearm = window.setTimeout(() => {
+        armed = true;
+      }, REARM_MS);
+
+      setBumps((count) => count + 1);
+      setRecoil((key) => key + 1);
+      haptic('tap');
+    }
+
+    const onWheel = (event: WheelEvent) => push(event.deltaY);
+    const onTouchStart = (event: TouchEvent) => {
+      touchFrom = event.touches[0]?.clientY ?? null;
+    };
+    const onTouchMove = (event: TouchEvent) => {
+      const y = event.touches[0]?.clientY;
+      if (touchFrom === null || y === undefined) return;
+      push(touchFrom - y);
+    };
+    const onTouchEnd = () => {
+      touchFrom = null;
+      armed = true;
+      window.clearTimeout(rearm);
+    };
+
+    window.addEventListener('wheel', onWheel, { passive: true });
+    window.addEventListener('touchstart', onTouchStart, { passive: true });
+    window.addEventListener('touchmove', onTouchMove, { passive: true });
+    window.addEventListener('touchend', onTouchEnd, { passive: true });
+    return () => {
+      window.clearTimeout(rearm);
+      window.removeEventListener('wheel', onWheel);
+      window.removeEventListener('touchstart', onTouchStart);
+      window.removeEventListener('touchmove', onTouchMove);
+      window.removeEventListener('touchend', onTouchEnd);
+    };
+  }, [unlocked]);
+
+  // Дно уступило — сообщаем об этом ощутимо, а не только картинкой.
+  useEffect(() => {
+    if (unlocked) haptic('unlock');
+  }, [unlocked]);
+
   const found = current === 'glam';
 
   return (
@@ -520,33 +604,52 @@ function GlamEasterEgg({
       {/* Полтора экрана намеренной пустоты. */}
       <div style={{ height: '58vh' }} aria-hidden />
 
-      <div ref={anchor} className="flex flex-col items-center gap-3 pb-16 text-center">
-        <div
-          style={{
-            opacity: nearness,
-            transform: `translateY(${(1 - nearness) * 14}px)`,
-            transition: 'opacity 0.2s ease, transform 0.2s var(--enter-ease)',
-          }}
-        >
-          <p className="mb-3 text-[13px] leading-relaxed text-[var(--text-muted)]">
-            {found
-              ? 'Гламур включён. Обратно — любым оформлением выше.'
-              : 'Здесь ничего нет. Почти.'}
-          </p>
-          <button
-            type="button"
-            onClick={() => onFound(found ? DEFAULT_STYLE : 'glam')}
-            className="rounded-full px-5 py-2.5 text-[14px] font-semibold transition-transform active:scale-95"
+      {/* Отдача на упор: блок подаётся вверх и возвращается. key перезапускает
+          анимацию на каждом толчке — без него второй упор проходил бы молча. */}
+      <div
+        key={recoil}
+        className={recoil > 0 && !unlocked ? 'glam-recoil' : undefined}
+        aria-hidden={!unlocked}
+      >
+        <div ref={anchor} className="flex flex-col items-center gap-3 pb-16 text-center">
+          <div
             style={{
-              // Розовый — свой, а не из палитры: кнопка обещает именно этот
-              // цвет, и на любом текущем оформлении обещание одно и то же.
-              background: found ? 'var(--surface-2)' : '#e0338c',
-              color: found ? 'var(--text)' : '#ffffff',
-              boxShadow: found ? 'none' : '0 10px 30px -12px #e0338c',
+              opacity: nearness,
+              transform: `translateY(${(1 - nearness) * 14}px)`,
+              transition: 'opacity 0.2s ease, transform 0.2s var(--enter-ease)',
             }}
           >
-            {found ? 'Хватит' : 'Гламур'}
-          </button>
+            <p className="mb-3 text-[13px] leading-relaxed text-[var(--text-muted)]">
+              {found
+                ? 'Гламур включён. Обратно — любым оформлением выше.'
+                : unlocked
+                  ? 'Ну хорошо. Здесь всё-таки кое-что есть.'
+                  : 'Здесь ничего нет.'}
+            </p>
+
+            {/* Кнопки до третьего упора нет в разметке — потому дно и настоящее.
+                Спрятать её прозрачностью было бы враньём: страница осталась бы
+                той же длины, и человек упирался бы не в дно, а в невидимое. */}
+            {unlocked && (
+              <button
+                type="button"
+                onClick={() => {
+                  haptic();
+                  onFound(found ? DEFAULT_STYLE : 'glam');
+                }}
+                className="glam-appear rounded-full px-5 py-2.5 text-[14px] font-semibold transition-transform active:scale-95"
+                style={{
+                  // Розовый — свой, а не из палитры: кнопка обещает именно этот
+                  // цвет, и на любом текущем оформлении обещание одно и то же.
+                  background: found ? 'var(--surface-2)' : '#e0338c',
+                  color: found ? 'var(--text)' : '#ffffff',
+                  boxShadow: found ? 'none' : '0 10px 30px -12px #e0338c',
+                }}
+              >
+                {found ? 'Хватит' : 'Гламур'}
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </>

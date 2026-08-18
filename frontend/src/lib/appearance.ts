@@ -122,7 +122,7 @@ export const STYLES: ReadonlyArray<{
   },
 ];
 
-export const DEFAULT_STYLE: StyleId = 'chronicle';
+export const DEFAULT_STYLE: StyleId = 'atelier';
 
 function systemTheme(): Theme {
   return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';

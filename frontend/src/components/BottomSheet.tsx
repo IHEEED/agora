@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
+import { haptic } from '@/lib/haptics';
 
 /** Ниже этого сдвига отпускание закрывает шторку, выше — возвращает на место. */
 const DISMISS_AFTER_PX = 120;
@@ -39,6 +40,19 @@ export function BottomSheet({
 }) {
   const [drag, setDrag] = useState<number | null>(null);
   const dragStart = useRef(0);
+
+  // Толчок на появление шторки — здесь, а не по местам вызова. Шторок в
+  // приложении дюжина (комментарии, «поделиться», меню записи, меню человека,
+  // списки людей), и отклик у всех обязан быть одинаковым: расставленный
+  // вручную он рано или поздно где-нибудь не совпадёт или потеряется.
+  //
+  // Сравнением с прошлым значением, а не эффектом: эффект на open сработал бы
+  // и при первом рендере закрытой шторки, а их на экране сразу несколько.
+  const [wasOpen, setWasOpen] = useState(open);
+  if (wasOpen !== open) {
+    setWasOpen(open);
+    if (open) haptic('open');
+  }
 
   // document.body на сервере не существует — портал ставим только на клиенте.
   const mounted = useSyncExternalStore(

@@ -1,6 +1,13 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { DefaultAvatar } from '@/components/DefaultAvatar';
@@ -120,12 +127,15 @@ function Frame({ post }: { post: Post }) {
 export function StoryViewer({
   stories,
   index,
+  origin,
   onIndex,
   onClose,
 }: {
   stories: Story[];
   /** Какая история открыта. −1 — закрыто. */
   index: number;
+  /** Кружок, по которому нажали, — из него история и вырастает. */
+  origin?: DOMRect | null;
   onIndex: (next: number) => void;
   onClose: () => void;
 }) {
@@ -230,6 +240,49 @@ export function StoryViewer({
     };
   }, [open]);
 
+  /**
+   * История вырастает из своего кружка, как в Telegram.
+   *
+   * Не «появляется затемнение и в нём кадр», а именно вырастает: кружок в ленте
+   * и полноэкранная история — одно и то же, просто в двух размерах, и движение
+   * между ними обязано это показать. Иначе человек теряет, откуда он пришёл, и
+   * закрытие каждый раз оказывается неожиданностью.
+   *
+   * Считаем масштаб от кружка к панели и запускаем обратный путь: из маленького
+   * в натуральную величину. Скругление едет вместе с масштабом — круг
+   * распрямляется в прямоугольник экрана.
+   */
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  // Зависимости — открытость и сама рамка. Рамку ставит нажатие по кружку и
+  // больше её никто не трогает, поэтому переход к следующей истории внутри
+  // просмотра эффект не перезапускает: разворот положен один, на открытие.
+  useLayoutEffect(() => {
+    const panel = panelRef.current;
+    const from = origin;
+    if (!open || !panel || !from) return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+    const to = panel.getBoundingClientRect();
+    if (!to.width || !to.height) return;
+
+    const scale = Math.max(from.width / to.width, from.height / to.height);
+    const dx = from.left + from.width / 2 - (to.left + to.width / 2);
+    const dy = from.top + from.height / 2 - (to.top + to.height / 2);
+
+    panel.animate(
+      [
+        {
+          transform: `translate(${dx}px, ${dy}px) scale(${scale})`,
+          borderRadius: '50%',
+          opacity: 0.35,
+        },
+        { transform: 'none', borderRadius: '0px', opacity: 1 },
+      ],
+      { duration: 320, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' }
+    );
+  }, [open, origin]);
+
   // Свайп вниз закрывает — так же, как в просмотрщике картинок.
   const from = useRef<number | null>(null);
   const [dragY, setDragY] = useState(0);
@@ -280,6 +333,7 @@ export function StoryViewer({
       }}
     >
       <div
+        ref={panelRef}
         className="relative w-full overflow-hidden bg-black sm:max-w-[420px] sm:rounded-3xl"
         style={{
           height: '100%',

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useApiData } from '@/lib/useApiData';
 import { MessageThread, UserSummary } from '@/lib/types';
@@ -10,6 +10,7 @@ import { SkeletonList, SkeletonRow } from '@/components/Skeleton';
 import { formatCompactAge } from '@/lib/formatDate';
 import { useBlockedUsers } from '@/lib/blockedUsers';
 import { useScreenLeave } from '@/lib/useScreenLeave';
+import { holdBackdrop, releaseBackdrop } from '@/lib/screenBackdrop';
 import { useT } from '@/lib/i18n';
 
 /**
@@ -27,6 +28,21 @@ export default function MessagesPage() {
   // вот это» показать стоит: раздел открывается не из бара, и вернуться иначе
   // нечем, кроме той же кнопки.
   const { goBack, style: leaveStyle, swipeHandlers } = useScreenLeave('[data-messages-button]');
+
+  // Снимок ленты держится под мессенджером всё время, пока он открыт, и
+  // снимается, когда уходим (см. screenBackdrop). Проверка маршрута нужна из-за
+  // двойного прогона эффектов в разработке — иначе первый же cleanup убрал бы
+  // снимок сразу после открытия.
+  useEffect(
+    () => () => {
+      // startsWith, а не строгое равенство. Уходя в переписку, список отдаёт
+      // снимок ей: чат тянется пальцем поверх него. Строгая проверка снимала
+      // снимок ровно в тот момент, когда он и нужен, — и за чатом снова
+      // оказывалась пустота.
+      if (!window.location.pathname.startsWith('/messages')) releaseBackdrop();
+    },
+    []
+  );
 
   const threadsResult = useApiData<MessageThread[]>('/messages/threads');
   // Переписки с заблокированными убираем из списка: смысл блокировки в том,
@@ -93,6 +109,9 @@ export default function MessagesPage() {
             <Link
               key={thread.user.id}
               href={`/messages/${thread.user.id}`}
+              // Замораживаем список: чат тянется пальцем вправо, и за ним должен
+              // быть виден он, а не пустой фон (см. screenBackdrop).
+              onClick={() => holdBackdrop()}
               // Подсветка нажатия скруглена и вписана в строку. Прежде она
               // заливала прямоугольник во всю ширину экрана до самых углов —
               // среди сплошь скруглённого интерфейса это читалось не откликом
@@ -150,7 +169,10 @@ export default function MessagesPage() {
             <Link
               key={person.id}
               href={`/messages/${person.id}`}
-              onClick={() => setPicking(false)}
+              onClick={() => {
+                holdBackdrop();
+                setPicking(false);
+              }}
               className="flex items-center gap-3 py-3"
             >
               <DefaultAvatar name={person.username} size={44} />

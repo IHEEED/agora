@@ -13,7 +13,7 @@ import { PostCard } from '@/components/PostCard';
 import { CommentThread } from '@/components/CommentThread';
 import { isPhoneNotVerifiedError, usePhoneGate } from '@/components/PhoneGateContext';
 import { SegmentedControl } from '@/components/SegmentedControl';
-import { SkeletonPost } from '@/components/Skeleton';
+import { SkeletonComment, SkeletonList, SkeletonPost } from '@/components/Skeleton';
 import { useCommentSpotlight } from '@/lib/useCommentSpotlight';
 import { useScreenLeave } from '@/lib/useScreenLeave';
 
@@ -184,6 +184,17 @@ export default function PostPage() {
               spotlight ? ' comment-list-spotlight' : ''
             }`}
           >
+            {/* Заглушки, пока комментарии едут. Их запрос отдельный от записи и
+                отвечает позже, так что место под ними до сих пор оставалось
+                пустым: запись уже на экране, а под ней провал, который потом
+                разом заполняется и сдвигает страницу. Заглушки держат высоту,
+                и появление комментариев ничего не двигает. */}
+            {commentsResult.loading && comments.length === 0 && (
+              <SkeletonList count={4}>
+                <SkeletonComment />
+              </SkeletonList>
+            )}
+
             {comments.map((comment) => (
               <CommentThread
                 key={comment.id}
@@ -195,7 +206,7 @@ export default function PostPage() {
                 highlightId={spotlight}
               />
             ))}
-            {!loading && comments.length === 0 && (
+            {!loading && !commentsResult.loading && comments.length === 0 && (
               <p className="py-8 text-center text-[var(--text-muted)]">
                 Комментариев пока нет. Будьте первым.
               </p>

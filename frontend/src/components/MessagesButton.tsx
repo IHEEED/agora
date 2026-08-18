@@ -7,6 +7,8 @@ import { apiFetch } from '@/lib/api';
 import { markGoingBack } from '@/lib/navDirection';
 import { foldCurrentScreen } from '@/lib/peelScreen';
 import { setFoldOrigin } from '@/lib/foldOrigin';
+import { holdBackdrop } from '@/lib/screenBackdrop';
+import { haptic } from '@/lib/haptics';
 
 /** Как часто спрашиваем про непрочитанные. */
 const POLL_MS = 25000;
@@ -75,10 +77,17 @@ export function MessagesButton({
       data-messages-button
       onClick={(event) => {
         const rect = event.currentTarget.getBoundingClientRect();
+        haptic();
         if (!active) {
           // Запоминаем рамку до перехода: экран мессенджера прочитает её на
           // монтировании и развернётся отсюда (см. foldOrigin).
           setFoldOrigin(rect);
+          // И замораживаем ленту под ним. Мессенджер разворачивается поверх
+          // неё, а складываясь — открывает обратно: без снимка на этом месте
+          // секунду висел пустой экран, пока лента монтировалась заново.
+          // У поиска этой заминки не было заметно только потому, что его
+          // складывание короче, — а причина та же.
+          holdBackdrop();
           return;
         }
         event.preventDefault();
