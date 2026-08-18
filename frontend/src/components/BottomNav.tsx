@@ -105,7 +105,19 @@ export function BottomNav() {
     <nav
       className="pointer-events-none fixed inset-x-0 z-50 flex justify-center px-3 md:hidden"
       style={{
-        bottom: 'calc(10px + env(safe-area-inset-bottom))',
+        // max(), а не просто сумма.
+        //
+        // В Safari на iPhone env(safe-area-inset-bottom) равен нулю, пока внизу
+        // стоит панель самого браузера: страница считает, что до кромки экрана
+        // ещё далеко. Капсула вставала на десять пикселей от низа
+        // layout-вьюпорта — то есть впритык к этой панели, а на части экранов и
+        // под неё. Отсюда «стеклянного бара не появилось»: он был, только за
+        // чужой панелью.
+        //
+        // Двадцать восемь пикселей — минимальный зазор, при котором капсула
+        // видна целиком и в Safari, и в приложении с домашнего экрана. Там, где
+        // отступ безопасной зоны настоящий (полноэкранный режим), выигрывает он.
+        bottom: 'max(28px, calc(10px + env(safe-area-inset-bottom)))',
         transform: hidden ? 'translateY(calc(100% + 24px))' : 'none',
         opacity: hidden ? 0 : 1,
         transition:

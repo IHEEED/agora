@@ -196,6 +196,7 @@ export function ImageViewer({
           top: 'calc(12px + env(safe-area-inset-top))',
           background: 'rgba(255, 255, 255, 0.14)',
           backdropFilter: 'blur(12px)',
+          WebkitBackdropFilter: 'blur(12px)',
         }}
       >
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
@@ -211,6 +212,7 @@ export function ImageViewer({
               top: 'calc(18px + env(safe-area-inset-top))',
               background: 'rgba(255, 255, 255, 0.14)',
               backdropFilter: 'blur(12px)',
+              WebkitBackdropFilter: 'blur(12px)',
             }}
           >
             {index + 1} / {images.length}

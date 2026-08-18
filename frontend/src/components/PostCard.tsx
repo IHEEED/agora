@@ -50,25 +50,6 @@ export function PostCard({
   const [shown, setShown] = useState(0);
   const stripRef = useRef<HTMLDivElement>(null);
 
-  /**
-   * Пропорции строки. Берём у первого снимка — он и есть обложка записи.
-   *
-   * Одно число на всю строку неизбежно: слайды обязаны быть равной высоты,
-   * иначе при листании лента под записью прыгает вверх-вниз. Но взять его лучше
-   * у снимка, чем назначить сверху: вертикальный кадр останется вертикальным,
-   * панорама — панорамой.
-   *
-   * Границы: не уже 4:5 (иначе одна запись занимает три экрана) и не шире 16:9
-   * (иначе снимок превращается в щель).
-   */
-  const [ratio, setRatio] = useState('4 / 3');
-
-  function measureFirst(event: React.SyntheticEvent<HTMLImageElement>) {
-    const { naturalWidth, naturalHeight } = event.currentTarget;
-    if (!naturalWidth || !naturalHeight) return;
-    const value = Math.min(16 / 9, Math.max(4 / 5, naturalWidth / naturalHeight));
-    setRatio(String(value));
-  }
 
   function onStripScroll() {
     const strip = stripRef.current;
@@ -244,24 +225,14 @@ export function PostCard({
             ref={stripRef}
             onScroll={onStripScroll}
             className="no-scrollbar flex snap-x snap-mandatory overflow-x-auto"
-            style={{
-              scrollBehavior: 'auto',
-              overscrollBehaviorX: 'contain',
-              // Высота строки — от пропорций первого снимка, а не круглое число.
-              // Раньше стояло 340 с object-cover: вертикальный кадр обрезался
-              // сверху и снизу до полоски, панорама — с боков, и в ленте все
-              // снимки выглядели нарезанными по одному лекалу. Границы нужны
-              // только чтобы совсем узкая колонна не заняла три экрана, а совсем
-              // широкая не превратилась в щель.
-              aspectRatio: ratio,
-            }}
+            style={{ scrollBehavior: 'auto', overscrollBehaviorX: 'contain' }}
           >
             {images.map((src, position) => (
               <button
                 key={`${src}-${position}`}
                 type="button"
                 onClick={() => setViewing(position)}
-                className="block h-full w-full flex-none snap-center transition-transform active:scale-[0.995]"
+                className="block w-full flex-none snap-center transition-transform active:scale-[0.995]"
               >
                 {/* eslint-disable-next-line @next/next/no-img-element -- источник картинок произвольный, next/image требует настройки доменов */}
                 <img
@@ -269,10 +240,8 @@ export function PostCard({
                   alt=""
                   loading={position === 0 ? 'lazy' : 'eager'}
                   draggable={false}
-                  onLoad={position === 0 ? measureFirst : undefined}
-                  // contain, а не cover: снимок показывается целиком. Кадрировать
-                  // за автора нельзя — он выбирал именно эту рамку.
-                  className="h-full w-full object-contain"
+                  className="w-full object-cover"
+                  style={{ height: 340 }}
                 />
               </button>
             ))}
@@ -282,7 +251,7 @@ export function PostCard({
             <>
               <span
                 className="font-num pointer-events-none absolute right-3 top-3 rounded-full px-2 py-0.5 text-[12px] font-medium text-white"
-                style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(10px)' }}
+                style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)' }}
               >
                 {shown + 1}/{images.length}
               </span>

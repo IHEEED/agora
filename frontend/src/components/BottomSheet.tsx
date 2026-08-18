@@ -116,6 +116,7 @@ export function BottomSheet({
           // выехало. Слабое намеренно: сильное превращает фон в кашу, а он
           // должен оставаться узнаваемым, чтобы было понятно, куда вернёшься.
           backdropFilter: open ? 'blur(calc(3px * var(--glass-strength)))' : 'none',
+          WebkitBackdropFilter: open ? 'blur(calc(3px * var(--glass-strength)))' : 'none',
           opacity: open ? 1 : 0,
           pointerEvents: open ? 'auto' : 'none',
           // Затемнение уходит быстрее, чем приходит: возвращаясь к ленте,

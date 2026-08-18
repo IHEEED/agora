@@ -66,6 +66,7 @@ export function CenterDialog({
         // Размываем именно фон, а не просто затемняем: под окном остаётся
         // видно, откуда пришёл человек, но читать это уже не тянет.
         backdropFilter: `blur(calc(14px * var(--glass-strength)))`,
+        WebkitBackdropFilter: `blur(calc(14px * var(--glass-strength)))`,
         background: 'rgba(0, 0, 0, 0.42)',
         opacity: shown ? 1 : 0,
         pointerEvents: open ? 'auto' : 'none',

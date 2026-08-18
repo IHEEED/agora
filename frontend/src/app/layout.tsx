@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import Link from "next/link";
 import Script from "next/script";
 import { Inter, Literata, Pixelify_Sans } from "next/font/google";
@@ -43,6 +43,37 @@ const displayFont = Literata({
 export const metadata: Metadata = {
   title: "PARAFRAZ",
   description: "PARAFRAZ — клубы, посты и обсуждения",
+};
+
+/**
+ * Настройки окна. Главное здесь — viewport-fit.
+ *
+ * Без него Safari на iPhone отдаёт env(safe-area-inset-*) нулями: страница
+ * рисуется в «безопасном» прямоугольнике, вырез и домашний индикатор для неё не
+ * существуют. Нижний бар при этом честно встаёт на 10 пикселей от кромки
+ * layout-вьюпорта — то есть ровно под панель самого Safari, и на телефоне его
+ * просто не видно. Отсюда «стеклянного бара не появилось»: он был, но за чужой
+ * панелью.
+ *
+ * cover растягивает страницу на весь экран, включая вырез, и отступы начинают
+ * приходить настоящими — те самые, под которые везде посчитаны поля.
+ *
+ * themeColor красит строку состояния и панель Safari в цвет приложения: без
+ * него над шапкой остаётся белая (или чёрная) полоса, из-за которой стекло
+ * сверху выглядит наклейкой на чужом фоне. Два значения — под светлую и тёмную
+ * системную тему, потому что оформление по умолчанию системное.
+ *
+ * maximumScale и userScalable не трогаем: запрещать масштаб — значит отнимать
+ * у человека возможность разглядеть мелкое, и Safari всё равно это игнорирует.
+ */
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#fbfbf9" },
+    { media: "(prefers-color-scheme: dark)", color: "#0c0c0b" },
+  ],
 };
 
 // Стиль и тема выставляются до первой отрисовки, иначе оба успевают мигнуть.

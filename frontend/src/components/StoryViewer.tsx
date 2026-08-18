@@ -498,7 +498,7 @@ export function StoryViewer({
                 href={`/posts/${item.postId}`}
                 onClick={(event) => event.stopPropagation()}
                 className="flex items-center gap-1.5 rounded-full px-3.5 py-2 text-[13px] font-medium text-white"
-                style={{ background: 'rgba(255,255,255,0.16)', backdropFilter: 'blur(14px)' }}
+                style={{ background: 'rgba(255,255,255,0.16)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)' }}
               >
                 {t('story.readFull')}
               </Link>
@@ -572,6 +572,7 @@ function StoryAction({
       style={{
         background: active ? 'rgba(255,255,255,0.34)' : 'rgba(255,255,255,0.16)',
         backdropFilter: 'blur(14px)',
+        WebkitBackdropFilter: 'blur(14px)',
       }}
     >
       <svg width="19" height="19" viewBox="0 0 24 24" fill={active ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">

@@ -114,6 +114,7 @@ export function MessageActions({
           // Размываем легко: тяжёлый blur лагает при exit-анимации.
           // Контрастный фон уже достаточно выделяет меню.
           backdropFilter: 'blur(calc(3px * var(--glass-strength)))',
+          WebkitBackdropFilter: 'blur(calc(3px * var(--glass-strength)))',
           background: 'rgba(0, 0, 0, 0.22)',
           opacity: open ? 1 : 0,
           pointerEvents: open ? 'auto' : 'none',
