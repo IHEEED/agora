@@ -71,7 +71,14 @@ export function CommentThread({
    *
    * Флаг живёт в самой ветке и снимается только её же кнопкой.
    */
-  const [pinnedOpen, setPinnedOpen] = useState(false);
+  //
+  // Начальное значение — holdsTarget, а не false. В этом и была ошибка: ветку
+  // открывали ровно тем переходом, на котором компонент и монтировался, то есть
+  // holdsTarget был true уже в первом рендере — а раз он не менялся, сравнение
+  // ниже не срабатывало ни разу, и pinnedOpen оставался false. Через полторы
+  // секунды подсветка гасла, holdsTarget падал в false, и ветка схлопывалась
+  // на глазах у того, кто пришёл читать ответ внутри неё.
+  const [pinnedOpen, setPinnedOpen] = useState(holdsTarget);
   const [wasHolding, setWasHolding] = useState(holdsTarget);
   if (wasHolding !== holdsTarget) {
     setWasHolding(holdsTarget);
