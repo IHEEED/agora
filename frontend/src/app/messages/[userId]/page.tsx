@@ -152,6 +152,27 @@ export default function ChatPage() {
     setError(thread.error);
   }
 
+  /**
+   * Какая реплика только что отправлена и с какой высоты ей вылетать.
+   *
+   * Помечаем одну, а не все: анимация принадлежит действию человека, а не факту
+   * появления сообщения в списке. Список обновляется опросом каждые несколько
+   * секунд, и без этой пометки вся переписка заново вылетала бы из строки ввода
+   * при каждом обновлении.
+   */
+  const [justSent, setJustSent] = useState<string | null>(null);
+  const [sendDistance, setSendDistance] = useState(56);
+
+  /** Сколько пикселей от низа списка до строки ввода. */
+  function distanceToComposer() {
+    const anchor = bottomRef.current;
+    if (!anchor) return 56;
+    const gap = window.innerHeight - anchor.getBoundingClientRect().bottom;
+    // Ограничиваем: на пустой переписке до строки ввода полэкрана, и реплика
+    // летела бы через весь чат, как выстрел.
+    return Math.max(40, Math.min(160, gap));
+  }
+
   const load = useCallback(() => {
     // Сбросом кеша, а не своим запросом: иначе в сеть уходили бы два запроса
     // за одним и тем же — от опроса и от useApiData.
@@ -347,6 +368,11 @@ export default function ChatPage() {
             : created,
         ]);
         setReplyTo(null);
+        // Отмечаем именно эту реплику: только она полетит из строки ввода.
+        // Расстояние считаем сразу — на следующем кадре пузырь уже будет на
+        // месте, и мерить станет нечего.
+        setJustSent(created.id);
+        setSendDistance(distanceToComposer());
       }
       setBody('');
     } catch (err) {
@@ -722,9 +748,13 @@ export default function ChatPage() {
                     event.preventDefault();
                     if (!selected) openMenu(message, event.currentTarget.getBoundingClientRect());
                   }}
-                  className="chat-bubble max-w-[80%] px-3.5 py-2 text-left"
+                  className="chat-bubble max-w-[80%] px-4 py-2 text-left"
                   style={{
                     alignSelf: mine ? 'flex-end' : 'flex-start',
+                    // Пузырю с цитатой нужна ширина: внутри него ещё одна
+                    // карточка со своими полями и кромкой, и на узком месте от
+                    // цитаты остаётся вертикальная полоска из двух букв.
+                    minWidth: message.replyTo ? 200 : undefined,
                     // Открытое сообщение остаётся поверх размытия — меню
                     // относится к нему, и оно должно читаться.
                     zIndex: menuFor?.id === message.id ? 72 : undefined,
@@ -732,6 +762,14 @@ export default function ChatPage() {
                     background: mine ? 'var(--accent)' : 'var(--surface-2)',
                     color: mine ? 'var(--accent-contrast)' : 'var(--text)',
                     marginTop: groupStart ? 6 : 0,
+                    // Откуда вылетает реплика. Только у последней своей и
+                    // только один раз: анимировать разом всю переписку при
+                    // каждом обновлении списка значило бы устраивать салют на
+                    // ровном месте. Расстояние — от пузыря до строки ввода,
+                    // поэтому чем выше он оказался, тем длиннее путь.
+                    ...(justSent === message.id
+                      ? ({ '--send-from': `${sendDistance}px` } as React.CSSProperties)
+                      : { animation: 'none' }),
                     // Уход: сжимается к своему краю и гаснет. transformOrigin
                     // по стороне пузыря — иначе своё сообщение уползало бы к
                     // середине экрана, откуда оно не приходило.
@@ -747,12 +785,14 @@ export default function ChatPage() {
                     boxShadow: selected?.includes(message.id)
                       ? '0 0 0 2px var(--bg), 0 0 0 4px var(--accent)'
                       : undefined,
-                    // Хвостик — у последнего пузыря цепочки: у всех подряд он
-                    // превращал столбик реплик в частокол.
-                    borderTopRightRadius: mine && !groupStart ? 8 : 18,
-                    borderBottomRightRadius: mine && !groupEnd ? 8 : mine ? 6 : 18,
-                    borderTopLeftRadius: !mine && !groupStart ? 8 : 18,
-                    borderBottomLeftRadius: !mine && !groupEnd ? 8 : !mine ? 6 : 18,
+                    // Прижатая сторона внутри цепочки — единственное место, где
+                    // овал размыкается: у идущих подряд реплик одного человека
+                    // соседние углы притуплены, и столбик читается как одна
+                    // мысль, а не частокол отдельных.
+                    borderTopRightRadius: mine && !groupStart ? 8 : undefined,
+                    borderBottomRightRadius: mine && !groupEnd ? 8 : undefined,
+                    borderTopLeftRadius: !mine && !groupStart ? 8 : undefined,
+                    borderBottomLeftRadius: !mine && !groupEnd ? 8 : undefined,
                   }}
                 >
                   {/* Цитата над ответом — отдельная карточка внутри пузыря.
@@ -790,9 +830,38 @@ export default function ChatPage() {
                     {message.body}
                   </p>
 
+                </button>
+
+                {reactions.length > 0 && (
                   <span
-                    className="mt-0.5 flex items-center justify-end gap-1 text-[10.5px]"
-                    style={{ opacity: 0.7 }}
+                    className="-mt-2 flex w-fit items-center gap-1 rounded-full px-2 py-0.5"
+                    style={{
+                      alignSelf: mine ? 'flex-end' : 'flex-start',
+                      background: 'var(--surface)',
+                      border: '1px solid var(--border)',
+                    }}
+                  >
+                    {reactions.map((reaction) => (
+                      <span key={reaction.userId} className="emoji text-[13px]">
+                        {reaction.emoji}
+                      </span>
+                    ))}
+                  </span>
+                )}
+
+                {/* Время и галочки — под пузырём, а не внутри.
+                    Внутри они занимали свою строку, и любая реплика становилась
+                    двухстрочной: слово «да» выходило прямоугольником в пятьдесят
+                    пикселей высотой, который никаким радиусом не превратить в
+                    овал. Дело было не в скруглении, а в том, что в пузыре сидело
+                    вдвое больше содержимого, чем в нём говорят.
+
+                    И только у последней реплики цепочки: у каждой это был
+                    столбик одинаковых отметок времени вдоль всей переписки. */}
+                {groupEnd && (
+                  <span
+                    className="flex items-center gap-1 px-1 text-[10.5px] text-[var(--text-muted)]"
+                    style={{ alignSelf: mine ? 'flex-end' : 'flex-start' }}
                   >
                     {message.pinned_at && (
                       <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-label="Закреплено">
@@ -811,24 +880,8 @@ export default function ChatPage() {
                       </svg>
                     )}
                   </span>
-                </button>
-
-                {reactions.length > 0 && (
-                  <span
-                    className="-mt-1.5 flex w-fit items-center gap-1 rounded-full px-2 py-0.5"
-                    style={{
-                      alignSelf: mine ? 'flex-end' : 'flex-start',
-                      background: 'var(--surface)',
-                      border: '1px solid var(--border)',
-                    }}
-                  >
-                    {reactions.map((reaction) => (
-                      <span key={reaction.userId} className="emoji text-[13px]">
-                        {reaction.emoji}
-                      </span>
-                    ))}
-                  </span>
                 )}
+
                 </div>
               </div>
             );

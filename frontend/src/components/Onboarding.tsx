@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
+import { Wordmark } from '@/components/Wordmark';
 
 export const ONBOARDING_STORAGE_KEY = 'parafraz-onboarding-seen';
 
@@ -251,9 +252,11 @@ export function Onboarding() {
         paddingBottom: 'calc(28px + env(safe-area-inset-bottom))',
       }}
     >
-      {/* Пропустить — всегда на виду. Приветствие, из которого нельзя выйти,
-          читается не как рассказ, а как условие входа. */}
-      <div className="flex w-full max-w-md justify-end">
+      {/* Знак и «пропустить» в одной строке. Приветствие — первое, что человек
+          видит после входа, и знак здесь работает как подпись рассказчика: без
+          него пять экранов текста начинаются ниоткуда. */}
+      <div className="flex w-full max-w-md items-center justify-between">
+        <Wordmark size={30} />
         <button
           type="button"
           onClick={finish}

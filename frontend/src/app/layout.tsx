@@ -9,6 +9,7 @@ import { HeaderAction } from "@/components/HeaderAction";
 import { MessagesButton } from "@/components/MessagesButton";
 import { AppGate } from "@/components/AppGate";
 import { Wallpaper } from "@/components/Wallpaper";
+import { Wordmark } from "@/components/Wordmark";
 import "./globals.css";
 
 const bodyFont = Inter({
@@ -152,9 +153,9 @@ export default function RootLayout({
                 <Link
                   href="/"
                   aria-label="PARAFRAZ"
-                  className="wordmark absolute left-1/2 -translate-x-1/2"
+                  className="absolute left-1/2 -translate-x-1/2"
                 >
-                  PARAFRA<span style={{ color: 'var(--accent)' }}>Z</span>
+                  <Wordmark />
                 </Link>
                 <HeaderAction />
               </div>

@@ -2,6 +2,7 @@
 
 import { useState, SubmitEvent } from 'react';
 import { supabase } from '@/lib/supabase';
+import { Wordmark } from '@/components/Wordmark';
 import { PixelWall } from '@/components/PixelWall';
 
 /**
@@ -40,8 +41,8 @@ export function AuthScreen() {
       {/* Тем же знаком, что и в шапке приложения. Пиксельный шрифт ушёл
           вместе с пиксельным фоном: он был к месту, пока фон был из тех же
           букв, а на перетекающем градиенте читался чужой деталью. */}
-      <h1 className="wordmark relative z-10" style={{ fontSize: 34 }}>
-        PARAFRA<span style={{ color: 'var(--accent)' }}>Z</span>
+      <h1 className="relative z-10">
+        <Wordmark size={46} />
       </h1>
 
       {/* Карточка без обводки и на плотной подложке: сквозь полупрозрачную
