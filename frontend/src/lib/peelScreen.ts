@@ -248,6 +248,8 @@ export function dissolveScreen(node: HTMLElement | null) {
   const layer = snapshot(node);
   if (!layer) return;
 
+  layer.style.background = 'var(--bg)';
+
   whenSwapped(() =>
     play(
       layer,
@@ -303,6 +305,18 @@ export function foldScreenTo(node: HTMLElement | null, origin: DOMRect | null) {
   if (!node) return;
   const layer = snapshot(node);
   if (!layer) return;
+
+  /**
+   * Подложка обязательна.
+   *
+   * Снимок — копия узла, а узлы в приложении прозрачны: фон рисует страница.
+   * Без своей заливки сквозь складывающийся мессенджер просвечивала лента, и на
+   * весь переход на экране оказывались два интерфейса разом — шапка поверх
+   * записи, кнопки поверх текста. Читалось это как поломка, а не как переход.
+   *
+   * У снятия слоя заливка была с самого начала; здесь её просто забыли.
+   */
+  layer.style.background = 'var(--bg)';
 
   if (origin) {
     // Точка схлопывания — центр кнопки. Слой начинается под шапкой, а кнопка

@@ -150,27 +150,6 @@ const PAGES: Page[] = [
       </Art>
     ),
   },
-  {
-    key: 'style',
-    title: 'Соберите под себя',
-    body:
-      'В настройках пять готовых оформлений — от тёплой бумаги до монохрома. ' +
-      'Меняется всё целиком и сразу: фон, цвета, шрифт заголовков. Подбирать ' +
-      'по частям ничего не нужно.',
-    art: (
-      <Art>
-        <rect x="18" y="34" width="52" height="62" rx="12" fill="#faf7f2" />
-        <circle cx="44" cy="76" r="9" fill="#bf5b38" />
-        <rect x="74" y="34" width="52" height="62" rx="12" fill="#12151c" />
-        <circle cx="100" cy="76" r="9" fill="#86a8ff" />
-        <rect x="130" y="34" width="52" height="62" rx="12" fill="#f5f7f1" />
-        <circle cx="156" cy="76" r="9" fill="#4a6b3a" />
-        <rect x="30" y="48" width="28" height="5" rx="2.5" fill="#211e19" opacity="0.45" />
-        <rect x="86" y="48" width="28" height="5" rx="2.5" fill="#eaeef5" opacity="0.55" />
-        <rect x="142" y="48" width="28" height="5" rx="2.5" fill="#191d15" opacity="0.45" />
-      </Art>
-    ),
-  },
 ];
 
 export function Onboarding() {

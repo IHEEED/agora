@@ -112,6 +112,7 @@ export function StoryViewer({
   origin,
   onIndex,
   onClose,
+  onCompose,
 }: {
   stories: StoryGroup[];
   /** Какая история открыта. −1 — закрыто. */
@@ -120,6 +121,8 @@ export function StoryViewer({
   origin?: DOMRect | null;
   onIndex: (next: number) => void;
   onClose: () => void;
+  /** Открыть редактор истории с этим кадром. Без него репост не предлагаем. */
+  onCompose?: (item: StoryItem) => void;
 }) {
   const { t } = useT();
   const router = useRouter();
@@ -193,26 +196,27 @@ export function StoryViewer({
    * Без этого значения полоска после отпускания прыгала бы к началу кадра.
    */
   const [resumeFrom, setResumeFrom] = useState(0);
-  // Действия над записью, из которой сделана история. Ставим отметку сразу и
-  // не откатываем: промах здесь ничего не ломает, а мигающая кнопка — ломает.
-  const [liked, setLiked] = useState(false);
-  const [reposted, setReposted] = useState(false);
+  /**
+   * Голос, а не «нравится».
+   *
+   * Сердце в истории было чужой механикой: во всём остальном приложении у записи
+   * две стрелки, и несогласие — такой же ответ, как согласие. История — окно в
+   * запись, значит и голосовать в ней надо тем же способом, иначе получается,
+   * что из ленты запись можно заминусовать, а из истории только похвалить.
+   */
+  const [vote, setVote] = useState<1 | -1 | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const hidden = useAreStoriesHidden(story?.author.id);
 
-  function likePost(postId: string) {
+  function castVote(postId: string, value: 1 | -1) {
     haptic();
-    setLiked(true);
+    // Повторное нажатие по своей же стрелке снимает голос — как и в ленте.
+    const next = vote === value ? null : value;
+    setVote(next);
     apiFetch('/votes', {
       method: 'POST',
-      body: JSON.stringify({ post_id: postId, value: 1 }),
-    }).catch(() => setLiked(false));
-  }
-
-  function repostPost(postId: string) {
-    haptic();
-    setReposted(true);
-    apiFetch(`/posts/${postId}/repost`, { method: 'POST' }).catch(() => setReposted(false));
+      body: JSON.stringify({ post_id: postId, value: next ?? value }),
+    }).catch(() => setVote(vote));
   }
 
   // Новая история — с первого кадра. Правим в рендере, а не эффектом: иначе
@@ -478,17 +482,32 @@ export function StoryViewer({
           {item.postId && (
             <>
               <StoryAction
-                label={liked ? 'Нравится' : 'Нравится'}
-                active={liked}
-                onClick={() => likePost(item.postId!)}
+                label="За"
+                active={vote === 1}
+                tint={vote === 1 ? 'var(--up)' : undefined}
+                onClick={() => castVote(item.postId!, 1)}
               >
-                <path d="M12 20.5S3.8 15.4 3.8 9.9A4.6 4.6 0 0 1 12 7a4.6 4.6 0 0 1 8.2 2.9c0 5.5-8.2 10.6-8.2 10.6Z" />
+                <path d="M12 5v14M6 11l6-6 6 6" />
               </StoryAction>
 
               <StoryAction
-                label="Репост"
-                active={reposted}
-                onClick={() => repostPost(item.postId!)}
+                label="Против"
+                active={vote === -1}
+                tint={vote === -1 ? 'var(--down)' : undefined}
+                onClick={() => castVote(item.postId!, -1)}
+              >
+                <path d="M12 19V5M6 13l6 6 6-6" />
+              </StoryAction>
+
+              {/* Репост не публикует сразу, а открывает редактор истории.
+                  Мгновенная публикация под своим именем — решение, которое
+                  принимают, а не нажимают: между «мне это подходит» и «пусть это
+                  сутки висит у меня» есть шаг, и он должен быть виден. Цвет
+                  жёлтый, как у репоста в ленте: одно действие — один цвет. */}
+              <StoryAction
+                label="Репост в свою историю"
+                tint="var(--repost)"
+                onClick={() => onCompose?.(item)}
               >
                 <path d="M4 9.5A3.5 3.5 0 0 1 7.5 6H18m0 0-3-3m3 3-3 3" />
                 <path d="M20 14.5a3.5 3.5 0 0 1-3.5 3.5H6m0 0 3 3m-3-3 3-3" />
@@ -551,11 +570,14 @@ export function StoryViewer({
 function StoryAction({
   label,
   active,
+  tint,
   onClick,
   children,
 }: {
   label: string;
   active?: boolean;
+  /** Свой цвет знака: зелёный за, красный против, жёлтый репост. */
+  tint?: string;
   onClick: () => void;
   children: React.ReactNode;
 }) {
@@ -568,14 +590,15 @@ function StoryAction({
       }}
       aria-label={label}
       aria-pressed={active}
-      className="flex h-10 w-10 flex-none items-center justify-center rounded-full text-white transition-transform active:scale-90"
+      className="flex h-10 w-10 flex-none items-center justify-center rounded-full transition-transform active:scale-90"
       style={{
         background: active ? 'rgba(255,255,255,0.34)' : 'rgba(255,255,255,0.16)',
         backdropFilter: 'blur(14px)',
         WebkitBackdropFilter: 'blur(14px)',
+        color: tint ?? '#ffffff',
       }}
     >
-      <svg width="19" height="19" viewBox="0 0 24 24" fill={active ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
         {children}
       </svg>
     </button>

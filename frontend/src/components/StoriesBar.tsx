@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { SegmentRing } from '@/components/SegmentRing';
 import { StoryViewer } from '@/components/StoryViewer';
+import { StoryComposer, StoryDraft } from '@/components/StoryComposer';
 import { StoryGroup } from '@/lib/types';
 import { haptic } from '@/lib/haptics';
 import { DefaultAvatar } from '@/components/DefaultAvatar';
@@ -45,6 +46,8 @@ export function StoriesBar({
   const [open, setOpen] = useState(-1);
   // Кружок, по которому нажали: из него история и вырастает (см. StoryViewer).
   const [origin, setOrigin] = useState<DOMRect | null>(null);
+  // Что сейчас в редакторе истории. null — редактор закрыт.
+  const [draft, setDraft] = useState<StoryDraft | null>(null);
   const trackRef = useRef<HTMLDivElement>(null);
   const drag = useRef({ active: false, startX: 0, startScroll: 0, lastX: 0, velocity: 0 });
   const inertia = useRef<number | null>(null);
@@ -194,7 +197,19 @@ export function StoriesBar({
       origin={origin}
       onIndex={setOpen}
       onClose={() => setOpen(-1)}
+      // Репост из истории идёт через редактор, а не публикуется по нажатию.
+      onCompose={(item) =>
+        item.postId &&
+        setDraft({
+          postId: item.postId,
+          title: item.title,
+          body: item.body,
+          images: item.images,
+        })
+      }
     />
+
+    <StoryComposer draft={draft} onClose={() => setDraft(null)} />
     </>
   );
 }

@@ -260,6 +260,33 @@ export default function ChatPage() {
     }
   }
 
+  /**
+   * Идёт ли сейчас прокрутка. От этого зависит видимость дат.
+   *
+   * Дата отвечает на вопрос «где я», а он возникает только при листании. Пока
+   * человек читает, она висит поперёк переписки и мешает — Telegram по этой же
+   * причине показывает её только в движении.
+   *
+   * Гасим по таймеру, а не по scrollend: тот не поддерживается Safari, а на
+   * инерционной прокрутке он же приходит с задержкой в полсекунды после
+   * фактической остановки.
+   */
+  const [scrolling, setScrolling] = useState(false);
+  const scrollStop = useRef<number | undefined>(undefined);
+
+  useEffect(() => {
+    function onScroll() {
+      setScrolling(true);
+      window.clearTimeout(scrollStop.current);
+      scrollStop.current = window.setTimeout(() => setScrolling(false), 900);
+    }
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      window.clearTimeout(scrollStop.current);
+    };
+  }, []);
+
   /** Сколько пикселей от низа списка до строки ввода. */
   function distanceToComposer() {
     const anchor = bottomRef.current;
@@ -445,36 +472,67 @@ export default function ChatPage() {
         });
         setMessages((prev) => prev.map((m) => (m.id === updated.id ? { ...m, ...updated } : m)));
         setEditing(null);
+        setBody('');
       } else {
-        const created = await apiFetch<Message>('/messages', {
-          method: 'POST',
-          body: JSON.stringify({
-            recipient_id: userId,
-            body: text,
-            image_url: photo?.url ?? null,
-            reply_to_id: replyTo?.id ?? null,
-          }),
-        });
-        // Цитату дорисовываем на месте: сервер вернул само сообщение, а
-        // оригинал у нас уже есть — перечитывать переписку ради него незачем.
-        setMessages((prev) => [
-          ...prev,
-          replyTo
-            ? {
-                ...created,
-                replyTo: { id: replyTo.id, body: replyTo.body, mine: replyTo.sender_id === me },
-              }
-            : created,
-        ]);
-        setReplyTo(null);
-        // Отмечаем именно эту реплику: только она полетит из строки ввода.
-        // Расстояние считаем сразу — на следующем кадре пузырь уже будет на
-        // месте, и мерить станет нечего.
-        setJustSent(created.id);
+        /**
+         * Реплика появляется сразу, не дожидаясь сервера.
+         *
+         * До сих пор пузырь ждал ответа: отправил — и смотришь на пустую
+         * строку, пока запрос ходит туда-обратно. При хорошей связи это триста
+         * миллисекунд, при плохой — секунды, и всё это время непонятно,
+         * отправилось ли вообще.
+         *
+         * Мессенджер — то место, где ждать нельзя в принципе: человек печатает
+         * быстрее, чем летают пакеты, и следующую фразу он набирает уже сейчас.
+         * Поэтому показываем реплику мгновенно с временным номером, а когда
+         * сервер ответит — подменяем её настоящей.
+         *
+         * Не прошло — убираем и возвращаем текст в строку: потерять набранное
+         * хуже, чем увидеть ошибку.
+         */
+        const draftId = `draft-${Date.now()}`;
+        const draft: Message = {
+          id: draftId,
+          sender_id: me ?? '',
+          recipient_id: userId,
+          body: text,
+          created_at: new Date().toISOString(),
+          read_at: null,
+          image_url: photo?.url ?? null,
+          replyTo: replyTo
+            ? { id: replyTo.id, body: replyTo.body, mine: replyTo.sender_id === me }
+            : null,
+        };
+
+        setMessages((prev) => [...prev, draft]);
+        setJustSent(draftId);
         setSendDistance(distanceToComposer());
+        setReplyTo(null);
+        setBody('');
+        dropPhoto();
+
+        try {
+          const created = await apiFetch<Message>('/messages', {
+            method: 'POST',
+            body: JSON.stringify({
+              recipient_id: userId,
+              body: text,
+              image_url: draft.image_url,
+              reply_to_id: draft.replyTo?.id ?? null,
+            }),
+          });
+          // Подменяем черновик настоящим: у него свой номер, от которого
+          // зависят реакции, правка и удаление.
+          setMessages((prev) =>
+            prev.map((m) => (m.id === draftId ? { ...created, replyTo: draft.replyTo } : m))
+          );
+          setJustSent(created.id);
+        } catch (err) {
+          setMessages((prev) => prev.filter((m) => m.id !== draftId));
+          setBody(text);
+          throw err;
+        }
       }
-      setBody('');
-      dropPhoto();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Не удалось отправить');
     } finally {
@@ -821,8 +879,17 @@ export default function ChatPage() {
               >
                 <div className="flex min-h-0 flex-col overflow-hidden">
                 {showDay && (
+                  /* Дата растворяется в покое и проявляется при прокрутке.
+                     Она нужна ровно в тот момент, когда листаешь и теряешь,
+                     где находишься; при чтении она отвлекает — это подпись к
+                     месту, а не к сообщению. Так это устроено в Telegram.
+
+                     Класс переключает прозрачность, состояние даёт прокрутка
+                     (см. scrolling ниже). */
                   <span
-                    className="my-3 self-center rounded-full px-3 py-1 text-[11.5px] font-medium"
+                    className={`chat-day my-3 self-center rounded-full px-3 py-1 text-[11.5px] font-medium${
+                      scrolling ? ' chat-day-shown' : ''
+                    }`}
                     style={{ background: 'var(--surface-2)', color: 'var(--text-muted)' }}
                   >
                     {day}
@@ -848,7 +915,9 @@ export default function ChatPage() {
                     event.preventDefault();
                     if (!selected) openMenu(message, event.currentTarget.getBoundingClientRect());
                   }}
-                  className="chat-bubble max-w-[80%] px-4 py-2 text-left"
+                  className={`chat-bubble max-w-[80%] px-4 py-2 text-left${
+                    mine ? ' chat-bubble-mine' : ''
+                  }`}
                   style={{
                     alignSelf: mine ? 'flex-end' : 'flex-start',
                     // Пузырю с цитатой нужна ширина: внутри него ещё одна
@@ -859,7 +928,9 @@ export default function ChatPage() {
                     // относится к нему, и оно должно читаться.
                     zIndex: menuFor?.id === message.id ? 72 : undefined,
                     position: menuFor?.id === message.id ? 'relative' : undefined,
-                    background: mine ? 'var(--accent)' : 'var(--surface-2)',
+                    // Свои — общим градиентом на всю переписку (см. chat-bubble-mine),
+                    // и здесь задаётся только запасной цвет под ним.
+                    background: mine ? undefined : 'var(--surface-2)',
                     color: mine ? 'var(--accent-contrast)' : 'var(--text)',
                     marginTop: groupStart ? 6 : 0,
                     // Откуда вылетает реплика. Только у последней своей и

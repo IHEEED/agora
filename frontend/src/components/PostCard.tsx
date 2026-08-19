@@ -15,6 +15,7 @@ import { VoteBlock } from '@/components/VoteBlock';
 import { PollBlock } from '@/components/PollBlock';
 import { PostMenuSheet } from '@/components/PostMenuSheet';
 import { ImageViewer } from '@/components/ImageViewer';
+import { StoryComposer, StoryDraft } from '@/components/StoryComposer';
 import { haptic } from '@/lib/haptics';
 import { useSession } from '@/lib/useSession';
 
@@ -43,6 +44,8 @@ export function PostCard({
   // Какая картинка открыта во весь экран. −1 — закрыто; индексом, а не флагом,
   // потому что просмотрщик листает, и «какая именно» — это состояние.
   const [viewing, setViewing] = useState(-1);
+  // Что сейчас в редакторе истории. null — редактор закрыт.
+  const [storyDraft, setStoryDraft] = useState<StoryDraft | null>(null);
   const images = postImages(post);
   // Какой снимок сейчас в кадре. Значение выводится из прокрутки, а не задаёт
   // её: строку двигает браузер, наше дело — прочитать, где она остановилась, и
@@ -274,6 +277,8 @@ export function PostCard({
         </div>
       )}
 
+      <StoryComposer draft={storyDraft} onClose={() => setStoryDraft(null)} />
+
       <ImageViewer
         images={images}
         index={viewing}
@@ -376,6 +381,16 @@ export function PostCard({
         onClose={() => setMenuOpen(false)}
         url={typeof window === 'undefined' ? '' : `${window.location.origin}/posts/${post.id}`}
         postId={post.id}
+        // Репост в историю идёт через редактор: между решением и публикацией
+        // должен быть шаг, на котором видно, что именно уйдёт.
+        onStory={() =>
+          setStoryDraft({
+            postId: post.id,
+            title: post.title,
+            body: post.body,
+            images,
+          })
+        }
         isMine={isMine}
         onDelete={remove}
         // Продолжить можно только своё и только то, у чего продолжения ещё нет:
