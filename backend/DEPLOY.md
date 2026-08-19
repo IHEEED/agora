@@ -16,23 +16,35 @@ Select-String -Path .env -Pattern SUPABASE_URL
 
 ## Railway
 
-Проще всего, потому что читает `railway.json` и `Dockerfile` из репозитория и
-больше ничего не спрашивает.
+Настраивать ничего не нужно: `railway.json` и `.dockerignore` лежат в корне
+репозитория и сами говорят, что собирать и откуда. Настройки «корневая папка» в
+интерфейсе искать не надо — она в разных версиях Railway лежит в разных местах и
+называется по-разному, поэтому мы от неё не зависим.
 
-1. [railway.com](https://railway.com) → войти через GitHub.
+1. [railway.com](https://railway.com) → **Login with GitHub**.
 2. **New Project → Deploy from GitHub repo** → выбрать `IHEEED/agora`.
-3. **Root Directory** поставить `backend`. Без этого Railway ищет Dockerfile в
-   корне и не находит.
-4. **Variables** — добавить три:
-   - `SUPABASE_URL` — из `backend/.env`
-   - `SUPABASE_SERVICE_KEY` — оттуда же
-   - `CORS_ORIGINS` — адрес фронтенда, например `https://agora-vert-nine.vercel.app`
-5. **Settings → Region** — тот же, что у Supabase.
-6. **Settings → Networking → Generate Domain** — получите адрес вида
-   `agora-backend-production.up.railway.app`.
+3. Сборка начнётся сама. Первый раз она упадёт или поднимется без базы — это
+   нормально, переменных ещё нет.
+4. **Variables** → **New Variable**, три штуки:
 
-Порт задавать не нужно: Railway передаёт его переменной `PORT`, и код её уже
-читает.
+   | Имя | Значение |
+   | --- | --- |
+   | `SUPABASE_URL` | из `backend/.env` |
+   | `SUPABASE_SERVICE_KEY` | оттуда же |
+   | `CORS_ORIGINS` | `https://agora-vert-nine.vercel.app` |
+
+   После сохранения Railway пересоберёт сам.
+5. **Settings → Region** — тот же, что у Supabase. Где смотреть регион базы:
+   панель Supabase → Settings → General → Region. Это тот шаг, ради которого всё
+   и делается: дорога до базы и есть та задержка, которая осталась.
+6. **Settings → Networking → Generate Domain** — получите адрес вида
+   `agora-production.up.railway.app`.
+
+Порт задавать не нужно: Railway передаёт его переменной `PORT`, и код её читает.
+
+Если сборка не началась или ищет Dockerfile не там, в **Settings → Build** можно
+указать путь вручную: `backend/Dockerfile`. Но по `railway.json` он должен
+находиться сам.
 
 ## Переключить фронтенд
 
