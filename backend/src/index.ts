@@ -1,6 +1,6 @@
 // Первым импортом, до всего остального: он настраивает пул соединений, и
 // клиент Supabase должен создаваться уже с ним (см. config/http).
-import './config/http';
+import { HTTP_CONNECTIONS } from './config/http';
 import { supabase } from './config/supabase';
 import express from 'express';
 import cors from 'cors';
@@ -110,10 +110,18 @@ app.listen(Number(port), '0.0.0.0', () => {
    */
   void (async () => {
     try {
-      await supabase.from('users').select('id').limit(1);
-      console.log('Supabase: соединение прогрето');
+      // Столько запросов разом, сколько соединений в пуле: каждый занимает своё
+      // и заставляет его открыться. По одному греется только первое, а большой
+      // пул с одним тёплым соединением хуже маленького — остальные девять
+      // заплатят за TLS уже при живых посетителях.
+      await Promise.all(
+        Array.from({ length: HTTP_CONNECTIONS }, () =>
+          supabase.from('users').select('id').limit(1)
+        )
+      );
+      console.log(`Supabase: прогрето соединений — ${HTTP_CONNECTIONS}`);
     } catch {
-      // Не важно: соединение открылось даже если запрос не удался.
+      // Не важно: соединения открылись даже если запросы не удались.
     }
   })();
 });
