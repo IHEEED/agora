@@ -18,7 +18,22 @@ dotenv.config();
 const app = express();
 const port = process.env.PORT || 4000;
 
-const allowedOrigins = ['http://localhost:3000', 'https://agora-vert-nine.vercel.app'];
+/**
+ * Кому разрешено обращаться к API.
+ *
+ * Список складывается из зашитых адресов разработки и переменной CORS_ORIGINS —
+ * через запятую. Держать боевые домены в коде значит выпускать новую версию
+ * из-за смены адреса фронтенда, а на хостинге это ещё и единственный способ
+ * добавить домен, не имея под рукой репозитория.
+ */
+const allowedOrigins = [
+  'http://localhost:3000',
+  'https://agora-vert-nine.vercel.app',
+  ...(process.env.CORS_ORIGINS ?? '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean),
+];
 
 /**
  * В разработке дополнительно пускаем адреса из локальной сети: чтобы открыть
@@ -49,6 +64,21 @@ app.get('/', (_req, res) => {
   res.json({ message: 'API is running' });
 });
 
+/**
+ * Проверка живости для хостинга.
+ *
+ * Отдельно от корня и намеренно без обращения к базе. Хостинг спрашивает этот
+ * адрес каждые несколько секунд, чтобы понять, жив ли процесс; сходи он при
+ * этом в Supabase — получилась бы постоянная нагрузка на базу ради вопроса о
+ * состоянии процесса, а недоступность базы убивала бы работающий сервер.
+ *
+ * Здоровье приложения и здоровье базы — разные вещи, и путать их в одной
+ * проверке значит перезапускать одно из-за другого.
+ */
+app.get('/health', (_req, res) => {
+  res.json({ ok: true, uptime: Math.round(process.uptime()) });
+});
+
 app.use('/communities', communitiesRouter);
 app.use('/posts', postsRouter);
 app.use('/comments', commentsRouter);
@@ -57,8 +87,15 @@ app.use('/users', usersRouter);
 app.use('/messages', messagesRouter);
 app.use('/stories', storiesRouter);
 
-app.listen(port, () => {
-  console.log(`Server running on http://localhost:${port}`);
+/**
+ * Слушаем на всех интерфейсах, а не только на localhost.
+ *
+ * В контейнере localhost — это сам контейнер, и хостинг до такого сервера не
+ * дозвонится: проверка живости не проходит, деплой откатывается, а в логах при
+ * этом «Server running». Тот же адрес нужен и для телефона в домашней сети.
+ */
+app.listen(Number(port), '0.0.0.0', () => {
+  console.log(`Server running on port ${port}`);
 
   /**
    * Греем соединение до Supabase сразу, не дожидаясь первого посетителя.
