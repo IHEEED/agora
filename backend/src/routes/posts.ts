@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { supabase } from '../config/supabase';
 import { requireAuth, requirePhoneVerified, optionalAuth } from '../middleware/auth';
+import { cached, forget } from '../config/cache';
 
 const router = Router();
 
@@ -52,33 +53,109 @@ function sortPosts<T extends { created_at: string; score: number; commentCount: 
  * считались, но в ответ не попадали, а кнопка подписки в ленте всегда рисовала
  * плюс — даже у тех, на кого уже подписан.
  */
+/**
+ * Есть ли у записей готовые счётчики.
+ *
+ * Их добавляет миграция 013. Пока она не выполнена, колонок нет, и считать
+ * приходится по-старому — пятью запросами по всем голосам, комментариям и
+ * репостам. Проверяем по самой строке, а не по флагу в настройках: так код
+ * работает в обеих базах без переключателей, и переход происходит в тот момент,
+ * когда миграцию действительно выполнили.
+ */
+function hasCounters(post: unknown): boolean {
+  return typeof (post as { score?: unknown })?.score === 'number';
+}
+
+/**
+ * Кто и за что голосовал — только свои голоса.
+ *
+ * Со счётчиками сумма уже лежит в записи, и от этой таблицы нужен один ответ:
+ * голосовал ли я. Запрос сужается с «все голоса по тридцати записям» до
+ * «мои голоса», то есть с тысяч строк до единиц.
+ */
+async function myVotesByPostId(postIds: string[], userId?: string) {
+  const myVotes = new Map<string, 1 | -1>();
+  if (!userId || postIds.length === 0) return myVotes;
+
+  const { data } = await supabase
+    .from('votes')
+    .select('post_id, value')
+    .eq('user_id', userId)
+    .in('post_id', postIds);
+
+  for (const row of data ?? []) {
+    if (row.post_id) myVotes.set(row.post_id as string, row.value as 1 | -1);
+  }
+  return myVotes;
+}
+
+/** Свои репосты. По той же причине, что и голоса выше. */
+async function myRepostsByPostId(postIds: string[], userId?: string) {
+  const mine = new Set<string>();
+  if (!userId || postIds.length === 0) return mine;
+
+  const { data, error } = await supabase
+    .from('reposts')
+    .select('post_id')
+    .eq('user_id', userId)
+    .in('post_id', postIds);
+
+  if (error) return mine;
+  for (const row of data ?? []) mine.add(row.post_id as string);
+  return mine;
+}
+
 async function enrichPosts<T extends { id: string; author?: { id?: string | null } | null }>(
   posts: T[],
   userId?: string
 ) {
   const ids = posts.map((post) => post.id);
-  const [{ scores, myVotes }, commentCounts, { polls, myPollVotes }, repostInfo, following] =
+  const counters = posts.length > 0 && hasCounters(posts[0]);
+
+  /**
+   * Со счётчиками — четыре лёгких запроса вместо пяти тяжёлых.
+   *
+   * Суммы голосов, число комментариев и репостов приезжают вместе с записью и
+   * не стоят ничего. Остаются только вопросы «а я?»: мой голос, мой репост, мои
+   * подписки — все они по одному человеку, а не по всей таблице. Плюс опросы:
+   * их вариантов немного, и денормализовать их незачем.
+   *
+   * Анонимному не нужны и они: без пользователя личных ответов не бывает, и три
+   * запроса отпадают сами.
+   */
+  const [voteInfo, commentCounts, { polls, myPollVotes }, repostInfo, following] =
     await Promise.all([
-      getVoteInfoByPostId(ids, userId),
-      getCommentCountByPostId(ids),
+      counters
+        ? myVotesByPostId(ids, userId).then((myVotes) => ({ scores: null, myVotes }))
+        : getVoteInfoByPostId(ids, userId).then(({ scores, myVotes }) => ({ scores, myVotes })),
+      counters ? Promise.resolve(null) : getCommentCountByPostId(ids),
       getPollsByPostId(ids, userId),
-      getRepostInfoByPostId(ids, userId),
+      counters
+        ? myRepostsByPostId(ids, userId).then((mine) => ({ counts: null, mine }))
+        : getRepostInfoByPostId(ids, userId),
       followingSet(userId),
     ]);
 
-  return posts.map((post) => ({
-    ...post,
-    author: post.author
-      ? { ...post.author, isFollowing: following.has(String(post.author.id)) }
-      : post.author,
-    score: scores.get(post.id) ?? 0,
-    myVote: myVotes.get(post.id) ?? null,
-    commentCount: commentCounts.get(post.id) ?? 0,
-    pollOptions: polls.get(post.id) ?? [],
-    myPollVote: myPollVotes.get(post.id) ?? null,
-    repostCount: repostInfo.counts.get(post.id) ?? 0,
-    myRepost: repostInfo.mine.has(post.id),
-  }));
+  return posts.map((post) => {
+    const row = post as T & { score?: number; comment_count?: number; repost_count?: number };
+    return {
+      ...post,
+      author: post.author
+        ? { ...post.author, isFollowing: following.has(String(post.author.id)) }
+        : post.author,
+      score: voteInfo.scores ? (voteInfo.scores.get(post.id) ?? 0) : (row.score ?? 0),
+      myVote: voteInfo.myVotes.get(post.id) ?? null,
+      commentCount: commentCounts
+        ? (commentCounts.get(post.id) ?? 0)
+        : (row.comment_count ?? 0),
+      pollOptions: polls.get(post.id) ?? [],
+      myPollVote: myPollVotes.get(post.id) ?? null,
+      repostCount: repostInfo.counts
+        ? (repostInfo.counts.get(post.id) ?? 0)
+        : (row.repost_count ?? 0),
+      myRepost: repostInfo.mine.has(post.id),
+    };
+  });
 }
 
 /**
@@ -312,6 +389,10 @@ router.post('/', requireAuth, requirePhoneVerified, async (req, res) => {
     }
   }
 
+  // Новая запись обязана появиться в ленте сразу, а не через десять секунд:
+  // человек публикует и тут же смотрит, получилось ли (см. config/cache).
+  forget('posts:');
+
   res.status(201).json(data);
 });
 
@@ -437,11 +518,27 @@ router.post('/:id/view', async (req, res) => {
 router.get('/', optionalAuth, async (req, res) => {
   const sort = parsePostSort(req.query.sort);
 
-  const { data, error } = await supabase
-    .from('posts')
-    .select('*, author:users!posts_author_id_fkey(id, username), community:communities(id, name)')
-    .order('created_at', { ascending: false })
-    .limit(100);
+  /**
+   * Сама выборка записей кешируется, обогащение — нет.
+   *
+   * Список и его порядок одинаковы для всех, кто открыл ленту в одну секунду:
+   * сортировка не зависит от того, кто спрашивает. А вот «мой голос» и «я
+   * подписан» зависят, и они приклеиваются к записям уже после — по ключу
+   * пользователя кешировать пришлось бы каждому свою копию, и кеш перестал бы
+   * быть кешем.
+   *
+   * Ключ включает сортировку: «горячее» и «новое» — разные списки.
+   */
+  const { data, error } = await cached(`posts:feed:${sort}`, async () =>
+    // await внутри обязателен: без него в кеш ляжет построитель запроса, а не
+    // ответ. Он похож на обещание ровно настолько, чтобы это прошло молча и
+    // сломалось на первом обращении к data.
+    await supabase
+      .from('posts')
+      .select('*, author:users!posts_author_id_fkey(id, username), community:communities(id, name)')
+      .order('created_at', { ascending: false })
+      .limit(100)
+  );
 
   if (error) {
     console.error('posts: request failed', error);
@@ -527,6 +624,9 @@ router.delete('/:id', requireAuth, async (req, res) => {
   }
 
   const { error: deleteError } = await supabase.from('posts').delete().eq('id', id);
+  // Удалённая запись не должна оставаться в кеше ленты: она уже удалена, и
+  // показывать её десять секунд — врать про то, чего нет.
+  forget('posts:');
 
   if (deleteError) {
     console.error('posts: delete failed', deleteError);
