@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>План разработки соцсети с апвоутами</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f6f6f3;
+    --surface:#ffffff;
+    --ink:#1a1d23;
+    --ink-soft:#5a6070;
+    --ink-faint:#8a8f9c;
+    --border:#e3e3dd;
+    --up:#ff4517;
+    --up-soft:#fff1ec;
+    --down:#4a5df0;
+    --down-soft:#eef0ff;
+    --good:#1c9d5b;
+    --good-soft:#e9f8f0;
+    --bad:#e0393e;
+    --bad-soft:#fdecec;
+    --accent:#f6a01a;
+    --radius:14px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'Inter',sans-serif;
+    line-height:1.6;
+    font-size:16px;
+  }
+  h1,h2,h3,h4{font-family:'Space Grotesk',sans-serif; margin:0; letter-spacing:-0.01em;}
+  code, .mono{font-family:'JetBrains Mono',monospace; font-size:0.88em;}
+
+  /* ---- HERO ---- */
+  .hero{
+    padding:64px 24px 48px;
+    max-width:920px;
+    margin:0 auto;
+    position:relative;
+  }
+  .hero-badge{
+    display:inline-flex; align-items:center; gap:8px;
+    background:var(--up-soft); color:var(--up);
+    font-family:'JetBrains Mono',monospace; font-size:13px; font-weight:500;
+    padding:6px 14px; border-radius:999px; margin-bottom:22px;
+  }
+  .hero h1{
+    font-size:clamp(32px,5vw,52px);
+    font-weight:700;
+    line-height:1.08;
+    max-width:760px;
+  }
+  .hero .accent{color:var(--up);}
+  .hero p.lead{
+    margin-top:20px; font-size:18px; color:var(--ink-soft); max-width:640px;
+  }
+  .vote-decor{
+    position:absolute; right:24px; top:60px; display:flex; flex-direction:column; align-items:center; gap:2px;
+    opacity:0.9;
+  }
+  .vote-decor .arrow{font-size:22px; color:var(--ink-faint);}
+  .vote-decor .arrow.up{color:var(--up);}
+  .vote-decor .score{font-family:'JetBrains Mono',monospace; font-weight:600; font-size:15px;}
+  @media (max-width:720px){ .vote-decor{display:none;} }
+
+  /* ---- TOC ---- */
+  .toc-wrap{max-width:920px; margin:0 auto 56px; padding:0 24px;}
+  .toc{
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+    padding:22px 26px; display:grid; grid-template-columns:1fr 1fr; gap:6px 28px;
+  }
+  @media (max-width:640px){ .toc{grid-template-columns:1fr;} }
+  .toc-title{
+    grid-column:1/-1; font-family:'JetBrains Mono',monospace; font-size:12px; text-transform:uppercase;
+    letter-spacing:0.08em; color:var(--ink-faint); margin-bottom:10px;
+  }
+  .toc a{
+    color:var(--ink); text-decoration:none; font-size:14.5px; padding:5px 0; display:flex; gap:8px;
+    border-bottom:1px dashed transparent;
+  }
+  .toc a:hover{border-bottom-color:var(--ink-faint);}
+  .toc a .n{color:var(--ink-faint); font-family:'JetBrains Mono',monospace; font-size:13px; min-width:20px;}
+
+  /* ---- SECTIONS ---- */
+  section{max-width:920px; margin:0 auto; padding:0 24px 64px;}
+  .sec-head{margin-bottom:28px; scroll-margin-top:24px;}
+  .sec-eyebrow{
+    font-family:'JetBrains Mono',monospace; font-size:12.5px; color:var(--up); text-transform:uppercase;
+    letter-spacing:0.08em; margin-bottom:10px; display:block;
+  }
+  .sec-head h2{font-size:clamp(24px,3.4vw,32px); font-weight:700;}
+  .sec-head p.desc{color:var(--ink-soft); margin-top:12px; font-size:15.5px; max-width:680px;}
+
+  .callout{
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+    padding:20px 22px; margin:18px 0; font-size:15px;
+  }
+  .callout.tip{border-left:4px solid var(--accent);}
+  .callout p{margin:6px 0;}
+
+  /* decision problem block */
+  .problem{
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+    padding:24px 26px; margin-bottom:22px;
+  }
+  .problem-title{
+    display:flex; align-items:baseline; gap:10px; margin-bottom:6px; flex-wrap:wrap;
+  }
+  .problem-title h3{font-size:19px; font-weight:600;}
+  .problem-title .tag{
+    font-family:'JetBrains Mono',monospace; font-size:11.5px; color:var(--ink-faint);
+    background:var(--bg); padding:2px 9px; border-radius:999px; border:1px solid var(--border);
+  }
+  .problem-why{color:var(--ink-soft); font-size:14.5px; margin-bottom:16px;}
+
+  .options{display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:14px; margin-bottom:14px;}
+  .option{
+    border:1px solid var(--border); border-radius:10px; padding:16px 16px 14px;
+    background:var(--bg);
+  }
+  .option.picked{border-color:var(--up); background:var(--up-soft);}
+  .option h4{font-size:15px; font-weight:600; margin-bottom:10px; display:flex; align-items:center; gap:8px;}
+  .option.picked h4::after{
+    content:"выбор"; font-family:'JetBrains Mono',monospace; font-size:10.5px; font-weight:500;
+    background:var(--up); color:#fff; padding:2px 8px; border-radius:999px; margin-left:auto;
+  }
+  .pc{margin:0 0 4px; padding:0; list-style:none;}
+  .pc li{display:flex; gap:8px; font-size:13.8px; margin-bottom:5px; align-items:flex-start;}
+  .pc li .m{flex-shrink:0; font-weight:700; width:16px; text-align:center;}
+  .pc.plus li .m{color:var(--good);}
+  .pc.minus li .m{color:var(--bad);}
+
+  .verdict{
+    display:flex; gap:10px; align-items:flex-start; background:var(--up-soft); border-radius:10px;
+    padding:14px 16px; font-size:14.5px; margin-top:6px;
+  }
+  .verdict .icon{color:var(--up); font-size:17px; flex-shrink:0;}
+  .verdict b{color:var(--up);}
+
+  /* checklist for missed items */
+  .checklist{display:grid; gap:12px;}
+  .check-item{
+    background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:16px 18px;
+    display:flex; gap:14px;
+  }
+  .check-item .num{
+    font-family:'JetBrains Mono',monospace; color:var(--ink-faint); font-size:13px; flex-shrink:0; padding-top:2px;
+  }
+  .check-item h4{font-size:15px; margin-bottom:4px;}
+  .check-item p{margin:0; font-size:13.8px; color:var(--ink-soft);}
+
+  /* roadmap timeline */
+  .timeline{position:relative; margin-top:10px; padding-left:28px;}
+  .timeline::before{
+    content:""; position:absolute; left:9px; top:6px; bottom:6px; width:2px; background:var(--border);
+  }
+  .phase{position:relative; margin-bottom:22px;}
+  .phase::before{
+    content:""; position:absolute; left:-28px; top:4px; width:12px; height:12px; border-radius:50%;
+    background:var(--up); border:3px solid var(--up-soft);
+  }
+  .phase h4{font-size:16px; margin-bottom:4px;}
+  .phase .goal{font-size:13.5px; color:var(--ink-faint); font-family:'JetBrains Mono',monospace; margin-bottom:6px;}
+  .phase p{margin:0; font-size:14.5px; color:var(--ink-soft);}
+
+  /* final table */
+  table{width:100%; border-collapse:collapse; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden;}
+  th,td{text-align:left; padding:12px 16px; font-size:14px; border-bottom:1px solid var(--border);}
+  th{background:var(--bg); font-family:'JetBrains Mono',monospace; font-size:12px; text-transform:uppercase; letter-spacing:0.05em; color:var(--ink-faint);}
+  tr:last-child td{border-bottom:none;}
+  td.free{color:var(--good); font-weight:600; font-size:13px;}
+  td.paid{color:var(--accent); font-weight:600; font-size:13px;}
+
+  footer{max-width:920px; margin:0 auto; padding:0 24px 80px; color:var(--ink-faint); font-size:13.5px;}
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <div class="vote-decor">
+    <span class="arrow up">▲</span>
+    <span class="score">1</span>
+    <span class="arrow">▼</span>
+  </div>
+  <div class="hero-badge">▲ план · с нуля · для новичка</div>
+  <h1>Как построить <span class="accent">соцсеть с апвоутами</span> — от пустой папки до релиза в App Store и Google Play</h1>
+  <p class="lead">Персональная дорожная карта, собранная под ваш старт: вы знаете C/C++, у вас есть VS Code и ничего больше, и цель — сделать нечто вроде Reddit. В каждом разделе — выбор, его плюсы (+) и минусы (−), и итоговая рекомендация.</p>
+</div>
+
+<div class="toc-wrap">
+  <div class="toc">
+    <div class="toc-title">Содержание</div>
+    <a href="#arch"><span class="n">01</span> Архитектура — как всё устроено</a>
+    <a href="#backend"><span class="n">02</span> Язык и фреймворк бэкенда</a>
+    <a href="#frontend"><span class="n">03</span> Фронтенд сайта</a>
+    <a href="#db"><span class="n">04</span> База данных</a>
+    <a href="#votes"><span class="n">05</span> Система апвоутов/даунвоутов</a>
+    <a href="#auth"><span class="n">06</span> Авторизация пользователей</a>
+    <a href="#api"><span class="n">07</span> REST или GraphQL</a>
+    <a href="#mobile"><span class="n">08</span> Приложения iOS и Android</a>
+    <a href="#testing"><span class="n">09</span> Тестирование мобильных приложений</a>
+    <a href="#media"><span class="n">10</span> Хранение медиафайлов</a>
+    <a href="#hosting"><span class="n">11</span> Хостинг и деплой бесплатно</a>
+    <a href="#tools"><span class="n">12</span> Инструменты кроме VS Code</a>
+    <a href="#missed"><span class="n">13</span> Что легко упустить новичку</a>
+    <a href="#roadmap"><span class="n">14</span> Поэтапный план</a>
+    <a href="#stack"><span class="n">15</span> Итоговый стек одним взглядом</a>
+  </div>
+</div>
+
+<!-- 01 ARCHITECTURE -->
+<section id="arch">
+  <div class="sec-head">
+    <span class="sec-eyebrow">01 / Фундамент</span>
+    <h2>Как вообще устроена такая соцсеть</h2>
+    <p class="desc">Прежде чем выбирать языки, важно понимать из каких кусков состоит система — тогда все последующие решения будут понятны по контексту.</p>
+  </div>
+  <div class="callout">
+    <p><b>Клиенты</b> (сайт в браузере, приложение iOS, приложение Android) → отправляют запросы к →</p>
+    <p><b>API-серверу</b> (бэкенд: проверяет пользователя, читает/пишет посты, голоса, комментарии) → который читает и пишет в →</p>
+    <p><b>Базу данных</b> (хранит пользователей, посты, комментарии, голоса) и обращается к <b>кэшу</b> (быстрый счётчик рейтинга) и <b>хранилищу файлов</b> (картинки/видео).</p>
+    <p style="margin-top:10px; color:var(--ink-soft)">Ключевая мысль: <b>сайт, iOS-приложение и Android-приложение — это три разных «фасада»</b>, которые все ходят в один и тот же API-сервер. Поэтому самая тяжёлая и важная часть — это бэкенд + база данных, а не то, как выглядит кнопка.</p>
+  </div>
+</section>
+
+<!-- 02 BACKEND -->
+<section id="backend">
+  <div class="sec-head">
+    <span class="sec-eyebrow">02 / Решение</span>
+    <h2>На чём писать сервер (бэкенд)</h2>
+    <p class="desc">Это самое важное решение в проекте. C и C++ технически можно использовать, но для веб-бэкенда они почти никогда не выбираются — не потому что «слабые», а потому что 90% работы сервера — это готовые библиотеки для баз данных, авторизации и HTTP, а в C/C++ их придётся собирать вручную, теряя недели на то, что в других языках есть «из коробки».</p>
+  </div>
+
+  <div class="problem">
+    <div class="problem-title"><h3>Проблема: какой язык/фреймворк выбрать под API-сервер</h3><span class="tag">решает 70% сложности проекта</span></div>
+    <div class="options">
+      <div class="option picked">
+        <h4>Node.js + TypeScript (Express/NestJS)</h4>
+        <ul class="pc plus">
+          <li><span class="m">+</span>Один язык (JS/TS) можно использовать и на сайте, и на сервере, и в мобильном приложении — учите один раз</li>
+          <li><span class="m">+</span>Огромное community, тонны бесплатных туториалов именно «сделай реддит на Node.js»</li>
+          <li><span class="m">+</span>TypeScript даёт статическую типизацию — привычнее после C/C++, чем чистый JS</li>
+        </ul>
+        <ul class="pc minus">
+          <li><span class="m">−</span>Асинхронность (Promise/async-await) первое время путает</li>
+          <li><span class="m">−</span>Экосистема npm огромная и местами хаотичная</li>
+        </ul>
+      </div>
+      <div class="option">
+        <h4>Python (Django / FastAPI)</h4>
+        <ul class="pc plus">
+          <li><span class="m">+</span>Самый читаемый синтаксис, минимум «шума» в коде</li>
+          <li><span class="m">+</span>Django даёт готовую админ-панель для модерации из коробки</li>
+        </ul>
+        <ul class="pc minus">
+          <li><span class="m">−</span>Другой язык для сайта (JS) и для сервера — два языка вместо одного</li>
+          <li><span class="m">−</span>Медленнее при высокой нагрузке, чем Node.js/Go</li>
+        </ul>
+      </div>
+      <div class="option">
+        <h4>Go (Golang)</h4>
+        <ul class="pc plus">
+          <li><span class="m">+</span>Статическая типизация и компиляция — синтаксически ближе к C, чем JS/Python</li>
+          <li><span class="m">+</span>Отличная производительность и параллелизм — хорош для счётчиков голосов под нагрузкой</li>
+        </ul>
+        <ul class="pc minus">
+          <li><span class="m">−</span>Меньше туториалов уровня «полное пошаговое приложение для новичка»</li>
+          <li><span class="m">−</span>Опять же отдельный язык от фронтенда и мобилки</li>
+        </ul>
+      </div>
+    </div>
+    <div class="verdict"><span class="icon">▲</span><div><b>Рекомендация:</b> Node.js + TypeScript. Причина не «это лучший язык», а то, что вы сможете использовать <b>один и тот же язык</b> для сайта, сервера и (позже) мобильного приложения — это резко снижает объём того, что нужно выучить новичку. Если через несколько месяцев после MVP захочется скорости — узкие места можно переписать на Go, это нормальная практика.</div></div>
+  </div>
+</section>
+
+<!-- 03 FRONTEND -->
+<section id="frontend">
+  <div class="sec-head">
+    <span class="sec-eyebrow">03 / Решение</span>
+    <h2>Фронтенд сайта (то, что видит пользователь в браузере)</h2>
+  </div>
+  <div class="problem">
+    <div class="problem-title"><h3>Проблема: на чём рисовать ленту постов, карточки, кнопки апвоута</h3></div>
+    <div class="options">
+      <div class="option picked">
+        <h4>Next.js (React)</h4>
+        <ul class="pc plus">
+          <li><span class="m">+</span>React — самый популярный UI-фреймворк, максимум готовых компонентов и примеров</li>
+          <li><span class="m">+</span>Next.js даёт готовый роутинг и SEO (важно для соцсети — посты должны находиться в Google)</li>
+          <li><span class="m">+</span>Знания React почти напрямую переносятся на React Native для мобильных приложений (см. раздел 08)</li>
+        </ul>
+        <ul class="pc minus">
+          <li><span class="m">−</span>JSX и хуки (useState, useEffect) — новая парадигма, требует привыкания</li>
+        </ul>
+      </div>
+      <div class="option">
+        <h4>Vue.js (Nuxt)</h4>
+        <ul class="pc plus">
+          <li><span class="m">+</span>Более простой и понятный синтаксис для новичков, чем React</li>
+        </ul>
+        <ul class="pc minus">
+          <li><span class="m">−</span>Меньше community и меньше связки с мобильной разработкой</li>
+          <li><span class="m">−</span>Меньше вакансий/примеров именно про соцсети</li>
+        </ul>
+      </div>
+    </div>
+    <div class="verdict"><span class="icon">▲</span><div><b>Рекомендация:</b> Next.js. Главный аргумент — переиспользование знаний React в мобильном приложении на React Native, что для соло-разработчика критично важно.</div></div>
+  </div>
+</section>
+
+<!-- 04 DB -->
+<section id="db">
+  <div class="sec-head">
+    <span class="sec-eyebrow">04 / Решение</span>
+    <h2>База данных</h2>
+    <p class="desc">Здесь хранятся пользователи, посты, комментарии, голоса, сообщества.</p>
+  </div>
+  <div class="problem">
+    <div class="problem-title"><h3>Проблема: реляционная (SQL) или документная (NoSQL) БД</h3></div>
+    <div class="options">
+      <div class="option picked">
+        <h4>PostgreSQL</h4>
+        <ul class="pc plus">
+          <li><span class="m">+</span>Связи между таблицами (пользователь → пост → комментарий → голос) — именно то, что нужно соцсети</li>
+          <li><span class="m">+</span>Можно физически запретить дубликат голоса от одного пользователя на один пост (constraint в БД) — это защита от читов «из коробки»</li>
+          <li><span class="m">+</span>Бесплатные облачные варианты с щедрым тарифом (Supabase, Neon)</li>
+        </ul>
+        <ul class="pc minus">
+          <li><span class="m">−</span>Нужно заранее спроектировать схему таблиц (это не страшно, ниже дан план)</li>
+        </ul>
+      </div>
+      <div class="option">
+        <h4>MongoDB</h4>
+        <ul class="pc plus">
+          <li><span class="m">+</span>Гибкая схема, не нужно заранее продумывать структуру</li>
+        </ul>
+        <ul class="pc minus">
+          <li><span class="m">−</span>Связи «пост-комментарии-голоса» реализовывать сложнее и менее надёжно</li>
+          <li><span class="m">−</span>Легче случайно получить дубликаты голосов без строгих ограничений</li>
+        </ul>
+      </div>
+    </div>
+    <div class="verdict"><span class="icon">▲</span><div><b>Рекомендация:</b> PostgreSQL. Для системы с голосованием и рейтингом строгие связи и ограничения — не бюрократия, а защита от читерства и багов.</div></div>
+  </div>
+  <div class="problem">
+    <div class="problem-title"><h3>Дополнительно: кэш для скорости</h3></div>
+    <div class="callout tip">
+      <p><b>Redis</b> — хранит «горячие» данные в оперативной памяти: счётчики голосов в реальном времени, рейтинг «hot»-сортировки, сессии пользователей, ограничение частоты запросов (rate limiting). Без него всё будет работать и на MVP — можно подключить чуть позже, не с первого дня.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 05 VOTES -->
+<section id="votes">
+  <div class="sec-head">
+    <span class="sec-eyebrow">05 / Сердце продукта</span>
+    <h2>Система апвоутов/даунвоутов и сортировка ленты</h2>
+    <p class="desc">Это то, что отличает Reddit-подобную соцсеть от обычного блога, поэтому стоит продумать заранее, а не «прикрутить потом».</p>
+  </div>
+  <div class="problem">
+    <div class="problem-title"><h3>Проблема 1: как хранить голоса, чтобы нельзя было читерить</h3></div>
+    <div class="callout">
+      <p>Заведите отдельную таблицу <code>votes</code> с полями <code>user_id</code>, <code>post_id</code>, <code>value</code> (+1 / −1) и <b>уникальным ограничением</b> на пару (user_id, post_id) — тогда база данных сама физически не даст одному пользователю проголосовать дважды за один пост. Это тот самый пункт, который новички почти всегда упускают и потом ловят баги с «накруткой» голосов.</p>
+    </div>
+  </div>
+  <div class="problem">
+    <div class="problem-title"><h3>Проблема 2: чем сортировать «горячее» (Hot), а не просто по количеству голосов</h3></div>
+    <div class="options">
+      <div class="option">
+        <h4>Просто сортировка по счёту</h4>
+        <ul class="pc plus"><li><span class="m">+</span>Реализуется в одну строку SQL</li></ul>
+        <ul class="pc minus">
+          <li><span class="m">−</span>Старые популярные посты навсегда остаются наверху, лента «застывает»</li>
+          <li><span class="m">−</span>Новые хорошие посты никогда не всплывают</li>
+        </ul>
+      </div>
+      <div class="option picked">
+        <h4>Формула «Hot» с затуханием по времени</h4>
+        <ul class="pc plus">
+          <li><span class="m">+</span>Учитывает и разницу голосов, и возраст поста — рейтинг «стареет», давая шанс новым постам</li>
+          <li><span class="m">+</span>Именно так устроена лента у Reddit — проверенный подход</li>
+        </ul>
+        <ul class="pc minus">
+          <li><span class="m">−</span>Формулу нужно один раз аккуратно реализовать (логарифм от разницы голосов + время с публикации)</li>
+        </ul>
+      </div>
+    </div>
+    <div class="verdict"><span class="icon">▲</span><div><b>Рекомендация:</b> держите 3 режима сортировки, как у Reddit — <span class="mono">Hot</span> (счёт + затухание по времени), <span class="mono">New</span> (по дате), <span class="mono">Top</span> (по чистому счёту за период). Сам счёт можно пересчитывать и складывать в Redis раз в несколько минут, чтобы не нагружать базу данных на каждый заход в ленту.</div></div>
+  </div>
+</section>
+
+<!-- 06 AUTH -->
+<section id="auth">
+  <div class="sec-head">
+    <span class="sec-eyebrow">06 / Решение</span>
+    <h2>Регистрация и вход пользователей</h2>
+  </div>
+  <div class="problem">
+    <div class="problem-title"><h3>Проблема: писать авторизацию самому или взять готовый сервис</h3></div>
+    <div class="options">
+      <div class="option">
+        <h4>Своя авторизация (JWT-токены вручную)</h4>
+        <ul class="pc plus"><li><span class="m">+</span>Полный контроль, ничего не зависит от третьих сервисов</li></ul>
+        <ul class="pc minus">
+          <li><span class="m">−</span>Легко допустить ошибку в безопасности (хранение паролей, сброс пароля, защита от перебора)</li>
+          <li><span class="m">−</span>Отнимает много времени, которое лучше потратить на саму соцсеть</li>
+        </ul>
+      </div>
+      <div class="option picked">
+        <h4>Готовый провайдер (Supabase Auth / Clerk / Auth.js)</h4>
+        <ul class="pc plus">
+          <li><span class="m">+</span>Вход по email+пароль и через Google/GitHub за 1 день работы вместо недель</li>
+          <li><span class="m">+</span>Бесплатный тариф с запасом для старта</li>
+          <li><span class="m">+</span>Проверенная безопасность — не изобретаете велосипед в самом чувствительном месте</li>
+        </ul>
+        <ul class="pc minus">
+          <li><span class="m">−</span>Привязка к сервису — при росте проекта может понадобиться миграция</li>
+        </ul>
+      </div>
+    </div>
+    <div class="verdict"><span class="icon">▲</span><div><b>Рекомендация:</b> Supabase Auth — тем более что Supabase заодно даёт бесплатный PostgreSQL и файловое хранилище, то есть закрывает сразу 3 пункта плана одним бесплатным аккаунтом.</div></div>
+  </div>
+</section>
+
+<!-- 07 API -->
+<section id="api">
+  <div class="sec-head">
+    <span class="sec-eyebrow">07 / Решение</span>
+    <h2>Как клиент и сервер общаются: REST или GraphQL</h2>
+  </div>
+  <div class="problem">
+    <div class="problem-title"><h3>Проблема: формат API-запросов</h3></div>
+    <div class="options">
+      <div class="option picked">
+        <h4>REST</h4>
+        <ul class="pc plus">
+          <li><span class="m">+</span>Простая ментальная модель: адрес + метод (GET/POST/PUT/DELETE)</li>
+          <li><span class="m">+</span>Абсолютное большинство обучающих материалов «сделай бэкенд» — про REST</li>
+        </ul>
+        <ul class="pc minus"><li><span class="m">−</span>Иногда приходится делать несколько запросов подряд для сложного экрана</li></ul>
+      </div>
+      <div class="option">
+        <h4>GraphQL</h4>
+        <ul class="pc plus"><li><span class="m">+</span>Клиент сам решает, какие поля получить, экономит запросы</li></ul>
+        <ul class="pc minus">
+          <li><span class="m">−</span>Существенно выше порог входа, лишняя сложность для новичка на старте</li>
+        </ul>
+      </div>
+    </div>
+    <div class="verdict"><span class="icon">▲</span><div><b>Рекомендация:</b> REST для MVP. GraphQL можно рассмотреть позже, если API разрастётся и станет неудобным.</div></div>
+  </div>
+</section>
+
+<!-- 08 MOBILE -->
+<section id="mobile">
+  <div class="sec-head">
+    <span class="sec-eyebrow">08 / Отдельный большой блок</span>
+    <h2>Приложения для iOS и Android</h2>
+    <p class="desc">Важный факт: чтобы протестировать приложение — Mac не обязателен. Он нужен только для финальной публикации в App Store. Это снимает главный страх новичка на Windows.</p>
+  </div>
+  <div class="problem">
+    <div class="problem-title"><h3>Проблема: как писать одно приложение под обе платформы</h3></div>
+    <div class="options">
+      <div class="option picked">
+        <h4>React Native + Expo</h4>
+        <ul class="pc plus">
+          <li><span class="m">+</span>Один код на JS/TS для iOS и Android одновременно — тот же язык, что и на сайте/сервере</li>
+          <li><span class="m">+</span>Expo даёт мгновенное тестирование на реальном телефоне без Mac и без публикации в сторе (см. раздел 09)</li>
+          <li><span class="m">+</span>Огромное community, «hot reload» — изменения видны сразу</li>
+        </ul>
+        <ul class="pc minus">
+          <li><span class="m">−</span>Чуть ниже производительность, чем у нативных приложений (для соцсети с лентой это некритично)</li>
+        </ul>
+      </div>
+      <div class="option">
+        <h4>Flutter (Dart)</h4>
+        <ul class="pc plus">
+          <li><span class="m">+</span>Очень высокая производительность и плавность анимаций</li>
+          <li><span class="m">+</span>Отличный «hot reload», удобная разработка</li>
+        </ul>
+        <ul class="pc minus">
+          <li><span class="m">−</span>Dart — ещё один, четвёртый язык в проекте (после TS для сайта/сервера)</li>
+          <li><span class="m">−</span>Код не переиспользуется с сайтом</li>
+        </ul>
+      </div>
+      <div class="option">
+        <h4>Нативно: Swift (iOS) + Kotlin (Android)</h4>
+        <ul class="pc plus"><li><span class="m">+</span>Максимальная производительность и доступ ко всем возможностям платформы</li></ul>
+        <ul class="pc minus">
+          <li><span class="m">−</span>Два отдельных проекта, два языка, вдвое больше работы для одного человека</li>
+          <li><span class="m">−</span>Для iOS-части обязателен Mac уже на этапе разработки, не только публикации</li>
+        </ul>
+      </div>
+    </div>
+    <div class="verdict"><span class="icon">▲</span><div><b>Рекомендация:</b> React Native + Expo. Вы переиспользуете компоненты и логику из веб-версии на React, а Expo снимает главную боль — тестирование на iOS без Mac.</div></div>
+  </div>
+  <div class="callout tip">
+    <p><b>Про публикацию (не тестирование, а именно выкладку в сторы):</b></p>
+    <p>App Store требует платный <b>Apple Developer Program — $99/год</b>. Google Play требует одноразовый взнос <b>$25</b>. Это единственные обязательные платные пункты во всём плане — тестировать и разрабатывать до этого момента можно полностью бесплатно.</p>
+  </div>
+</section>
+
+<!-- 09 TESTING -->
+<section id="testing">
+  <div class="sec-head">
+    <span class="sec-eyebrow">09 / Практика</span>
+    <h2>Как тестировать мобильное приложение во время разработки</h2>
+  </div>
+  <div class="checklist">
+    <div class="check-item">
+      <div class="num">01</div>
+      <div><h4>Expo Go на своём телефоне — бесплатно, без Mac</h4><p>Ставите приложение Expo Go из App Store/Google Play на свой обычный телефон, запускаете <code>npx expo start</code> на компьютере, сканируете QR-код — приложение открывается на телефоне и обновляется вживую при каждом изменении кода. Это основной способ тестирования на 90% времени разработки.</p></div>
+    </div>
+    <div class="check-item">
+      <div class="num">02</div>
+      <div><h4>Android-эмулятор через Android Studio — бесплатно</h4><p>Android Studio (бесплатный) включает эмулятор — виртуальный Android-телефон на компьютере. Полезен, если хотите проверить разные версии Android или у вас нет Android-телефона под рукой.</p></div>
+    </div>
+    <div class="check-item">
+      <div class="num">03</div>
+      <div><h4>iOS-симулятор — только на Mac, но есть обходной путь</h4><p>Полноценный симулятор iPhone идёт вместе с Xcode, а Xcode работает только на macOS. Если Mac нет — используйте Expo Go на живом iPhone (см. пункт 1) или бесплатный тариф <b>EAS Build</b> от Expo, который собирает установочный файл iOS «в облаке», без своего Mac.</p></div>
+    </div>
+    <div class="check-item">
+      <div class="num">04</div>
+      <div><h4>TestFlight (iOS) и «Внутреннее тестирование» (Google Play)</h4><p>Когда захотите дать приложение протестировать друзьям до официального релиза — Apple TestFlight и внутренний трек Google Play позволяют раздать приложение ограниченному кругу людей без полной публикации. Доступны только после оформления платных аккаунтов разработчика из раздела 08.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- 10 MEDIA -->
+<section id="media">
+  <div class="sec-head">
+    <span class="sec-eyebrow">10 / Решение</span>
+    <h2>Хранение картинок и видео из постов</h2>
+    <p class="desc">Файлы никогда не хранятся прямо в базе данных — только в отдельном файловом хранилище, а в БД сохраняется лишь ссылка на файл.</p>
+  </div>
+  <div class="problem">
+    <div class="problem-title"><h3>Проблема: где физически лежат загруженные пользователями файлы</h3></div>
+    <div class="options">
+      <div class="option picked">
+        <h4>Supabase Storage / Cloudflare R2</h4>
+        <ul class="pc plus">
+          <li><span class="m">+</span>Щедрый бесплатный тариф для старта (единицы гигабайт)</li>
+          <li><span class="m">+</span>Supabase Storage — тот же аккаунт, что уже используется под БД и авторизацию</li>
+        </ul>
+        <ul class="pc minus"><li><span class="m">−</span>При росте проекта бесплатный лимит закончится, придётся платить</li></ul>
+      </div>
+      <div class="option">
+        <h4>Firebase Storage</h4>
+        <ul class="pc plus"><li><span class="m">+</span>Тоже бесплатный тариф, хорошо документирован</li></ul>
+        <ul class="pc minus"><li><span class="m">−</span>Ещё один отдельный аккаунт/экосистема Google вместо уже выбранной Supabase</li></ul>
+      </div>
+    </div>
+    <div class="verdict"><span class="icon">▲</span><div><b>Рекомендация:</b> Supabase Storage — раз уже используете Supabase для БД и авторизации, логично не плодить лишние сервисы.</div></div>
+  </div>
+</section>
+
+<!-- 11 HOSTING -->
+<section id="hosting">
+  <div class="sec-head">
+    <span class="sec-eyebrow">11 / Решение</span>
+    <h2>Где разместить сайт и сервер бесплатно</h2>
+  </div>
+  <div class="problem">
+    <div class="problem-title"><h3>Проблема: сайт и сервер должны где-то «жить» онлайн</h3></div>
+    <div class="options">
+      <div class="option picked">
+        <h4>Vercel (сайт) + Railway/Render (сервер) + Supabase (БД)</h4>
+        <ul class="pc plus">
+          <li><span class="m">+</span>Все три сервиса имеют бесплатный тариф, достаточный для MVP и первых пользователей</li>
+          <li><span class="m">+</span>Деплой напрямую из GitHub — залили код, через минуту сайт обновился</li>
+        </ul>
+        <ul class="pc minus">
+          <li><span class="m">−</span>Бесплатный тариф Render/Railway может «засыпать» после простоя и медленно просыпаться на первый запрос</li>
+          <li><span class="m">−</span>При реальном росте аудитории нужно будет перейти на платный тариф</li>
+        </ul>
+      </div>
+      <div class="option">
+        <h4>Свой сервер (VPS)</h4>
+        <ul class="pc plus"><li><span class="m">+</span>Полный контроль, ничего не «засыпает»</li></ul>
+        <ul class="pc minus">
+          <li><span class="m">−</span>Требует настройки Linux-сервера, Docker, деплоя вручную — лишняя сложность для первого проекта</li>
+          <li><span class="m">−</span>Практически всегда платный с первого дня</li>
+        </ul>
+      </div>
+    </div>
+    <div class="verdict"><span class="icon">▲</span><div><b>Рекомендация:</b> начните с Vercel + Railway/Render + Supabase — бесплатно и без администрирования серверов. Про VPS думать имеет смысл только когда появятся реальные пользователи и деньги на инфраструктуру.</div></div>
+  </div>
+</section>
+
+<!-- 12 TOOLS -->
+<section id="tools">
+  <div class="sec-head">
+    <span class="sec-eyebrow">12 / Инструменты</span>
+    <h2>Что установить кроме VS Code (всё бесплатное)</h2>
+  </div>
+  <div class="checklist">
+    <div class="check-item"><div class="num">•</div><div><h4>Git + аккаунт на GitHub</h4><p>Обязательно. Хранит историю кода и служит «мостом» к бесплатному хостингу (Vercel/Railway разворачивают сайт прямо из GitHub-репозитория).</p></div></div>
+    <div class="check-item"><div class="num">•</div><div><h4>Node.js</h4><p>Среда выполнения JavaScript/TypeScript — нужна и для сайта, и для сервера, и для React Native.</p></div></div>
+    <div class="check-item"><div class="num">•</div><div><h4>Расширение Thunder Client для VS Code (или Postman)</h4><p>Позволяет вручную «постучаться» в свой API и проверить, что он отвечает правильно, ещё до того как готов интерфейс.</p></div></div>
+    <div class="check-item"><div class="num">•</div><div><h4>Android Studio</h4><p>Нужен для Android-эмулятора и финальной сборки Android-приложения.</p></div></div>
+    <div class="check-item"><div class="num">•</div><div><h4>Xcode (только если появится Mac)</h4><p>Нужен исключительно для локального iOS-симулятора и публикации в App Store. Без Mac эту часть закрывает Expo Go + EAS Build (см. раздел 09).</p></div></div>
+    <div class="check-item"><div class="num">•</div><div><h4>Figma (бесплатный тариф)</h4><p>Нарисовать макет ленты, карточки поста и кнопки апвоута ДО того как писать код — экономит массу переделок.</p></div></div>
+    <div class="check-item"><div class="num">•</div><div><h4>TablePlus / DBeaver (бесплатные)</h4><p>Визуальный просмотр таблиц базы данных — удобнее, чем смотреть через код.</p></div></div>
+    <div class="check-item"><div class="num">•</div><div><h4>Расширения VS Code: ESLint, Prettier</h4><p>Автоматически подсвечивают ошибки и приводят код к единому стилю — критично важно, когда пишешь один и много.</p></div></div>
+  </div>
+</section>
+
+<!-- 13 MISSED -->
+<section id="missed">
+  <div class="sec-head">
+    <span class="sec-eyebrow">13 / Легко забыть</span>
+    <h2>Пункты, которые новички почти всегда упускают в соцсети</h2>
+    <p class="desc">Вы сами отметили, что сложно перечислить всё сразу — это нормально, вот список того, что стоит добавить в бэклог с самого начала, даже если реализуете не в первую неделю.</p>
+  </div>
+  <div class="checklist">
+    <div class="check-item"><div class="num">01</div><div><h4>Карма / репутация пользователя</h4><p>Сумма голосов за все посты и комментарии пользователя — это отдельное вычисляемое поле, влияющее на доверие к аккаунту.</p></div></div>
+    <div class="check-item"><div class="num">02</div><div><h4>Сообщества (аналог сабреддитов)</h4><p>Отдельная сущность «сообщество» с подписками, к которой привязываются посты — без неё это просто общая лента, а не Reddit-подобная структура.</p></div></div>
+    <div class="check-item"><div class="num">03</div><div><h4>Модерация: жалобы, баны, роли</h4><p>Кнопка «пожаловаться», очередь жалоб для модератора, возможность забанить пользователя или удалить пост — без этого публичная соцсеть быстро зарастает спамом.</p></div></div>
+    <div class="check-item"><div class="num">04</div><div><h4>Антиспам и защита от накрутки голосов</h4><p>Ограничение частоты постинга/голосования с одного аккаунта (rate limiting), капча при регистрации (бесплатный hCaptcha или Cloudflare Turnstile).</p></div></div>
+    <div class="check-item"><div class="num">05</div><div><h4>Поиск по постам</h4><p>Встроенный полнотекстовый поиск PostgreSQL бесплатен и достаточен для старта — не нужен отдельный сервис поиска на первых порах.</p></div></div>
+    <div class="check-item"><div class="num">06</div><div><h4>Push- и email-уведомления</h4><p>«Вам ответили в комментариях», «ваш пост набрал 100 апвоутов» — Firebase Cloud Messaging (бесплатно) для мобильных пуш-уведомлений, Resend (бесплатный тариф) для email.</p></div></div>
+    <div class="check-item"><div class="num">07</div><div><h4>Мониторинг ошибок в продакшене</h4><p>Sentry (есть бесплатный тариф) — как только реальные пользователи начнут пользоваться сайтом, вы будете видеть все возникающие ошибки, а не узнавать о них от расстроенных людей.</p></div></div>
+    <div class="check-item"><div class="num">08</div><div><h4>Пользовательское соглашение и политика конфиденциальности</h4><p>Даже для пет-проекта, если он публичный и собирает email/данные пользователей — юридически стоит иметь базовый текст (можно сгенерировать бесплатным шаблоном на старте).</p></div></div>
+    <div class="check-item"><div class="num">09</div><div><h4>Резервное копирование базы данных</h4><p>Supabase и Railway делают автоматические бэкапы на платных тарифах — на бесплатном стоит время от времени выгружать дамп базы вручную.</p></div></div>
+    <div class="check-item"><div class="num">10</div><div><h4>CI/CD — автоматизация деплоя</h4><p>GitHub Actions (бесплатный тариф) — при пуше кода в GitHub автоматически прогоняются тесты и обновляется сайт, без ручных шагов.</p></div></div>
+  </div>
+</section>
+
+<!-- 14 ROADMAP -->
+<section id="roadmap">
+  <div class="sec-head">
+    <span class="sec-eyebrow">14 / Порядок действий</span>
+    <h2>Поэтапный план — что делать в каком порядке</h2>
+  </div>
+  <div class="timeline">
+    <div class="phase">
+      <h4>Фаза 0 — Планирование</h4>
+      <div class="goal">1–2 недели</div>
+      <p>Нарисовать в Figma экраны ленты, поста, профиля. Спроектировать таблицы БД на бумаге: users, posts, comments, votes, communities.</p>
+    </div>
+    <div class="phase">
+      <h4>Фаза 1 — Бэкенд-скелет</h4>
+      <div class="goal">API без интерфейса</div>
+      <p>Регистрация/вход через Supabase Auth, CRUD постов и комментариев, таблица votes с защитой от дублей голосов. Проверять всё через Thunder Client, интерфейс ещё не нужен.</p>
+    </div>
+    <div class="phase">
+      <h4>Фаза 2 — Веб-интерфейс (MVP)</h4>
+      <div class="goal">Первая рабочая версия сайта</div>
+      <p>Лента постов, страница поста с комментариями, кнопки апвоут/даунвоут, сортировка Hot/New/Top.</p>
+    </div>
+    <div class="phase">
+      <h4>Фаза 3 — Деплой в интернет</h4>
+      <div class="goal">Сайт доступен по ссылке</div>
+      <p>Vercel для сайта, Railway/Render для сервера. Даже сырую версию полезно выложить как можно раньше — тестировать удобнее «вживую».</p>
+    </div>
+    <div class="phase">
+      <h4>Фаза 4 — Сообщества и модерация</h4>
+      <div class="goal">Reddit-подобная структура</div>
+      <p>Создание сообществ, подписки, базовая модерация (жалобы, удаление, баны).</p>
+    </div>
+    <div class="phase">
+      <h4>Фаза 5 — Мобильное приложение</h4>
+      <div class="goal">React Native + Expo</div>
+      <p>Переиспользуете API из фазы 1 — мобильное приложение просто ещё один клиент. Тестируете через Expo Go на своём телефоне.</p>
+    </div>
+    <div class="phase">
+      <h4>Фаза 6 — Уведомления, поиск, медиа</h4>
+      <div class="goal">Догоняем недостающее</div>
+      <p>Push/email-уведомления, полнотекстовый поиск, загрузка картинок в посты.</p>
+    </div>
+    <div class="phase">
+      <h4>Фаза 7 — Полировка и мониторинг</h4>
+      <div class="goal">Готовим к реальным пользователям</div>
+      <p>Sentry для ошибок, аналитика, rate limiting/капча, публикация в TestFlight и Google Play internal testing.</p>
+    </div>
+    <div class="phase">
+      <h4>Фаза 8 — Публикация в сторах и рост</h4>
+      <div class="goal">Релиз</div>
+      <p>Оплата Apple Developer ($99/год) и Google Play ($25 разово), публичный релиз, дальше — масштабирование по мере роста аудитории.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 15 STACK -->
+<section id="stack">
+  <div class="sec-head">
+    <span class="sec-eyebrow">15 / Сводка</span>
+    <h2>Итоговый стек одним взглядом</h2>
+  </div>
+  <table>
+    <tr><th>Слой</th><th>Технология</th><th>Стоимость на старте</th></tr>
+    <tr><td>Сайт</td><td>Next.js (React + TypeScript)</td><td class="free">бесплатно</td></tr>
+    <tr><td>Сервер / API</td><td>Node.js + TypeScript (Express/NestJS)</td><td class="free">бесплатно</td></tr>
+    <tr><td>Мобильные приложения</td><td>React Native + Expo</td><td class="free">бесплатно</td></tr>
+    <tr><td>База данных</td><td>PostgreSQL (через Supabase)</td><td class="free">бесплатно (лимит)</td></tr>
+    <tr><td>Авторизация</td><td>Supabase Auth</td><td class="free">бесплатно (лимит)</td></tr>
+    <tr><td>Файлы (картинки/видео)</td><td>Supabase Storage</td><td class="free">бесплатно (лимит)</td></tr>
+    <tr><td>Кэш / счётчики</td><td>Redis (Upstash)</td><td class="free">бесплатно (лимит)</td></tr>
+    <tr><td>Хостинг сайта</td><td>Vercel</td><td class="free">бесплатно (лимит)</td></tr>
+    <tr><td>Хостинг сервера</td><td>Railway / Render</td><td class="free">бесплатно (лимит)</td></tr>
+    <tr><td>Мониторинг ошибок</td><td>Sentry</td><td class="free">бесплатно (лимит)</td></tr>
+    <tr><td>Дизайн макетов</td><td>Figma</td><td class="free">бесплатно</td></tr>
+    <tr><td>Публикация в App Store</td><td>Apple Developer Program</td><td class="paid">$99/год</td></tr>
+    <tr><td>Публикация в Google Play</td><td>Google Play Console</td><td class="paid">$25 разово</td></tr>
+  </table>
+</section>
+
+<footer>▲ Рейтинг плана: составлен под ваш стартовый набор (VS Code, знание C/C++, ноль опыта в вебе). Все инструменты выше — с бесплатным тарифом, кроме двух пунктов публикации в конце.</footer>
+
+</body>
+</html>
