@@ -130,37 +130,36 @@ export function SuggestedPeople({
     // Горизонтальная лента: рекомендации не должны отжимать посты вниз
     // на пол-экрана, поэтому в высоту они занимают одну карточку.
     <section className={className}>
-      <div
-        className="no-scrollbar -mx-4 flex overflow-x-auto px-4 py-1"
-        style={{ gap: CARD_GAP }}
-      >
-        {people.map((person, index) => {
+      <div className="no-scrollbar -mx-4 flex overflow-x-auto px-4 py-1">
+        {people.map((person) => {
           const going = hiding.includes(person.id);
-          // На сколько карточек левее меня уже уезжают: каждая из них
-          // освобождает свою ширину вместе с зазором.
-          const shift = people
-            .slice(0, index)
-            .filter((other) => hiding.includes(other.id)).length;
 
           return (
             <div
               key={person.id}
-              className="flex-none"
+              className="flex-none overflow-hidden"
               style={{
-                width: CARD_WIDTH,
-                // Уходящая сжимается и гаснет на месте, остальные едут влево.
-                // Оба свойства — transform и opacity — считаются на видеокарте
-                // и не заставляют браузер пересобирать раскладку ленты.
-                transform: `translateX(${-shift * (CARD_WIDTH + CARD_GAP)}px)${
-                  going ? ' scale(0.9)' : ''
-                }`,
+                /**
+                 * Место схлопывается само, соседей никто не двигает.
+                 *
+                 * Раньше уходящая гасла на месте, а остальные ехали влево через
+                 * transform — и в момент, когда карточка уходила из массива, тот
+                 * же сдвиг обнулялся. Браузер честно анимировал возврат с −344 в
+                 * ноль, хотя раскладка уже переставила соседей на новые места:
+                 * ряд дёргался вправо и приезжал обратно. Отсюда «всё прыгает».
+                 *
+                 * Теперь уезжает только ширина самой карточки вместе с её
+                 * зазором. Соседи двигаются раскладкой, то есть ровно туда, где и
+                 * останутся, — обнулять после удаления нечего, дёргаться нечему.
+                 * Зазор поэтому висит на карточках, а не на контейнере: gap
+                 * анимировать нельзя, а margin можно.
+                 */
+                width: going ? 0 : CARD_WIDTH,
+                marginRight: going ? 0 : CARD_GAP,
                 opacity: going ? 0 : 1,
-                // Кривая с торможением, а не с разгоном: уходящая карточка
-                // должна замедлиться к концу, иначе движение выглядит рывком
-                // в сторону. Прозрачность гаснет за две трети хода — карточка
-                // исчезает раньше, чем соседи доедут до её места, и не видно,
-                // как она проезжает сквозь них.
-                transition: `transform ${DISMISS_MS}ms var(--enter-ease), opacity ${Math.round(
+                // Прозрачность гаснет за две трети хода: карточка исчезает
+                // раньше, чем сомкнётся место, и не видно, как её обрезает край.
+                transition: `width ${DISMISS_MS}ms var(--enter-ease), margin-right ${DISMISS_MS}ms var(--enter-ease), opacity ${Math.round(
                   DISMISS_MS * 0.66
                 )}ms ease-out`,
                 // Гасну — не перехватываю нажатия, пока еду.

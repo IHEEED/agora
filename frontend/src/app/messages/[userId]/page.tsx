@@ -112,6 +112,9 @@ export default function ChatPage() {
   const [personMenu, setPersonMenu] = useState(false);
   // Какие сообщения сейчас уходят: они ещё в разметке, но уже схлопываются.
   const [removing, setRemoving] = useState<string[]>([]);
+  /** Сообщение, которое сейчас тянут влево, и на сколько оно уехало. */
+  const [swipe, setSwipe] = useState<{ id: string; dx: number } | null>(null);
+  const swipeFrom = useRef<{ x: number; y: number; id: string; own: boolean } | null>(null);
   const timers = useRef<number[]>([]);
 
   useEffect(() => {
@@ -580,6 +583,24 @@ export default function ChatPage() {
    * выглядит, а не про то, когда случается.
    */
   function removeWithFade(id: string) {
+    /**
+     * Высоту нужно замерить до ухода, иначе схлопывания не будет вовсе.
+     *
+     * max-height у пузыря не задан — то есть none, — а из none в ноль браузер
+     * не интерполирует: это не длина, а «нет ограничения». Высота обрывалась
+     * в тот же кадр, пока прозрачность и сжатие честно шли свои 240 мс, и
+     * удаление выглядело рваным: соседи прыгали вверх сразу, а пузырь ещё
+     * гаснул в воздухе.
+     *
+     * Поэтому подставляем собственную высоту числом и заставляем браузер её
+     * посчитать (чтение offsetHeight), и только после этого разрешаем React
+     * поставить ноль. Теперь у перехода есть от чего считать.
+     */
+    const node = document.querySelector<HTMLElement>(`[data-message='${id}']`);
+    if (node) {
+      node.style.maxHeight = `${node.offsetHeight}px`;
+      void node.offsetHeight;
+    }
     setRemoving((prev) => [...prev, id]);
     timers.current.push(
       window.setTimeout(() => {
@@ -605,6 +626,72 @@ export default function ChatPage() {
     setBody(message.body ?? '');
     // Фокус через кадр: шторка ещё закрывается и забирает его себе.
     requestAnimationFrame(() => inputRef.current?.focus());
+  }
+
+  /**
+   * Потянуть реплику влево — ответить на неё.
+   *
+   * Так это работает в Telegram и в WhatsApp, и это единственный жест, который
+   * человек пробует на сообщении сам, без подсказки. Влево, а не вправо: вправо
+   * тянется весь экран на выход из переписки, и два жеста в одну сторону
+   * означали бы, что каждый раз надо угадать, кто из них сработает.
+   *
+   * Порог мягкий, а ход — вязкий: пузырь отдаёт всё меньше на каждый пиксель
+   * пальца и упирается на SWIPE_MAX. Упор нужен, чтобы жест ощущался как
+   * натяжение пружины с концом, а не как перетаскивание предмета по столу:
+   * у первого понятно, когда отпускать, у второго — нет.
+   */
+  const SWIPE_TRIGGER = 52;
+  const SWIPE_MAX = 78;
+
+  function swipeStart(event: React.PointerEvent, message: Message) {
+    // Мышью не тянем: там для ответа есть меню по правой кнопке, а случайное
+    // протаскивание при выделении текста сработало бы ответом.
+    if (event.pointerType === 'mouse' || selected) return;
+    swipeFrom.current = { x: event.clientX, y: event.clientY, id: message.id, own: false };
+  }
+
+  function swipeMove(event: React.PointerEvent) {
+    const from = swipeFrom.current;
+    if (!from) return;
+
+    const dx = event.clientX - from.x;
+    const dy = event.clientY - from.y;
+
+    if (!from.own) {
+      // Пока не решили, чей жест, — не мешаем ни прокрутке, ни выходу. Решаем
+      // по первым же десяти пикселям и только если движение явно горизонтальное
+      // и явно влево: у вертикали приоритет, иначе пузыри будут дёргаться при
+      // каждом пролистывании переписки.
+      if (Math.abs(dy) > Math.abs(dx) || dx > -10) {
+        if (Math.abs(dy) > 10) swipeFrom.current = null;
+        return;
+      }
+      from.own = true;
+      // Забираем указатель себе: дальше жест наш, и выход из переписки его уже
+      // не перехватит.
+      (event.currentTarget as HTMLElement).setPointerCapture?.(event.pointerId);
+    }
+
+    // Вязкость: корень от пройденного, а не сам путь.
+    const pulled = Math.min(SWIPE_MAX, Math.sqrt(-dx) * 9);
+    setSwipe({ id: from.id, dx: -pulled });
+
+    // Дошли до порога — короткий отклик, как у переключателя. Один раз, на
+    // пересечении: держать палец за порогом и получать дрожь непрерывно —
+    // ощущение сломанного, а не сработавшего.
+    if (pulled >= SWIPE_TRIGGER && (swipe?.dx ?? 0) > -SWIPE_TRIGGER) haptic();
+  }
+
+  function swipeEnd() {
+    const from = swipeFrom.current;
+    swipeFrom.current = null;
+    const pulled = -(swipe?.dx ?? 0);
+    setSwipe(null);
+    if (!from?.own || pulled < SWIPE_TRIGGER) return;
+
+    const message = messages.find((m) => m.id === from.id);
+    if (message) startReply(message);
   }
 
   function startReply(message: Message) {
@@ -840,7 +927,7 @@ export default function ChatPage() {
                 .getElementById(`msg-${pinned[pinned.length - 1].id}`)
                 ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
             }}
-            className="chat-island chat-header mb-2 flex items-center gap-2.5 rounded-2xl px-3 py-2 text-left transition-transform active:scale-[0.99]"
+            className="chat-island chat-pinned mb-2 flex items-center gap-2.5 rounded-2xl px-3 py-2 text-left transition-transform active:scale-[0.99]"
           >
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" className="flex-none">
               <path d="M9 4h6l-1 6 4 3v2H6v-2l4-3Z" />
@@ -914,10 +1001,21 @@ export default function ChatPage() {
                     // делает, а меню поверх выбора — два способа управления
                     // одним и тем же.
                     if (!selected) holdStart(event, message);
+                    swipeStart(event, message);
                   }}
-                  onPointerUp={holdCancel}
+                  onPointerUp={() => {
+                    holdCancel();
+                    swipeEnd();
+                  }}
+                  onPointerCancel={() => {
+                    holdCancel();
+                    swipeEnd();
+                  }}
                   onPointerLeave={holdCancel}
-                  onPointerMove={holdCancel}
+                  onPointerMove={(event) => {
+                    holdCancel();
+                    swipeMove(event);
+                  }}
                   onClick={() => selected && toggleSelected(message.id)}
                   onContextMenu={(event) => {
                     // Правая кнопка — то же самое удержание, только на настольном
@@ -925,6 +1023,9 @@ export default function ChatPage() {
                     event.preventDefault();
                     if (!selected) openMenu(message, event.currentTarget.getBoundingClientRect());
                   }}
+                  // По этой метке удаление находит пузырь, чтобы замерить его
+                  // высоту перед уходом (см. removeWithFade).
+                  data-message={message.id}
                   className={`chat-bubble max-w-[80%] px-4 py-2 text-left ${
                     mine ? 'chat-bubble-mine' : 'chat-bubble-theirs'
                   }`}
@@ -954,7 +1055,11 @@ export default function ChatPage() {
                     // по стороне пузыря — иначе своё сообщение уползало бы к
                     // середине экрана, откуда оно не приходило.
                     transformOrigin: mine ? 'right center' : 'left center',
-                    transform: going ? 'scale(0.85)' : undefined,
+                    transform: going
+                      ? 'scale(0.85)'
+                      : swipe?.id === message.id
+                        ? `translateX(${swipe.dx}px)`
+                        : undefined,
                     opacity: going ? 0 : 1,
                     // Уходящее сообщение не тянет за собой соседей: высота
                     // схлопывается вместе с ним, а не пропадает разом. Без
@@ -966,13 +1071,23 @@ export default function ChatPage() {
                     paddingTop: going ? 0 : undefined,
                     paddingBottom: going ? 0 : undefined,
                     overflow: going ? 'hidden' : undefined,
+                    // Пока палец на пузыре — никакого перехода: он обязан
+                    // стоять там, где палец, иначе жест ощущается как связь по
+                    // переписке, а не как предмет в руке. Отпустили — тот же
+                    // переход возвращает его на место сам.
                     transition: going
                       ? `transform ${REMOVE_MS}ms var(--exit-ease),` +
                         ` opacity ${Math.round(REMOVE_MS * 0.7)}ms linear,` +
                         ` max-height ${REMOVE_MS}ms var(--exit-ease),` +
                         ` padding ${REMOVE_MS}ms var(--exit-ease),` +
                         ` margin ${REMOVE_MS}ms var(--exit-ease)`
-                      : undefined,
+                      : swipe?.id === message.id
+                        ? 'none'
+                        : 'transform 260ms var(--enter-ease)',
+                    // Горизонталь достаётся жесту, вертикаль остаётся прокрутке
+                    // переписки: без этого браузер забирает себе оба движения и
+                    // тянуть пузырь не даёт вовсе.
+                    touchAction: 'pan-y',
                     pointerEvents: going ? 'none' : undefined,
                     // Отмеченное обводится акцентом снаружи, а не заливается:
                     // заливка спорила бы с собственным цветом пузыря.

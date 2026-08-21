@@ -125,10 +125,22 @@ export function MessagesButton({
       {unread > 0 && (
         <span
           aria-hidden
-          className={`font-num absolute flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1 text-[10.5px] font-semibold ${
-            sidebar ? 'right-3 top-0' : '-right-0.5 -top-0.5'
+          // Значок наезжает на знак, а не висит рядом.
+          //
+          // Отставленный на пару пикселей, он читался отдельным предметом
+          // где-то возле кнопки — непонятно, к чему относится. Наползая на
+          // угол знака, он становится его частью: так метки ставят и в iOS, и в
+          // Telegram, и вопрос «чей это счётчик» не возникает.
+          className={`font-num absolute flex h-[17px] min-w-[17px] items-center justify-center rounded-full px-1 text-[10px] font-semibold ${
+            sidebar ? 'right-4 top-1' : 'right-0 top-0.5'
           }`}
-          style={{ background: 'var(--down)', color: '#ffffff' }}
+          style={{
+            background: 'var(--down)',
+            color: '#ffffff',
+            // Обводка цветом фона: без неё значок сливается с линиями знака под
+            // ним, и цифра теряет край.
+            boxShadow: '0 0 0 2px var(--bg)',
+          }}
         >
           {unread > 99 ? '99+' : unread}
         </span>
