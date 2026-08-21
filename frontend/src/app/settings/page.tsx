@@ -20,6 +20,29 @@ import { ScreenTitle } from '@/components/ScreenTitle';
 import { SegmentedControl } from '@/components/SegmentedControl';
 import { LOCALES, Locale, TranslationKey, applyLocale, useT } from '@/lib/i18n';
 
+/**
+ * Разделы настроек.
+ *
+ * Раньше настройки были одним свитком: шесть групп подряд, и чтобы дойти от
+ * оформления до выхода, надо было проехать мимо уведомлений, приватности и
+ * содержимого. На телефоне это четыре экрана прокрутки — а человек приходит
+ * сюда с одним конкретным вопросом и не хочет читать остальные пять.
+ *
+ * Теперь сначала выбирают раздел, потом видят его строки. Порядок — по
+ * частоте: оформление трогают чаще всего, «о приложении» не трогают почти
+ * никогда.
+ */
+const TABS = [
+  ['appearance', 'settings.appearance'],
+  ['account', 'settings.account'],
+  ['notifications', 'settings.notifications'],
+  ['privacy', 'settings.privacy'],
+  ['content', 'settings.content'],
+  ['about', 'settings.about'],
+] as const satisfies ReadonlyArray<readonly [string, TranslationKey]>;
+
+type TabId = (typeof TABS)[number][0];
+
 const THEMES: ReadonlyArray<readonly [ThemePreference, TranslationKey]> = [
   ['light', 'settings.theme.light'],
   ['dark', 'settings.theme.dark'],
@@ -39,10 +62,15 @@ const THEMES: ReadonlyArray<readonly [ThemePreference, TranslationKey]> = [
  * отдельности, а разделитель начинается от текста и не доходит до правого
  * края — см. .ios-group в globals.css.
  */
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({ title, children }: { title?: string; children: React.ReactNode }) {
   return (
     <section>
-      <h2 className="ios-group-title">{title}</h2>
+      {/* Заголовок необязателен.
+          С появлением вкладок раздел уже назван таблеткой над ним, и подпись
+          «Аккаунт» под вкладкой «Аккаунт» — то же слово дважды подряд, в двух
+          сантиметрах друг от друга. Заголовок остаётся там, где на одной
+          вкладке лежит больше одной группы и их надо различать. */}
+      {title && <h2 className="ios-group-title">{title}</h2>}
       <div className="ios-group">{children}</div>
     </section>
   );
@@ -196,6 +224,7 @@ export default function SettingsPage() {
   // иначе серверный рендер разойдётся с localStorage.
   const [theme, setTheme] = useState<ThemePreference | null>(null);
   const [style, setStyle] = useState<StyleId | null>(null);
+  const [tab, setTab] = useState<TabId>('appearance');
   // Образцы рисуются в той теме, что сейчас на экране, — иначе тёмный стиль
   // предлагался бы светлой плашкой и наоборот. «Системную» для этого
   // приходится разрешить в конкретное значение.
@@ -256,10 +285,55 @@ export default function SettingsPage() {
           <ScreenTitle>{t('settings.title')}</ScreenTitle>
         </div>
 
+        {/* Дорожка разделов.
+            Прокручивается вбок, а не переносится на две строки: шесть названий
+            в две строки — это уже не переключатель, а вторая шапка, и она
+            отжимает содержимое вниз ровно там, где на него смотрят. Края
+            подрезаны на всю ширину экрана (-mx-2.5), чтобы крайние вкладки
+            уезжали под край, а не упирались в поле: обрезанное слово — самый
+            понятный намёк, что вбок есть ещё. */}
+        <div // scroll-px-2.5 — то же поле, что и px-2.5, но для scrollIntoView:
+          // без него подтянутая вкладка встаёт впритык к краю экрана.
+          className="no-scrollbar -mx-2.5 flex gap-1.5 overflow-x-auto scroll-px-2.5 px-2.5 pb-1">
+          {TABS.map(([id, labelKey]) => {
+            const on = tab === id;
+            return (
+              <button
+                key={id}
+                type="button"
+                onClick={(event) => {
+                  haptic();
+                  setTab(id);
+                  // Подтянуть выбранную вкладку в поле зрения.
+                  //
+                  // Крайние таблетки нарочно подрезаны краем — так видно, что
+                  // вбок есть ещё. Но нажатая наполовину видимая вкладка так
+                  // наполовину видимой и оставалась: раздел сменился, а какой
+                  // именно выбран — не разглядеть, потому что заливка ушла за
+                  // край. 'nearest' двигает дорожку ровно настолько, чтобы
+                  // таблетка поместилась целиком, и не трогает уже видимые.
+                  event.currentTarget.scrollIntoView({
+                    behavior: 'smooth',
+                    inline: 'nearest',
+                    block: 'nearest',
+                  });
+                }}
+                aria-pressed={on}
+                className="flex-none whitespace-nowrap rounded-full px-3.5 py-2 text-[13.5px] font-medium transition-colors"
+                style={
+                  on
+                    ? { background: 'var(--accent)', color: 'var(--accent-contrast)' }
+                    : { background: 'var(--surface-2)', color: 'var(--text-muted)' }
+                }
+              >
+                {t(labelKey)}
+              </button>
+            );
+          })}
+        </div>
+
+        {tab === 'appearance' && (
         <section className="glass rounded-2xl p-5">
-          <h2 className="mb-3 text-[13px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">
-            {t('settings.appearance')}
-          </h2>
 
           <div className="flex flex-col gap-2 pb-4">
             <span className="text-[15px] text-[var(--text)]">{t('settings.theme')}</span>
@@ -339,8 +413,10 @@ export default function SettingsPage() {
             </div>
           </div>
         </section>
+        )}
 
-        <Section title={t('settings.account')}>
+        {tab === 'account' && (
+        <Section>
           <Row label={t('settings.email')} hint={session?.user.email ?? ''} />
           <Row
             label={t('settings.phone')}
@@ -361,7 +437,10 @@ export default function SettingsPage() {
           </Row>
         </Section>
 
-        <Section title={t('settings.notifications')}>
+        )}
+
+        {tab === 'notifications' && (
+        <Section>
           <Row label={t('settings.notifyReplies')} hint={t('settings.notifyRepliesHint')}>
             <LocalToggle storageKey="parafraz-notify-replies" defaultOn />
           </Row>
@@ -373,7 +452,10 @@ export default function SettingsPage() {
           </Row>
         </Section>
 
-        <Section title={t('settings.privacy')}>
+        )}
+
+        {tab === 'privacy' && (
+        <Section>
           <Row label={t('settings.privateProfile')} hint={t('settings.privateProfileHint')}>
             <LocalToggle storageKey="parafraz-private-profile" />
           </Row>
@@ -382,7 +464,10 @@ export default function SettingsPage() {
           </Row>
         </Section>
 
-        <Section title={t('settings.content')}>
+        )}
+
+        {tab === 'content' && (
+        <Section>
           <Row label={t('settings.nsfw')} hint={t('settings.nsfwHint')}>
             <LocalToggle storageKey="parafraz-nsfw" />
           </Row>
@@ -391,36 +476,58 @@ export default function SettingsPage() {
           </Row>
         </Section>
 
-        <Section title={t('settings.about')}>
+        )}
+
+        {tab === 'about' && (
+        <Section>
           <Row label={t('settings.version')} hint={t('settings.versionHint')} />
           <Row label={t('settings.rules')} hint={t('common.soon')} />
           <Row label={t('settings.support')} hint={t('common.soon')} />
         </Section>
+        )}
 
-        <section className="glass rounded-2xl p-5">
-          {/* Заливка, а не одна рамка: обведённая строка на стеклянной карточке
-              читалась подписью, и понять, что это кнопка, можно было только
-              нажав. */}
-          <button
-            onClick={() => supabase.auth.signOut()}
-            className="w-full rounded-full py-3 text-[15px] font-semibold transition-transform active:scale-[0.98]"
-            style={{
-              background: 'color-mix(in srgb, var(--down) 14%, transparent)',
-              color: 'var(--down)',
-            }}
-          >
-            {t('settings.signOut')}
-          </button>
-        </section>
+        {/* Выход стоит в «аккаунте», а не под всеми разделами.
+            Общий низ у настроек кончился вместе с общим свитком, и красная
+            кнопка, висящая под уведомлениями или под содержимым, читалась бы
+            как их итог. Выход — действие над учётной записью, и жить ему там,
+            где всё остальное про неё. */}
+        {tab === 'account' && (
+          <section className="glass rounded-2xl p-5">
+            {/* Заливка, а не одна рамка: обведённая строка на стеклянной карточке
+                читалась подписью, и понять, что это кнопка, можно было только
+                нажав. */}
+            <button
+              onClick={() => supabase.auth.signOut()}
+              className="w-full rounded-full py-3 text-[15px] font-semibold transition-transform active:scale-[0.98]"
+              style={{
+                background: 'color-mix(in srgb, var(--down) 14%, transparent)',
+                color: 'var(--down)',
+              }}
+            >
+              {t('settings.signOut')}
+            </button>
+          </section>
+        )}
 
-        <p className="px-3 pb-2 text-center text-[12px] leading-relaxed text-[var(--text-muted)]">
-          {t('settings.localOnly')}
-        </p>
+        {/* Оговорка про местное хранение — там, где рассказывают о приложении.
+            Под каждым разделом она была бы шестикратным повтором. */}
+        {tab === 'about' && (
+          <>
+            <p className="px-3 pb-2 text-center text-[12px] leading-relaxed text-[var(--text-muted)]">
+              {t('settings.localOnly')}
+            </p>
 
-        {/* Дальше — пустота и то, что в ней спрятано. Пролистав настройки до
-            конца, человек обычно останавливается; кто пролистает дальше,
-            найдёт шестое оформление, которого нет в списке. */}
-        <GlamEasterEgg current={style} onFound={chooseStyle} />
+            {/* Дальше — пустота и то, что в ней спрятано. Пролистав настройки до
+                конца, человек обычно останавливается; кто пролистает дальше,
+                найдёт шестое оформление, которого нет в списке.
+
+                Раздел для неё — «о приложении»: последняя вкладка, и та, куда
+                заходят реже всего. Дно теперь ближе, чем в общем свитке, но
+                пасхалку держало не расстояние, а три отказа подряд, и они на
+                месте. */}
+            <GlamEasterEgg current={style} onFound={chooseStyle} />
+          </>
+        )}
       </main>
     </div>
   );
