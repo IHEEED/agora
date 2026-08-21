@@ -180,14 +180,37 @@ router.post('/register', async (req, res) => {
     await supabase.auth.admin.deleteUser(userId);
   };
 
+  /**
+   * Профиль дописываем, а не создаём.
+   *
+   * В базе висит триггер on_auth_user_created: он вставляет строку в
+   * public.users сам, как только появилась учётная запись, и берёт ником часть
+   * почты до собачки. Обычная вставка натыкалась на эту же строку и падала
+   * нарушением уникальности по id — а сообщение об этом говорило «имя занято»,
+   * то есть врало про совершенно свободное имя.
+   *
+   * upsert по id заменяет ником то, что выбрал человек, и заодно проставляет,
+   * кто его позвал. Если триггер однажды уберут — строка просто создастся
+   * здесь, и менять ничего не придётся.
+   */
   const { error: profileError } = await supabase
     .from('users')
-    .insert({ id: userId, email, username, invited_by: invite.issued_by });
+    .upsert({ id: userId, email, username, invited_by: invite.issued_by }, { onConflict: 'id' });
 
   if (profileError) {
     await cleanup();
     if (profileError.code === '23505') {
-      return res.status(409).json({ error: 'Это имя уже занято' });
+      // Какое именно поле не уникально — видно только в тексте ошибки: имя
+      // ограничения PostgREST отдаёт в details. Разбирать это важно, потому
+      // что человеку надо сказать, что менять.
+      const detail = `${profileError.message} ${profileError.details ?? ''}`;
+      if (detail.includes('username')) {
+        return res.status(409).json({ error: 'Это имя уже занято' });
+      }
+      if (detail.includes('email')) {
+        return res.status(409).json({ error: 'Такая почта уже зарегистрирована' });
+      }
+      return res.status(409).json({ error: 'Такой аккаунт уже есть' });
     }
     console.error('invites: profile creation failed', profileError);
     return res.status(500).json({ error: 'Не удалось создать профиль' });
