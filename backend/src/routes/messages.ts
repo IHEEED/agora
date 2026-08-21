@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { supabase } from '../config/supabase';
+import { hiddenUserIds, isBlockedBetween } from '../lib/blocks';
 import { requireAuth } from '../middleware/auth';
 
 const router = Router();
@@ -95,8 +96,13 @@ router.get('/threads', requireAuth, async (req, res) => {
     { userId: string; lastMessage: MessageRow; unread: number }
   >();
 
+  // Переписки с заблокированными уходят из списка целиком: раньше это делал
+  // браузер по списку из localStorage, и на другом устройстве они возвращались.
+  const hidden = await hiddenUserIds(me);
+
   for (const row of data as MessageRow[]) {
     const other = row.sender_id === me ? row.recipient_id : row.sender_id;
+    if (hidden.has(other)) continue;
     const thread = threads.get(other);
     const unread = row.recipient_id === me && row.read_at === null ? 1 : 0;
 
@@ -150,6 +156,18 @@ router.post('/', requireAuth, async (req, res) => {
   // сообщение, а не пустое.
   if (!body && !imageUrl && !audioUrl) {
     return res.status(400).json({ error: 'Пустое сообщение отправить нельзя' });
+  }
+
+  /**
+   * Блокировка в обе стороны, и ответ у неё один на оба случая.
+   *
+   * Заблокировавшему незачем узнавать, что собеседник заблокировал и его: это
+   * приглашение завести второй аккаунт и проверить. А заблокированному незачем
+   * узнавать, что его заблокировали, — молчание в ответ он истолкует сам, и это
+   * лучший исход из возможных.
+   */
+  if (await isBlockedBetween(me, recipientId)) {
+    return res.status(403).json({ error: 'MESSAGE_BLOCKED' });
   }
 
   const { data, error } = await supabase

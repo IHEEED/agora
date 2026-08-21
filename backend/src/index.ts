@@ -12,6 +12,10 @@ import votesRouter from './routes/votes';
 import usersRouter from './routes/users';
 import messagesRouter from './routes/messages';
 import storiesRouter from './routes/stories';
+import blocksRouter from './routes/blocks';
+import reportsRouter from './routes/reports';
+import moderationRouter from './routes/moderation';
+import invitesRouter from './routes/invites';
 
 dotenv.config();
 
@@ -99,6 +103,10 @@ app.use('/votes', votesRouter);
 app.use('/users', usersRouter);
 app.use('/messages', messagesRouter);
 app.use('/stories', storiesRouter);
+app.use('/blocks', blocksRouter);
+app.use('/reports', reportsRouter);
+app.use('/moderation', moderationRouter);
+app.use('/invites', invitesRouter);
 
 /**
  * Слушаем на всех интерфейсах, а не только на localhost.
