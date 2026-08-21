@@ -9,7 +9,6 @@ import {
   useSyncExternalStore,
 } from 'react';
 import { createPortal } from 'react-dom';
-import Link from 'next/link';
 import { DefaultAvatar } from '@/components/DefaultAvatar';
 import { formatCompactAge } from '@/lib/formatDate';
 import { StoryGroup, StoryItem } from '@/lib/types';
@@ -83,15 +82,20 @@ function Frame({ item }: { item: StoryItem }) {
         />
       )}
 
-      <div className="relative flex flex-col gap-3 p-6 pb-16">
+      {/* Низ отдан подписи. Прежние pb-16 держали место под ряд из шести
+          кнопок; теперь внизу одна полоса ответа, и текст может дышать. */}
+      <div className="relative flex flex-col gap-2.5 p-6 pb-24">
         <h2
-          className="display-type text-[27px] leading-[1.12] text-white"
+          // 27 пикселей заголовок съедал кадр: на трёх строках от фотографии
+          // оставалась полоска сверху. Здесь заголовок — не витрина, а подпись
+          // к картинке, и главным должен быть кадр.
+          className="display-type text-[21px] leading-[1.15] text-white"
           style={{ textShadow: '0 2px 24px rgba(0,0,0,0.5)' }}
         >
           {item.title ?? item.body}
         </h2>
         {item.title && item.body && (
-          <p className="line-clamp-4 text-[14.5px] leading-relaxed text-white/80">{item.body}</p>
+          <p className="line-clamp-6 text-[14.5px] leading-relaxed text-white/80">{item.body}</p>
         )}
       </div>
     </div>
@@ -124,7 +128,6 @@ export function StoryViewer({
   /** Открыть редактор истории с этим кадром. Без него репост не предлагаем. */
   onCompose?: (item: StoryItem) => void;
 }) {
-  const { t } = useT();
   const router = useRouter();
   const mounted = useSyncExternalStore(
     () => () => {},
@@ -451,6 +454,23 @@ export function StoryViewer({
             {story.author.username}
           </span>
           <span className="text-[12.5px] text-white/60">{formatCompactAge(item.created_at)}</span>
+          {/* Три точки наверху, у имени автора, — там же, где они в Instagram
+              и в Telegram. Внизу им было не место: низ кадра — это ответ, а
+              редкие действия не должны занимать в нём строку наравне с ним. */}
+          <button
+            onClick={(event) => {
+              event.stopPropagation();
+              setMenuOpen(true);
+            }}
+            aria-label="Ещё"
+            className="flex h-9 w-9 flex-none items-center justify-center rounded-full text-white/85"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+              <circle cx="5" cy="12" r="1.7" />
+              <circle cx="12" cy="12" r="1.7" />
+              <circle cx="19" cy="12" r="1.7" />
+            </svg>
+          </button>
           <button
             onClick={(event) => {
               event.stopPropagation();
@@ -465,20 +485,53 @@ export function StoryViewer({
           </button>
         </div>
 
-        {/* Ряд действий поверх кадра.
-            Всё, что здесь есть, относится к записи, из которой сделана история:
-            история — окно в неё, а не самостоятельная публикация. Поэтому
-            «нравится» ставится записи, репост уходит записи, а обсуждение
-            остаётся в записи. Заводить истории собственные счётчики значило бы
-            разложить один разговор по двум местам.
+        {/* Низ кадра — разговор, а не панель управления.
+            Раньше здесь стоял ряд из шести круглых кнопок: два голоса, репост,
+            «читать полностью», ответ и «ещё». Шесть одинаковых кружков на
+            фотографии не читаются — глазу не за что зацепиться, и чтобы найти
+            нужный, приходится разглядывать значки по одному.
 
-            Нажатия не листают кадр: каждое действие гасит событие у себя. */}
+            Теперь внизу то, что делают с историей чаще всего: пишут автору. Оно
+            занимает всю ширину и выглядит строкой ввода, потому что ею и
+            является по смыслу. Голоса — двумя стрелками рядом: они относятся к
+            записи, из которой сделана история, и их место возле неё. Всё
+            остальное ушло под три точки наверх.
+
+            Нажатия не листают кадр: ряд гасит указатель у себя. */}
         <div
-          className="absolute inset-x-0 flex items-center justify-center gap-2 px-3"
-          style={{ bottom: 'calc(16px + env(safe-area-inset-bottom))' }}
+          className="absolute inset-x-0 flex items-center gap-2 px-3"
+          style={{ bottom: 'calc(14px + env(safe-area-inset-bottom))' }}
           onPointerDown={(event) => event.stopPropagation()}
           onPointerUp={(event) => event.stopPropagation()}
         >
+          {/* Ответ уходит в личные сообщения, а не в комментарии под записью:
+              на историю отвечают ей самой и её автору, а не залу. */}
+          {story.author.id && (
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                closeSmoothly();
+                router.push(`/messages/${story.author.id}`);
+              }}
+              className="flex min-w-0 flex-1 items-center gap-2 rounded-full px-4 py-3 text-left text-[14px] text-white/70"
+              style={{
+                // Обводка, а не заливка: сплошная плашка во всю ширину закрыла
+                // бы низ фотографии, а контур по дымке очерчивает поле ввода и
+                // оставляет кадр видимым.
+                border: '1px solid rgba(255,255,255,0.4)',
+                background: 'rgba(255,255,255,0.10)',
+                backdropFilter: 'blur(14px)',
+                WebkitBackdropFilter: 'blur(14px)',
+              }}
+            >
+              <span className="min-w-0 flex-1 truncate">Ответить сообщением…</span>
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" className="flex-none opacity-80">
+                <path d="M11 5.5 4 12l7 6.5V15c4 0 7 1.2 9 4-.6-4.8-3.6-8.4-9-9Z" />
+              </svg>
+            </button>
+          )}
+
           {item.postId && (
             <>
               <StoryAction
@@ -498,51 +551,8 @@ export function StoryViewer({
               >
                 <path d="M12 19V5M6 13l6 6 6-6" />
               </StoryAction>
-
-              {/* Репост не публикует сразу, а открывает редактор истории.
-                  Мгновенная публикация под своим именем — решение, которое
-                  принимают, а не нажимают: между «мне это подходит» и «пусть это
-                  сутки висит у меня» есть шаг, и он должен быть виден. Цвет
-                  жёлтый, как у репоста в ленте: одно действие — один цвет. */}
-              <StoryAction
-                label="Репост в свою историю"
-                tint="var(--repost)"
-                onClick={() => onCompose?.(item)}
-              >
-                <path d="M4 9.5A3.5 3.5 0 0 1 7.5 6H18m0 0-3-3m3 3-3 3" />
-                <path d="M20 14.5a3.5 3.5 0 0 1-3.5 3.5H6m0 0 3 3m-3-3 3-3" />
-              </StoryAction>
-
-              <Link
-                href={`/posts/${item.postId}`}
-                onClick={(event) => event.stopPropagation()}
-                className="flex items-center gap-1.5 rounded-full px-3.5 py-2 text-[13px] font-medium text-white"
-                style={{ background: 'rgba(255,255,255,0.16)', backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)' }}
-              >
-                {t('story.readFull')}
-              </Link>
             </>
           )}
-
-          {/* Ответ уходит в личные сообщения, а не в комментарии под записью:
-              на историю отвечают ей самой и её автору, а не залу. */}
-          {story.author.id && (
-            <StoryAction
-              label="Ответить в личные"
-              onClick={() => {
-                closeSmoothly();
-                router.push(`/messages/${story.author.id}`);
-              }}
-            >
-              <path d="M11 5.5 4 12l7 6.5V15c4 0 7 1.2 9 4-.6-4.8-3.6-8.4-9-9Z" />
-            </StoryAction>
-          )}
-
-          <StoryAction label="Ещё" onClick={() => setMenuOpen(true)}>
-            <circle cx="5" cy="12" r="1.6" fill="currentColor" stroke="none" />
-            <circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none" />
-            <circle cx="19" cy="12" r="1.6" fill="currentColor" stroke="none" />
-          </StoryAction>
         </div>
       </div>
     </div>
@@ -551,6 +561,23 @@ export function StoryViewer({
         open={menuOpen}
         onClose={() => setMenuOpen(false)}
         postId={item.postId}
+        onRepost={
+          item.postId && onCompose
+            ? () => {
+                setMenuOpen(false);
+                onCompose(item);
+              }
+            : undefined
+        }
+        onOpenPost={
+          item.postId
+            ? () => {
+                setMenuOpen(false);
+                closeSmoothly();
+                router.push(`/posts/${item.postId}`);
+              }
+            : undefined
+        }
         hidden={hidden}
         onToggleHidden={() => {
           if (story.author.id) setStoriesHidden(story.author.id, !hidden);
@@ -616,6 +643,8 @@ function StoryMenu({
   open,
   onClose,
   postId,
+  onRepost,
+  onOpenPost,
   hidden,
   onToggleHidden,
 }: {
@@ -623,13 +652,33 @@ function StoryMenu({
   onClose: () => void;
   /** Есть только у историй, сделанных из записи: делиться иначе нечем. */
   postId: string | null;
+  /** Репост в свою историю. Нет — если истории не из записи или редактор не подключён. */
+  onRepost?: () => void;
+  /** Перейти к записи, из которой сделана история. */
+  onOpenPost?: () => void;
   hidden: boolean;
   onToggleHidden: () => void;
 }) {
   const { t } = useT();
   const url = postId && typeof window !== 'undefined' ? `${window.location.origin}/posts/${postId}` : null;
 
+  // Порядок — по частоте, а не по важности: сверху то, за чем сюда заходят.
   const rows = [
+    onRepost && {
+      key: 'repost',
+      // Репост не публикует сразу, а открывает редактор истории. Мгновенная
+      // публикация под своим именем — решение, которое принимают, а не
+      // нажимают: между «мне это подходит» и «пусть это сутки висит у меня»
+      // есть шаг, и он должен быть виден.
+      label: 'Репост в свою историю',
+      tint: 'var(--repost)',
+      onSelect: onRepost,
+    },
+    onOpenPost && {
+      key: 'open',
+      label: t('story.readFull'),
+      onSelect: onOpenPost,
+    },
     url && {
       key: 'share',
       label: t('share.title'),
@@ -653,7 +702,13 @@ function StoryMenu({
       onSelect: onToggleHidden,
     },
     { key: 'report', label: t('action.report'), danger: true, onSelect: onClose },
-  ].filter(Boolean) as { key: string; label: string; danger?: boolean; onSelect: () => void }[];
+  ].filter(Boolean) as {
+    key: string;
+    label: string;
+    danger?: boolean;
+    tint?: string;
+    onSelect: () => void;
+  }[];
 
   return (
     <BottomSheet open={open} onClose={onClose} title="История" height="auto">
@@ -667,7 +722,7 @@ function StoryMenu({
             type="button"
             onClick={row.onSelect}
             className="rounded-xl px-1 py-3.5 text-left text-[15px] transition-colors hover:bg-[var(--surface-2)]"
-            style={{ color: row.danger ? 'var(--down)' : 'var(--text)' }}
+            style={{ color: row.tint ?? (row.danger ? 'var(--down)' : 'var(--text)') }}
           >
             {row.label}
           </button>
