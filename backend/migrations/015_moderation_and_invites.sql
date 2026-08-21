@@ -166,16 +166,22 @@ language plpgsql
 as $$
 declare
   alphabet constant text := 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
-  code text;
+  -- Не `code`: так зовётся колонка в invites, и в запросе ниже Postgres не смог
+  -- бы отличить переменную от неё — «column reference is ambiguous» прямо на
+  -- вставке. Псевдоним таблицы по той же причине не `i`: это имя занимает
+  -- счётчик цикла.
+  candidate text;
 begin
   loop
-    code := '';
-    for i in 1..8 loop
-      code := code || substr(alphabet, 1 + floor(random() * length(alphabet))::int, 1);
+    candidate := '';
+    for position in 1..8 loop
+      candidate := candidate || substr(alphabet, 1 + floor(random() * length(alphabet))::int, 1);
     end loop;
-    exit when not exists (select 1 from public.invites i where i.code = code);
+    exit when not exists (
+      select 1 from public.invites existing where existing.code = candidate
+    );
   end loop;
-  return code;
+  return candidate;
 end;
 $$;
 
