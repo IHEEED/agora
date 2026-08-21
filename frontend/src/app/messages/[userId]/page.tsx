@@ -184,7 +184,17 @@ export default function ChatPage() {
   const voice = useVoiceRecorder();
 
   async function upload(file: Blob, extension: string): Promise<string | null> {
-    const path = `chat/${me ?? 'anon'}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${extension}`;
+    /**
+     * Первая папка — id владельца, и только потом chat.
+     *
+     * Политика бакета (миграция 003) сверяет первый сегмент пути с id того, кто
+     * пришёл: файлы лежат как `<user_id>/<что угодно>`. Здесь стояло
+     * `chat/<user_id>/…`, то есть первым сегментом было слово chat, и Supabase
+     * отвечал «нарушение политики» на каждое вложение. Ошибка выглядела как
+     * «политики не настроены», хотя настроены они были правильно — путь не
+     * подходил под них.
+     */
+    const path = `${me ?? 'anon'}/chat/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${extension}`;
     const { error: uploadError } = await supabase.storage
       .from(MEDIA_BUCKET)
       .upload(path, file, { cacheControl: '3600', upsert: false });
@@ -731,7 +741,7 @@ export default function ChatPage() {
             действий над отмеченным. Так же ведут себя списки в почте: панель
             занимает место заголовка, а не появляется третьей полосой. */}
         {selected ? (
-          <div className="mb-2 flex items-center gap-1.5 px-1">
+          <div className="chat-header mb-2 flex items-center gap-1.5 px-1">
             <button
               onClick={() => setSelected(null)}
               aria-label="Отменить выбор"
@@ -782,7 +792,7 @@ export default function ChatPage() {
              прямоугольником. Отдельные скруглённые блоки решают то же самое
              честнее — каждый несёт ровно своё содержимое и стоит на обоях, а не
              вместо них. Так устроена шапка чата в Telegram, и по той же причине. */
-          <div className="mb-2 flex items-center gap-1.5 px-1">
+          <div className="chat-header mb-2 flex items-center gap-1.5 px-1">
             <button
               onClick={onLeave}
               aria-label="Назад"
@@ -830,7 +840,7 @@ export default function ChatPage() {
                 .getElementById(`msg-${pinned[pinned.length - 1].id}`)
                 ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
             }}
-            className="chat-island mb-2 flex items-center gap-2.5 rounded-2xl px-3 py-2 text-left transition-transform active:scale-[0.99]"
+            className="chat-island chat-header mb-2 flex items-center gap-2.5 rounded-2xl px-3 py-2 text-left transition-transform active:scale-[0.99]"
           >
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" className="flex-none">
               <path d="M9 4h6l-1 6 4 3v2H6v-2l4-3Z" />
@@ -915,8 +925,8 @@ export default function ChatPage() {
                     event.preventDefault();
                     if (!selected) openMenu(message, event.currentTarget.getBoundingClientRect());
                   }}
-                  className={`chat-bubble max-w-[80%] px-4 py-2 text-left${
-                    mine ? ' chat-bubble-mine' : ''
+                  className={`chat-bubble max-w-[80%] px-4 py-2 text-left ${
+                    mine ? 'chat-bubble-mine' : 'chat-bubble-theirs'
                   }`}
                   style={{
                     alignSelf: mine ? 'flex-end' : 'flex-start',
@@ -928,9 +938,8 @@ export default function ChatPage() {
                     // относится к нему, и оно должно читаться.
                     zIndex: menuFor?.id === message.id ? 72 : undefined,
                     position: menuFor?.id === message.id ? 'relative' : undefined,
-                    // Свои — общим градиентом на всю переписку (см. chat-bubble-mine),
-                    // и здесь задаётся только запасной цвет под ним.
-                    background: mine ? undefined : 'var(--surface-2)',
+                    // Обе стороны — общим градиентом на всю переписку
+                    // (см. chat-bubble-mine и chat-bubble-theirs).
                     color: mine ? 'var(--accent-contrast)' : 'var(--text)',
                     marginTop: groupStart ? 6 : 0,
                     // Откуда вылетает реплика. Только у последней своей и
@@ -947,8 +956,22 @@ export default function ChatPage() {
                     transformOrigin: mine ? 'right center' : 'left center',
                     transform: going ? 'scale(0.85)' : undefined,
                     opacity: going ? 0 : 1,
+                    // Уходящее сообщение не тянет за собой соседей: высота
+                    // схлопывается вместе с ним, а не пропадает разом. Без
+                    // этого при удалении вся переписка подпрыгивала на высоту
+                    // пузыря — глаз в этот момент смотрит на удаляемое, и
+                    // прыжок происходит ровно там, куда он смотрит.
+                    maxHeight: going ? 0 : undefined,
+                    marginBottom: going ? 0 : undefined,
+                    paddingTop: going ? 0 : undefined,
+                    paddingBottom: going ? 0 : undefined,
+                    overflow: going ? 'hidden' : undefined,
                     transition: going
-                      ? `transform ${REMOVE_MS}ms var(--exit-ease), opacity ${Math.round(REMOVE_MS * 0.7)}ms linear`
+                      ? `transform ${REMOVE_MS}ms var(--exit-ease),` +
+                        ` opacity ${Math.round(REMOVE_MS * 0.7)}ms linear,` +
+                        ` max-height ${REMOVE_MS}ms var(--exit-ease),` +
+                        ` padding ${REMOVE_MS}ms var(--exit-ease),` +
+                        ` margin ${REMOVE_MS}ms var(--exit-ease)`
                       : undefined,
                     pointerEvents: going ? 'none' : undefined,
                     // Отмеченное обводится акцентом снаружи, а не заливается:
@@ -980,7 +1003,7 @@ export default function ChatPage() {
                       полях. */}
                   {message.replyTo && (
                     <span
-                      className="mb-1.5 flex flex-col gap-0.5 overflow-hidden rounded-xl py-1.5 pl-2.5 pr-2.5"
+                      className="-mx-2 mb-1.5 flex flex-col gap-0.5 overflow-hidden rounded-xl py-2 pl-3 pr-3"
                       style={{
                         borderLeft: '3px solid currentColor',
                         background: mine
@@ -1024,6 +1047,34 @@ export default function ChatPage() {
                     </p>
                   )}
 
+                  {/* Время и галочки внутри пузыря, в одну строку с последним
+                      словом. Снаружи они читались подписью к переписке, а не к
+                      реплике: столбик отметок вдоль края, не принадлежащий
+                      ничему. Внутри — часть сообщения, чем они и являются.
+
+                      Прижаты вправо и приподняты на строку текста: так делает
+                      Telegram, и это единственный способ не отдавать им
+                      отдельную строку в каждом пузыре. */}
+                  <span
+                    className="float-right ml-2 mt-1 flex translate-y-[3px] items-center gap-1 text-[10.5px]"
+                    style={{ opacity: 0.75 }}
+                  >
+                    {message.pinned_at && (
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-label="Закреплено">
+                        <path d="M9 4h6l-1 6 4 3v2H6v-2l4-3Z" />
+                        <path d="M12 15v5" />
+                      </svg>
+                    )}
+                    {message.edited_at && <span>изменено</span>}
+                    <span className="font-num">{timeLabel(message.created_at)}</span>
+                    {mine && (
+                      <svg width="16" height="11" viewBox="0 0 16 11" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                        <path d="M1 6.2 4 9.2 9.6 2.2" />
+                        {message.read_at && <path d="M6.4 9.2 12 2.2" />}
+                      </svg>
+                    )}
+                  </span>
+
                 </button>
 
                 {reactions.length > 0 && (
@@ -1043,38 +1094,7 @@ export default function ChatPage() {
                   </span>
                 )}
 
-                {/* Время и галочки — под пузырём, а не внутри.
-                    Внутри они занимали свою строку, и любая реплика становилась
-                    двухстрочной: слово «да» выходило прямоугольником в пятьдесят
-                    пикселей высотой, который никаким радиусом не превратить в
-                    овал. Дело было не в скруглении, а в том, что в пузыре сидело
-                    вдвое больше содержимого, чем в нём говорят.
 
-                    И только у последней реплики цепочки: у каждой это был
-                    столбик одинаковых отметок времени вдоль всей переписки. */}
-                {groupEnd && (
-                  <span
-                    className="flex items-center gap-1 px-1 text-[10.5px] text-[var(--text-muted)]"
-                    style={{ alignSelf: mine ? 'flex-end' : 'flex-start' }}
-                  >
-                    {message.pinned_at && (
-                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-label="Закреплено">
-                        <path d="M9 4h6l-1 6 4 3v2H6v-2l4-3Z" />
-                        <path d="M12 15v5" />
-                      </svg>
-                    )}
-                    {message.edited_at && <span>изменено</span>}
-                    <span className="font-num">{timeLabel(message.created_at)}</span>
-                    {/* Галочки только у своих: чужие сообщения о своём
-                        прочтении собеседнику ничего не говорят. */}
-                    {mine && (
-                      <svg width="16" height="11" viewBox="0 0 16 11" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                        <path d="M1 6.2 4 9.2 9.6 2.2" />
-                        {message.read_at && <path d="M6.4 9.2 12 2.2" />}
-                      </svg>
-                    )}
-                  </span>
-                )}
 
                 </div>
               </div>

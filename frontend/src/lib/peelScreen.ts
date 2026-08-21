@@ -282,13 +282,35 @@ export function unfoldFrom(node: HTMLElement | null, origin: DOMRect | null) {
   node.style.transformOrigin = `${origin.left + origin.width / 2 - here.left}px ${
     origin.top + origin.height / 2 - here.top
   }px`;
-  node.animate(
+
+  /**
+   * Подложка на время разворота.
+   *
+   * Экраны в приложении прозрачны — фон рисует страница. Пока экран
+   * разворачивается с прозрачности ноль, сквозь него видно то, что браузер ещё
+   * держит в слоях от предыдущей страницы: мессенджер проявляется поверх ленты,
+   * и весь переход на экране два интерфейса разом. В разметке при этом честно
+   * один узел — проверено, — то есть глазами видно то, чего в DOM уже нет.
+   *
+   * Снимаем сразу после анимации: постоянный фон у экрана перекрыл бы обои и
+   * подсветку, которые лежат под ним.
+   */
+  const hadBackground = node.style.background;
+  node.style.background = 'var(--bg)';
+
+  const animation = node.animate(
     [
       { opacity: 0, transform: 'scale(0.12)' },
       { opacity: 1, transform: 'none' },
     ],
     { duration: UNFOLD_MS, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' }
   );
+
+  const restore = () => {
+    node.style.background = hadBackground;
+  };
+  animation.onfinish = restore;
+  animation.oncancel = restore;
 }
 
 /**
