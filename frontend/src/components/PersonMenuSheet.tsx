@@ -2,6 +2,7 @@
 
 import { useLayoutEffect, useRef, useState } from 'react';
 import { BottomSheet } from '@/components/BottomSheet';
+import { apiFetch } from '@/lib/api';
 import { setBlocked, useIsBlocked } from '@/lib/blockedUsers';
 import { TranslationKey, useT } from '@/lib/i18n';
 
@@ -58,6 +59,7 @@ export function PersonMenuSheet({
   const { t } = useT();
   const [step, setStep] = useState<Step>('menu');
   const [copied, setCopied] = useState(false);
+  const [reportFailed, setReportFailed] = useState(false);
   const blocked = useIsBlocked(userId);
 
   const stackRef = useRef<HTMLDivElement>(null);
@@ -76,6 +78,7 @@ export function PersonMenuSheet({
     if (open) {
       setStep('menu');
       setCopied(false);
+      setReportFailed(false);
     }
   }
 
@@ -84,7 +87,21 @@ export function PersonMenuSheet({
     const active = stepRefs.current[step];
     if (!stack || !active) return;
     stack.style.height = `${active.offsetHeight}px`;
-  }, [step, open, copied, blocked]);
+  }, [step, open, copied, blocked, reportFailed]);
+
+  async function report(reasonKey: TranslationKey) {
+    setStep('done');
+    setReportFailed(false);
+
+    try {
+      await apiFetch('/reports', {
+        method: 'POST',
+        body: JSON.stringify({ userId, reason: reasonKey.replace('reason.', '') }),
+      });
+    } catch {
+      setReportFailed(true);
+    }
+  }
 
   async function copyLink() {
     try {
@@ -112,7 +129,7 @@ export function PersonMenuSheet({
       label: blocked ? t('person.unblock') : t('person.block'),
       hint: blocked
         ? 'Записи снова появятся в ленте'
-        : 'Записи и переписка скроются на этом устройстве',
+        : 'Он не сможет вам писать, подписки снимутся',
       icon: blocked ? (
         <>
           <circle cx="12" cy="12" r="8.5" />
@@ -126,7 +143,10 @@ export function PersonMenuSheet({
       ),
       danger: !blocked,
       onSelect: () => {
-        setBlocked(userId, !blocked);
+        // Список меняется сразу, до ответа сервера, — за это отвечает
+        // setBlocked. Отказ он откатывает сам, здесь достаточно не уронить
+        // шторку необработанным промисом.
+        void setBlocked(userId, !blocked).catch(() => {});
         onClose();
       },
     },
@@ -230,7 +250,7 @@ export function PersonMenuSheet({
               <button
                 key={reason}
                 type="button"
-                onClick={() => setStep('done')}
+                onClick={() => report(reason)}
                 className="rounded-xl px-1 py-3.5 text-left text-[15px] text-[var(--text)] transition-colors hover:bg-[var(--surface-2)]"
               >
                 {t(reason)}
@@ -257,8 +277,9 @@ export function PersonMenuSheet({
               </svg>
             </span>
             <p className="text-[14.5px] leading-relaxed text-[var(--text-muted)]">
-              Спасибо, мы посмотрим. Отправка модераторам появится вместе с их
-              разделом — сейчас жалоба дальше этого экрана не уходит.
+              {reportFailed
+                ? 'Жалоба не ушла — проверьте связь и попробуйте ещё раз.'
+                : 'Спасибо, мы посмотрим. Жалоба ушла модераторам.'}
             </p>
             <button
               type="button"

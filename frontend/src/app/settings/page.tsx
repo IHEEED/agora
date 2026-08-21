@@ -17,6 +17,9 @@ import {
   readThemePreference,
 } from '@/lib/appearance';
 import { ScreenTitle } from '@/components/ScreenTitle';
+import Link from 'next/link';
+import { InvitesPanel } from '@/components/InvitesPanel';
+import { useMe } from '@/lib/useMe';
 import { SegmentedControl } from '@/components/SegmentedControl';
 import { LOCALES, Locale, TranslationKey, applyLocale, useT } from '@/lib/i18n';
 
@@ -266,6 +269,7 @@ export default function SettingsPage() {
 
 
   const phoneVerified = Boolean(session?.user.phone_confirmed_at);
+  const { me } = useMe();
 
   return (
     <div className="flex flex-1 flex-col items-center" style={leaveStyle} {...swipeHandlers}>
@@ -435,6 +439,20 @@ export default function SettingsPage() {
               </button>
             )}
           </Row>
+          <InvitesPanel />
+          {me?.isModerator && (
+            /* Единственный вход в раздел модерации: в общей навигации его нет,
+               потому что модераторов единицы, а вкладку видели бы все. */
+            <Row label="Модерация" hint="Очередь жалоб">
+              <Link
+                href="/moderation"
+                className="flex-none rounded-full px-4 py-1.5 text-[13px] font-medium"
+                style={{ background: 'var(--surface-2)', color: 'var(--text)' }}
+              >
+                Открыть
+              </Link>
+            </Row>
+          )}
         </Section>
 
         )}
