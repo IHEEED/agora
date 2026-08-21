@@ -44,6 +44,25 @@ const displayFont = Literata({
 export const metadata: Metadata = {
   title: "PARAFRAZ",
   description: "PARAFRAZ — клубы, посты и обсуждения",
+  /**
+   * Заявка на то, чтобы с экрана «Домой» открываться приложением.
+   *
+   * Манифест (app/manifest.ts) для этого обязателен, но Safari его одного не
+   * слушает: display: standalone он читает только вместе со своей меткой
+   * apple-mobile-web-app-capable. Без неё значок на экране появится, а нажатие
+   * откроет обычную вкладку — с адресной строкой и панелью, которые встанут
+   * ровно поверх шапки и бара.
+   *
+   * statusBarStyle: строка состояния прозрачная, содержимое уходит под неё.
+   * Отступ под чёлку берут на себя safe-area-inset (см. viewportFit ниже),
+   * поэтому закрашивать полосу отдельно не нужно, а на смене темы она
+   * перекрашивается вместе со всем остальным, а не остаётся чужой.
+   */
+  appleWebApp: {
+    capable: true,
+    title: "PARAFRAZ",
+    statusBarStyle: "black-translucent",
+  },
 };
 
 /**
