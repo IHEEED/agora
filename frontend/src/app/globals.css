@@ -2155,3 +2155,55 @@ label,
     animation: none;
   }
 }
+
+/**
+ * Переход между списком разделов и самим разделом.
+ *
+ * Настройки живут одним маршрутом: заводить шесть отдельных страниц ради шести
+ * списков — это шесть файлов, которые придётся держать в согласии, и общая
+ * половина состояния (тема, стиль, язык) между ними расползётся. Но человеку
+ * это должно ощущаться переходом на другой экран, а не подменой содержимого на
+ * месте, — иначе непонятно, куда вернёт стрелка.
+ *
+ * Отсюда две встречные анимации: раздел въезжает справа, список возвращается
+ * слева. Направление и есть всё сообщение: вправо — вглубь, влево — обратно.
+ * Расстояние небольшое (18 пикселей): это не переезд между экранами, а
+ * подсказка о направлении, и полноэкранный проезд здесь читался бы как уход из
+ * настроек целиком.
+ */
+@keyframes settings-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(18px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes settings-slide-back {
+  from {
+    opacity: 0;
+    transform: translateX(-18px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.settings-slide-in {
+  animation: settings-slide-in 220ms var(--enter-ease);
+}
+
+.settings-slide-back {
+  animation: settings-slide-back 220ms var(--enter-ease);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .settings-slide-in,
+  .settings-slide-back {
+    animation: none;
+  }
+}

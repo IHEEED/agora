@@ -23,25 +23,30 @@ import { LOCALES, Locale, TranslationKey, applyLocale, useT } from '@/lib/i18n';
 /**
  * Разделы настроек.
  *
- * Раньше настройки были одним свитком: шесть групп подряд, и чтобы дойти от
- * оформления до выхода, надо было проехать мимо уведомлений, приватности и
- * содержимого. На телефоне это четыре экрана прокрутки — а человек приходит
- * сюда с одним конкретным вопросом и не хочет читать остальные пять.
+ * Сначала были одним свитком: шесть групп подряд, и чтобы дойти от оформления
+ * до выхода, надо было проехать мимо уведомлений, приватности и содержимого.
+ * Потом дорожкой вкладок наверху — лучше, но вкладки хороши, когда между ними
+ * прыгают туда-сюда и сравнивают. В настройки заходят не так: заходят с одним
+ * вопросом, находят ответ и уходят.
  *
- * Теперь сначала выбирают раздел, потом видят его строки. Порядок — по
- * частоте: оформление трогают чаще всего, «о приложении» не трогают почти
+ * Поэтому здесь то же, что в Telegram и в iOS: сначала список разделов
+ * столбиком, нажал — открылся раздел на весь экран, назад — вернулся к списку.
+ * Раздел получает экран целиком, а не полосу под шестью таблетками, и его
+ * название стоит заголовком, а не подсвеченной кнопкой среди пяти других.
+ *
+ * Порядок — по частоте: оформление трогают чаще всего, «о приложении» почти
  * никогда.
  */
-const TABS = [
-  ['appearance', 'settings.appearance'],
-  ['account', 'settings.account'],
-  ['notifications', 'settings.notifications'],
-  ['privacy', 'settings.privacy'],
-  ['content', 'settings.content'],
-  ['about', 'settings.about'],
-] as const satisfies ReadonlyArray<readonly [string, TranslationKey]>;
+const SECTIONS = [
+  ['appearance', 'settings.appearance', 'M12 3a9 9 0 1 0 0 18c.83 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1a1.5 1.5 0 0 1 1.11-2.5H16a5 5 0 0 0 5-5c0-4.42-4.03-8-9-8Z M7.5 10.5h.01 M10.5 7.5h.01 M14.5 7.5h.01 M17 10.5h.01'],
+  ['account', 'settings.account', 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z M4 21a8 8 0 0 1 16 0'],
+  ['notifications', 'settings.notifications', 'M18 8a6 6 0 1 0-12 0c0 7-3 8-3 8h18s-3-1-3-8 M13.7 21a2 2 0 0 1-3.4 0'],
+  ['privacy', 'settings.privacy', 'M12 3 4 6v6c0 5 3.4 8.4 8 9.5 4.6-1.1 8-4.5 8-9.5V6l-8-3Z'],
+  ['content', 'settings.content', 'M4 6h16 M4 12h16 M4 18h10'],
+  ['about', 'settings.about', 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z M12 11v5 M12 8h.01'],
+] as const satisfies ReadonlyArray<readonly [string, TranslationKey, string]>;
 
-type TabId = (typeof TABS)[number][0];
+type SectionId = (typeof SECTIONS)[number][0];
 
 const THEMES: ReadonlyArray<readonly [ThemePreference, TranslationKey]> = [
   ['light', 'settings.theme.light'],
@@ -224,7 +229,8 @@ export default function SettingsPage() {
   // иначе серверный рендер разойдётся с localStorage.
   const [theme, setTheme] = useState<ThemePreference | null>(null);
   const [style, setStyle] = useState<StyleId | null>(null);
-  const [tab, setTab] = useState<TabId>('appearance');
+  /** Открытый раздел; null — список разделов. */
+  const [section, setSection] = useState<SectionId | null>(null);
   // Образцы рисуются в той теме, что сейчас на экране, — иначе тёмный стиль
   // предлагался бы светлой плашкой и наоборот. «Системную» для этого
   // приходится разрешить в конкретное значение.
@@ -274,7 +280,18 @@ export default function SettingsPage() {
           {/* Кружок с подложкой, а не голая стрелка: без фона она читалась
               украшением рядом с заголовком, и на неё просто не жали. */}
           <button
-            onClick={goBack}
+            onClick={() => {
+              // Одна стрелка на два уровня: из раздела она возвращает к списку,
+              // из списка выводит из настроек. Заводить вторую кнопку «к
+              // разделам» значило бы объяснять человеку разницу между двумя
+              // стрелками, стоящими в одном углу.
+              if (section) {
+                haptic();
+                setSection(null);
+                return;
+              }
+              goBack();
+            }}
             aria-label="Назад"
             className="glass flex h-11 w-11 flex-none items-center justify-center rounded-full text-[var(--text)] transition-transform active:scale-95"
           >
@@ -282,251 +299,259 @@ export default function SettingsPage() {
               <path d="M15 5l-7 7 7 7" />
             </svg>
           </button>
-          <ScreenTitle>{t('settings.title')}</ScreenTitle>
+          {/* Заголовок называет то, что на экране. В разделе это его имя, а не
+              слово «Настройки»: иначе шесть разных экранов подписаны одинаково,
+              и по заголовку не понять, где ты. */}
+          <ScreenTitle>
+            {section
+              ? t(SECTIONS.find(([id]) => id === section)![1])
+              : t('settings.title')}
+          </ScreenTitle>
         </div>
 
-        {/* Дорожка разделов.
-            Прокручивается вбок, а не переносится на две строки: шесть названий
-            в две строки — это уже не переключатель, а вторая шапка, и она
-            отжимает содержимое вниз ровно там, где на него смотрят. Края
-            подрезаны на всю ширину экрана (-mx-2.5), чтобы крайние вкладки
-            уезжали под край, а не упирались в поле: обрезанное слово — самый
-            понятный намёк, что вбок есть ещё. */}
-        <div // scroll-px-2.5 — то же поле, что и px-2.5, но для scrollIntoView:
-          // без него подтянутая вкладка встаёт впритык к краю экрана.
-          className="no-scrollbar -mx-2.5 flex gap-1.5 overflow-x-auto scroll-px-2.5 px-2.5 pb-1">
-          {TABS.map(([id, labelKey]) => {
-            const on = tab === id;
-            return (
+        {/* Список разделов. Показан, пока раздел не выбран.
+            Строки той же группой, что и всё остальное в настройках (ios-group):
+            раздел — такая же строка списка, как «Почта» или «Уведомления»,
+            только ведёт не к значению, а вглубь. Галочка справа говорит об этом
+            без слов. */}
+        {!section && (
+          <div className="settings-slide-back ios-group">
+            {SECTIONS.map(([id, labelKey, path]) => (
               <button
                 key={id}
                 type="button"
-                onClick={(event) => {
+                onClick={() => {
                   haptic();
-                  setTab(id);
-                  // Подтянуть выбранную вкладку в поле зрения.
-                  //
-                  // Крайние таблетки нарочно подрезаны краем — так видно, что
-                  // вбок есть ещё. Но нажатая наполовину видимая вкладка так
-                  // наполовину видимой и оставалась: раздел сменился, а какой
-                  // именно выбран — не разглядеть, потому что заливка ушла за
-                  // край. 'nearest' двигает дорожку ровно настолько, чтобы
-                  // таблетка поместилась целиком, и не трогает уже видимые.
-                  event.currentTarget.scrollIntoView({
-                    behavior: 'smooth',
-                    inline: 'nearest',
-                    block: 'nearest',
-                  });
+                  setSection(id);
+                  // Раздел открывается сверху, а не с той высоты, на которой
+                  // остался список: экран новый, и начинаться он обязан с
+                  // начала.
+                  window.scrollTo({ top: 0 });
                 }}
-                aria-pressed={on}
-                className="flex-none whitespace-nowrap rounded-full px-3.5 py-2 text-[13.5px] font-medium transition-colors"
-                style={
-                  on
-                    ? { background: 'var(--accent)', color: 'var(--accent-contrast)' }
-                    : { background: 'var(--surface-2)', color: 'var(--text-muted)' }
-                }
+                className="ios-row flex w-full items-center gap-3 text-left transition-colors active:bg-[var(--surface-2)]"
               >
-                {t(labelKey)}
+                <span
+                  className="flex h-7 w-7 flex-none items-center justify-center rounded-lg"
+                  style={{ background: 'var(--accent-soft)', color: 'var(--accent)' }}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+                    {path.split(' M').map((piece, index) => (
+                      <path key={index} d={index === 0 ? piece : `M${piece}`} />
+                    ))}
+                  </svg>
+                </span>
+                <span className="flex-1 text-[16px] text-[var(--text)]">{t(labelKey)}</span>
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-none">
+                  <path d="M9 5l7 7-7 7" />
+                </svg>
               </button>
-            );
-          })}
-        </div>
-
-        {tab === 'appearance' && (
-        <section className="glass rounded-2xl p-5">
-
-          <div className="flex flex-col gap-2 pb-4">
-            <span className="text-[15px] text-[var(--text)]">{t('settings.theme')}</span>
-            {/* До первого чтения localStorage тема неизвестна — пока капля
-                стоит на «системной», а не прыгает с придуманного значения. */}
-            <SegmentedControl
-              value={theme ?? 'system'}
-              onChange={chooseTheme}
-              options={THEMES.map(([value, labelKey]) => [value, t(labelKey)] as const)}
-            />
+            ))}
           </div>
+        )}
 
-          {/* Стиль вместо прежней пары «акцент + обои». Двадцать кружков и семь
-              плиток давали три сотни сочетаний, из которых никто не подбирал ни
-              одного; здесь пять готовых наборов, и каждый показан целиком. */}
-          <div className="border-t border-[var(--border)] pt-4">
-            <p className="text-[15px] text-[var(--text)]">{t('settings.style')}</p>
-            <p className="mb-3 text-[12.5px] leading-snug text-[var(--text-muted)]">
-              {t('settings.styleHint')}
-            </p>
-            <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
-              {STYLES.map((option) => {
-                const selected = style === option.id;
-                return (
+        {/* Раздел въезжает справа, как новый экран, а не подменяет содержимое
+            на месте. Ключ по разделу перезапускает движение на каждом входе:
+            без него React считает контейнер тем же самым и второй раздел
+            открывается беззвучно — как будто список просто перерисовался. */}
+        {section && (
+          <div key={section} className="settings-slide-in flex flex-col gap-2.5">
+          {section === 'appearance' && (
+          <section className="glass rounded-2xl p-5">
+
+            <div className="flex flex-col gap-2 pb-4">
+              <span className="text-[15px] text-[var(--text)]">{t('settings.theme')}</span>
+              {/* До первого чтения localStorage тема неизвестна — пока капля
+                  стоит на «системной», а не прыгает с придуманного значения. */}
+              <SegmentedControl
+                value={theme ?? 'system'}
+                onChange={chooseTheme}
+                options={THEMES.map(([value, labelKey]) => [value, t(labelKey)] as const)}
+              />
+            </div>
+
+            {/* Стиль вместо прежней пары «акцент + обои». Двадцать кружков и семь
+                плиток давали три сотни сочетаний, из которых никто не подбирал ни
+                одного; здесь пять готовых наборов, и каждый показан целиком. */}
+            <div className="border-t border-[var(--border)] pt-4">
+              <p className="text-[15px] text-[var(--text)]">{t('settings.style')}</p>
+              <p className="mb-3 text-[12.5px] leading-snug text-[var(--text-muted)]">
+                {t('settings.styleHint')}
+              </p>
+              <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
+                {STYLES.map((option) => {
+                  const selected = style === option.id;
+                  return (
+                    <button
+                      key={option.id}
+                      onClick={() => chooseStyle(option.id)}
+                      aria-label={option.label}
+                      aria-pressed={selected}
+                      className="flex flex-col gap-1.5 text-left transition-transform active:scale-[0.97]"
+                    >
+                      <StylePreview
+                        swatch={darkNow ? option.swatchDark : option.swatch}
+                        serif={option.serif}
+                        selected={selected}
+                      />
+                      <span className="flex flex-col px-0.5">
+                        <span
+                          className="text-[13.5px] font-medium"
+                          style={{ color: selected ? 'var(--accent)' : 'var(--text)' }}
+                        >
+                          {option.label}
+                        </span>
+                        <span className="text-[11.5px] leading-snug text-[var(--text-muted)]">
+                          {option.hint}
+                        </span>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+
+            <div className="mt-4 flex flex-col gap-2 border-t border-[var(--border)] pt-4">
+              <span className="text-[15px] text-[var(--text)]">{t('settings.language')}</span>
+              {/* Та же дорожка-заливка, что у SegmentedControl выше: обведённая
+                  таблетка рядом с необведённой выглядела бы недоделкой. */}
+              <div
+                className="flex gap-1 rounded-full p-1"
+                style={{ background: 'var(--surface-2)' }}
+              >
+                {LOCALES.map((option) => (
                   <button
                     key={option.id}
-                    onClick={() => chooseStyle(option.id)}
-                    aria-label={option.label}
-                    aria-pressed={selected}
-                    className="flex flex-col gap-1.5 text-left transition-transform active:scale-[0.97]"
+                    onClick={() => chooseLocale(option.id)}
+                    className="flex-1 whitespace-nowrap rounded-full px-3 py-1.5 text-[13px] font-medium transition-colors"
+                    style={
+                      locale === option.id
+                        ? { background: 'var(--accent)', color: 'var(--accent-contrast)' }
+                        : { color: 'var(--text-muted)' }
+                    }
                   >
-                    <StylePreview
-                      swatch={darkNow ? option.swatchDark : option.swatch}
-                      serif={option.serif}
-                      selected={selected}
-                    />
-                    <span className="flex flex-col px-0.5">
-                      <span
-                        className="text-[13.5px] font-medium"
-                        style={{ color: selected ? 'var(--accent)' : 'var(--text)' }}
-                      >
-                        {option.label}
-                      </span>
-                      <span className="text-[11.5px] leading-snug text-[var(--text-muted)]">
-                        {option.hint}
-                      </span>
-                    </span>
+                    {option.label}
                   </button>
-                );
-              })}
+                ))}
+              </div>
             </div>
-          </div>
-
-
-          <div className="mt-4 flex flex-col gap-2 border-t border-[var(--border)] pt-4">
-            <span className="text-[15px] text-[var(--text)]">{t('settings.language')}</span>
-            {/* Та же дорожка-заливка, что у SegmentedControl выше: обведённая
-                таблетка рядом с необведённой выглядела бы недоделкой. */}
-            <div
-              className="flex gap-1 rounded-full p-1"
-              style={{ background: 'var(--surface-2)' }}
-            >
-              {LOCALES.map((option) => (
-                <button
-                  key={option.id}
-                  onClick={() => chooseLocale(option.id)}
-                  className="flex-1 whitespace-nowrap rounded-full px-3 py-1.5 text-[13px] font-medium transition-colors"
-                  style={
-                    locale === option.id
-                      ? { background: 'var(--accent)', color: 'var(--accent-contrast)' }
-                      : { color: 'var(--text-muted)' }
-                  }
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
-          </div>
-        </section>
-        )}
-
-        {tab === 'account' && (
-        <Section>
-          <Row label={t('settings.email')} hint={session?.user.email ?? ''} />
-          <Row
-            label={t('settings.phone')}
-            hint={phoneVerified ? t('settings.phoneVerified') : t('settings.phoneNeeded')}
-          >
-            {phoneVerified ? (
-              <span className="flex-none text-[13px] font-medium" style={{ color: 'var(--up)' }}>
-                {t('settings.done')}
-              </span>
-            ) : (
-              <button
-                onClick={requestVerification}
-                className="flex-none rounded-full bg-[var(--accent)] px-4 py-1.5 text-[13px] font-medium text-[var(--accent-contrast)]"
-              >
-                {t('settings.verify')}
-              </button>
-            )}
-          </Row>
-        </Section>
-
-        )}
-
-        {tab === 'notifications' && (
-        <Section>
-          <Row label={t('settings.notifyReplies')} hint={t('settings.notifyRepliesHint')}>
-            <LocalToggle storageKey="parafraz-notify-replies" defaultOn />
-          </Row>
-          <Row label={t('settings.notifyMentions')} hint={t('settings.notifyMentionsHint')}>
-            <LocalToggle storageKey="parafraz-notify-mentions" defaultOn />
-          </Row>
-          <Row label={t('settings.notifyVotes')} hint={t('settings.notifyVotesHint')}>
-            <LocalToggle storageKey="parafraz-notify-votes" />
-          </Row>
-        </Section>
-
-        )}
-
-        {tab === 'privacy' && (
-        <Section>
-          <Row label={t('settings.privateProfile')} hint={t('settings.privateProfileHint')}>
-            <LocalToggle storageKey="parafraz-private-profile" />
-          </Row>
-          <Row label={t('settings.showInfluence')} hint={t('settings.showInfluenceHint')}>
-            <LocalToggle storageKey="parafraz-show-influence" defaultOn />
-          </Row>
-        </Section>
-
-        )}
-
-        {tab === 'content' && (
-        <Section>
-          <Row label={t('settings.nsfw')} hint={t('settings.nsfwHint')}>
-            <LocalToggle storageKey="parafraz-nsfw" />
-          </Row>
-          <Row label={t('settings.autoplay')} hint={t('settings.autoplayHint')}>
-            <LocalToggle storageKey="parafraz-autoplay" defaultOn />
-          </Row>
-        </Section>
-
-        )}
-
-        {tab === 'about' && (
-        <Section>
-          <Row label={t('settings.version')} hint={t('settings.versionHint')} />
-          <Row label={t('settings.rules')} hint={t('common.soon')} />
-          <Row label={t('settings.support')} hint={t('common.soon')} />
-        </Section>
-        )}
-
-        {/* Выход стоит в «аккаунте», а не под всеми разделами.
-            Общий низ у настроек кончился вместе с общим свитком, и красная
-            кнопка, висящая под уведомлениями или под содержимым, читалась бы
-            как их итог. Выход — действие над учётной записью, и жить ему там,
-            где всё остальное про неё. */}
-        {tab === 'account' && (
-          <section className="glass rounded-2xl p-5">
-            {/* Заливка, а не одна рамка: обведённая строка на стеклянной карточке
-                читалась подписью, и понять, что это кнопка, можно было только
-                нажав. */}
-            <button
-              onClick={() => supabase.auth.signOut()}
-              className="w-full rounded-full py-3 text-[15px] font-semibold transition-transform active:scale-[0.98]"
-              style={{
-                background: 'color-mix(in srgb, var(--down) 14%, transparent)',
-                color: 'var(--down)',
-              }}
-            >
-              {t('settings.signOut')}
-            </button>
           </section>
-        )}
+          )}
 
-        {/* Оговорка про местное хранение — там, где рассказывают о приложении.
-            Под каждым разделом она была бы шестикратным повтором. */}
-        {tab === 'about' && (
-          <>
-            <p className="px-3 pb-2 text-center text-[12px] leading-relaxed text-[var(--text-muted)]">
-              {t('settings.localOnly')}
-            </p>
+          {section === 'account' && (
+          <Section>
+            <Row label={t('settings.email')} hint={session?.user.email ?? ''} />
+            <Row
+              label={t('settings.phone')}
+              hint={phoneVerified ? t('settings.phoneVerified') : t('settings.phoneNeeded')}
+            >
+              {phoneVerified ? (
+                <span className="flex-none text-[13px] font-medium" style={{ color: 'var(--up)' }}>
+                  {t('settings.done')}
+                </span>
+              ) : (
+                <button
+                  onClick={requestVerification}
+                  className="flex-none rounded-full bg-[var(--accent)] px-4 py-1.5 text-[13px] font-medium text-[var(--accent-contrast)]"
+                >
+                  {t('settings.verify')}
+                </button>
+              )}
+            </Row>
+          </Section>
 
-            {/* Дальше — пустота и то, что в ней спрятано. Пролистав настройки до
-                конца, человек обычно останавливается; кто пролистает дальше,
-                найдёт шестое оформление, которого нет в списке.
+          )}
 
-                Раздел для неё — «о приложении»: последняя вкладка, и та, куда
-                заходят реже всего. Дно теперь ближе, чем в общем свитке, но
-                пасхалку держало не расстояние, а три отказа подряд, и они на
-                месте. */}
-            <GlamEasterEgg current={style} onFound={chooseStyle} />
-          </>
+          {section === 'notifications' && (
+          <Section>
+            <Row label={t('settings.notifyReplies')} hint={t('settings.notifyRepliesHint')}>
+              <LocalToggle storageKey="parafraz-notify-replies" defaultOn />
+            </Row>
+            <Row label={t('settings.notifyMentions')} hint={t('settings.notifyMentionsHint')}>
+              <LocalToggle storageKey="parafraz-notify-mentions" defaultOn />
+            </Row>
+            <Row label={t('settings.notifyVotes')} hint={t('settings.notifyVotesHint')}>
+              <LocalToggle storageKey="parafraz-notify-votes" />
+            </Row>
+          </Section>
+
+          )}
+
+          {section === 'privacy' && (
+          <Section>
+            <Row label={t('settings.privateProfile')} hint={t('settings.privateProfileHint')}>
+              <LocalToggle storageKey="parafraz-private-profile" />
+            </Row>
+            <Row label={t('settings.showInfluence')} hint={t('settings.showInfluenceHint')}>
+              <LocalToggle storageKey="parafraz-show-influence" defaultOn />
+            </Row>
+          </Section>
+
+          )}
+
+          {section === 'content' && (
+          <Section>
+            <Row label={t('settings.nsfw')} hint={t('settings.nsfwHint')}>
+              <LocalToggle storageKey="parafraz-nsfw" />
+            </Row>
+            <Row label={t('settings.autoplay')} hint={t('settings.autoplayHint')}>
+              <LocalToggle storageKey="parafraz-autoplay" defaultOn />
+            </Row>
+          </Section>
+
+          )}
+
+          {section === 'about' && (
+          <Section>
+            <Row label={t('settings.version')} hint={t('settings.versionHint')} />
+            <Row label={t('settings.rules')} hint={t('common.soon')} />
+            <Row label={t('settings.support')} hint={t('common.soon')} />
+          </Section>
+          )}
+
+          {/* Выход стоит в «аккаунте», а не под всеми разделами.
+              Общий низ у настроек кончился вместе с общим свитком, и красная
+              кнопка, висящая под уведомлениями или под содержимым, читалась бы
+              как их итог. Выход — действие над учётной записью, и жить ему там,
+              где всё остальное про неё. */}
+          {section === 'account' && (
+            <section className="glass rounded-2xl p-5">
+              {/* Заливка, а не одна рамка: обведённая строка на стеклянной карточке
+                  читалась подписью, и понять, что это кнопка, можно было только
+                  нажав. */}
+              <button
+                onClick={() => supabase.auth.signOut()}
+                className="w-full rounded-full py-3 text-[15px] font-semibold transition-transform active:scale-[0.98]"
+                style={{
+                  background: 'color-mix(in srgb, var(--down) 14%, transparent)',
+                  color: 'var(--down)',
+                }}
+              >
+                {t('settings.signOut')}
+              </button>
+            </section>
+          )}
+
+          {/* Оговорка про местное хранение — там, где рассказывают о приложении.
+              Под каждым разделом она была бы шестикратным повтором. */}
+          {section === 'about' && (
+            <>
+              <p className="px-3 pb-2 text-center text-[12px] leading-relaxed text-[var(--text-muted)]">
+                {t('settings.localOnly')}
+              </p>
+
+              {/* Дальше — пустота и то, что в ней спрятано. Пролистав настройки до
+                  конца, человек обычно останавливается; кто пролистает дальше,
+                  найдёт шестое оформление, которого нет в списке.
+
+                  Раздел для неё — «о приложении»: последняя вкладка, и та, куда
+                  заходят реже всего. Дно теперь ближе, чем в общем свитке, но
+                  пасхалку держало не расстояние, а три отказа подряд, и они на
+                  месте. */}
+              <GlamEasterEgg current={style} onFound={chooseStyle} />
+            </>
+          )}
+          </div>
         )}
       </main>
     </div>
