@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from 'react';
 import { apiFetch } from '@/lib/api';
 import { UserSummary } from '@/lib/types';
 import { AvatarFollow } from '@/components/AvatarFollow';
+import { OverlayLink } from '@/components/OverlayLink';
+import { useT } from '@/lib/i18n';
 
 /** Ширина карточки в ленте и зазор между карточками — на них же считается сдвиг. */
 const CARD_WIDTH = 148;
@@ -45,6 +47,7 @@ export function SuggestedPeople({
 }) {
   const [people, setPeople] = useState<UserSummary[]>([]);
   // Кого сейчас убирают: карточка ещё в разметке, но уже схлопывается.
+  const { t } = useT();
   const [hiding, setHiding] = useState<string[]>([]);
   const timers = useRef<Array<ReturnType<typeof setTimeout>>>([]);
 
@@ -130,7 +133,13 @@ export function SuggestedPeople({
     // Горизонтальная лента: рекомендации не должны отжимать посты вниз
     // на пол-экрана, поэтому в высоту они занимают одну карточку.
     <section className={className}>
-      <div className="no-scrollbar -mx-4 flex overflow-x-auto px-4 py-1">
+      {/* Полоса появляется, а не возникает.
+          Рекомендации приезжают отдельным запросом, то есть позже ленты, и
+          раньше просто вставали в неё готовым блоком — лента дёргалась вниз на
+          высоту карточки в случайный момент, когда человек уже начал читать.
+          Теперь блок проявляется и подрастает, и сдвиг читается появлением
+          чего-то нового, а не сбоем. */}
+      <div className="suggested-appear no-scrollbar -mx-4 flex overflow-x-auto px-4 py-1">
         {people.map((person) => {
           const going = hiding.includes(person.id);
 
@@ -190,11 +199,21 @@ export function SuggestedPeople({
                   initiallyFollowing={person.isFollowing}
                   size={60}
                 />
-                <span className="w-full truncate text-[13.5px] font-medium text-[var(--text)]">
+                {/* Имя ведёт на профиль.
+                    До этого карточка была тупиком: подписаться можно, убрать
+                    можно, а посмотреть, на кого тебе предлагают подписаться, —
+                    нет. Решение принималось по нику и числу, то есть вслепую.
+                    Ссылка на имени, а не на всей карточке: на карточке уже
+                    живут кнопка подписки и крестик, и обёртка вокруг них
+                    ловила бы промахи по ним как переход. */}
+                <OverlayLink
+                  href={`/u/${person.id}`}
+                  className="w-full truncate text-[13.5px] font-medium text-[var(--text)]"
+                >
                   {person.username}
-                </span>
+                </OverlayLink>
                 <span className="text-[11.5px] text-[var(--text-muted)]">
-                  <span className="font-num">{person.karma}</span> influence
+                  <span className="font-num">{person.karma}</span> {t('profile.stat.influence')}
                 </span>
               </div>
             </div>
