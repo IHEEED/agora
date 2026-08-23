@@ -113,6 +113,7 @@ export function PostCard({
           <AvatarFollow
             userId={post.author.id}
             username={post.author.username}
+            avatar={post.author.avatar_url}
             initiallyFollowing={post.author.isFollowing}
             size={38}
           />

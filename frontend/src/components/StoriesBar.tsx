@@ -18,16 +18,19 @@ function StoryRing({
   name,
   segments,
   viewed = false,
+  avatar,
 }: {
   name: string;
   segments: number;
   viewed?: boolean;
+  /** Лицо автора. Нет — показываем силуэт. */
+  avatar?: string | null;
 }) {
   return (
     <div className="relative" style={{ width: RING_SIZE, height: RING_SIZE }}>
       <SegmentRing size={RING_SIZE} segments={segments} viewed={viewed} strokeWidth={2.8} gap={5.5} />
       <div className="absolute inset-[5px] overflow-hidden rounded-full">
-        <DefaultAvatar name={name} size={RING_SIZE - 10} />
+        <DefaultAvatar name={name} size={RING_SIZE - 10} src={avatar} />
       </div>
     </div>
   );
@@ -176,6 +179,7 @@ export function StoriesBar({
               истории, внутри оказывалась одна. */}
           <StoryRing
             name={story.author.username}
+            avatar={story.author.avatar_url}
             segments={story.items.length}
             // Кольцо гаснет, когда всё просмотрено: непросмотренное — это
             // единственная причина сюда смотреть, и отличать одно от другого
