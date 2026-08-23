@@ -42,6 +42,9 @@ const MEDIA_BUCKET = 'post-media';
 /** Сколько уходит удаляемое сообщение. Совпадает с transition в разметке. */
 const REMOVE_MS = 240;
 
+/** Сколько держится подсветка письма, к которому привёл закреп. */
+const SPOTLIGHT_MS = 1500;
+
 /**
  * Реакции. Двадцать самых ходовых, порядком примерно по частоте: первые шесть
  * закрывают подавляющее большинство случаев и стоят на виду, остальные —
@@ -114,6 +117,10 @@ export default function ChatPage() {
   const [removing, setRemoving] = useState<string[]>([]);
   /** Сообщение, которое сейчас тянут влево, и на сколько оно уехало. */
   const [swipe, setSwipe] = useState<{ id: string; dx: number } | null>(null);
+  /** Сообщение, к которому только что перемотали по закрепу. Гаснет само. */
+  const [spotlight, setSpotlight] = useState<string | null>(null);
+  /** Какой из закреплённых показывать следующим: нажатия идут по кругу. */
+  const pinCursor = useRef(0);
   const swipeFrom = useRef<{ x: number; y: number; id: string; own: boolean } | null>(null);
   const timers = useRef<number[]>([]);
 
@@ -463,17 +470,89 @@ export default function ChatPage() {
     setDragX(0);
   }
 
+  /**
+   * Довести до конца переписки.
+   *
+   * Отдельной функцией, потому что зовут её из двух разных мест с разными
+   * намерениями: при открытии — мгновенно (никто не должен видеть, как экран
+   * проматывается сквозь всю историю), при отправке — плавно, чтобы было видно,
+   * что тебя увезли вниз, а не подменили кадр.
+   */
+  function scrollToEnd(smooth = false) {
+    bottomRef.current?.scrollIntoView({ block: 'end', behavior: smooth ? 'smooth' : 'auto' });
+  }
+
+  /** Стоим ли у конца переписки. Запас — на высоту пары строк. */
+  function atEnd() {
+    return window.innerHeight + window.scrollY >= document.body.scrollHeight - 140;
+  }
+
   // Переписку открываем на последнем письме — прокручивать снизу вверх
   // никто не станет.
   useLayoutEffect(() => {
-    bottomRef.current?.scrollIntoView({ block: 'end' });
+    scrollToEnd();
+    // Только на смене собеседника. Раньше здесь стояла длина списка, и любое
+    // пришедшее письмо утаскивало вниз человека, читающего старое, — прямо
+    // из-под пальца. Своя отправка увозит вниз сама (см. send), а чужая теперь
+    // увозит, только если ты и так стоял у конца (см. эффект ниже).
+  }, [userId]);
+
+  /**
+   * Пришло чужое — догоняем, но только если и так стояли внизу.
+   *
+   * Проверку делаем ДО того, как браузер отрисует новое письмо: к моменту
+   * эффекта высота страницы уже выросла, и «стоим внизу» стало бы ложью для
+   * всех. useLayoutEffect с замером в теле работает по той же причине, по
+   * которой не годится useEffect: между ними успевает пройти кадр.
+   */
+  const wasAtEnd = useRef(true);
+  useLayoutEffect(() => {
+    if (wasAtEnd.current) scrollToEnd();
   }, [messages.length]);
+
+  useEffect(() => {
+    function mark() {
+      wasAtEnd.current = atEnd();
+    }
+    mark();
+    window.addEventListener('scroll', mark, { passive: true });
+    return () => window.removeEventListener('scroll', mark);
+  }, []);
+
+  /**
+   * Перемотать к закреплённому и подсветить его.
+   *
+   * По кругу: закреплённых бывает несколько, а полоска показывает один. В
+   * Telegram повторное нажатие ведёт к следующему, и это единственный способ
+   * добраться до остальных, не открывая отдельный список.
+   *
+   * Подсветка обязательна. Без неё экран просто оказывается где-то в середине
+   * истории, и какое из письма то самое — непонятно: прокрутка привела, но не
+   * показала пальцем.
+   */
+  function goToPinned() {
+    if (pinned.length === 0) return;
+    const target = pinned[pinCursor.current % pinned.length];
+    pinCursor.current += 1;
+    document
+      .getElementById(`msg-${target.id}`)
+      ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setSpotlight(target.id);
+    window.setTimeout(() => {
+      setSpotlight((current) => (current === target.id ? null : current));
+    }, SPOTLIGHT_MS);
+  }
 
   async function send(e: SubmitEvent) {
     e.preventDefault();
     const text = body.trim();
     // Снимок без подписи — обычная реплика, а не пустая.
     if ((!text && !photo?.url) || sending) return;
+
+    // Своя отправка всегда увозит к концу, где реплика и появится, — даже если
+    // человек читал старое. Отправить письмо и остаться смотреть на позапрошлый
+    // разговор нельзя: отправленное надо увидеть.
+    wasAtEnd.current = true;
 
     setSending(true);
     setError(null);
@@ -520,6 +599,11 @@ export default function ChatPage() {
         setMessages((prev) => [...prev, draft]);
         setJustSent(draftId);
         setSendDistance(distanceToComposer());
+        // Плавно, а не рывком: отправка — единственный момент, когда экран
+        // едет сам, и человек должен увидеть, что его увезли вниз, а не
+        // обнаружить себя в другом месте переписки. Кадром позже, чтобы
+        // реплика успела занять высоту, иначе «конец» окажется выше её.
+        requestAnimationFrame(() => scrollToEnd(true));
         setReplyTo(null);
         setBody('');
         dropPhoto();
@@ -922,11 +1006,7 @@ export default function ChatPage() {
         {pinned.length > 0 && !selected && (
           <button
             type="button"
-            onClick={() => {
-              document
-                .getElementById(`msg-${pinned[pinned.length - 1].id}`)
-                ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }}
+            onClick={goToPinned}
             className="chat-island chat-pinned mb-2 flex items-center gap-2.5 rounded-2xl px-3 py-2 text-left transition-transform active:scale-[0.99]"
           >
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" className="flex-none">
@@ -1093,7 +1173,9 @@ export default function ChatPage() {
                     // заливка спорила бы с собственным цветом пузыря.
                     boxShadow: selected?.includes(message.id)
                       ? '0 0 0 2px var(--bg), 0 0 0 4px var(--accent)'
-                      : undefined,
+                      : spotlight === message.id
+                        ? '0 0 0 2px var(--bg), 0 0 0 4px var(--accent)'
+                        : undefined,
                     // Прижатая сторона внутри цепочки — единственное место, где
                     // овал размыкается: у идущих подряд реплик одного человека
                     // соседние углы притуплены, и столбик читается как одна
@@ -1194,11 +1276,16 @@ export default function ChatPage() {
 
                 {reactions.length > 0 && (
                   <span
-                    className="-mt-2 flex w-fit items-center gap-1 rounded-full px-2 py-0.5"
+                    // key по составу реакций: без него React считает метку той
+                    // же самой при смене эмодзи, анимация не перезапускается, и
+                    // замена реакции проходит беззвучно — как будто не нажал.
+                    key={reactions.map((r) => r.emoji).join('')}
+                    className="reaction-badge -mt-2 flex w-fit items-center gap-1 rounded-full px-2 py-0.5"
                     style={{
                       alignSelf: mine ? 'flex-end' : 'flex-start',
                       background: 'var(--surface)',
                       border: '1px solid var(--border)',
+                      ['--reaction-origin' as string]: mine ? 'right' : 'left',
                     }}
                   >
                     {reactions.map((reaction) => (
