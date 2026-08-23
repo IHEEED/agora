@@ -556,16 +556,10 @@ export function StoryViewer({
               здесь же — история остаётся на экране, время её стоит. */}
           {story.author.id && (
             <div
-              className="flex min-w-0 flex-1 items-center gap-2 rounded-full px-4 py-3 text-left text-[14px]"
-              style={{
-                // Обводка, а не заливка: сплошная плашка во всю ширину закрыла
-                // бы низ фотографии, а контур по дымке очерчивает поле ввода и
-                // оставляет кадр видимым.
-                border: '1px solid rgba(255,255,255,0.4)',
-                background: 'rgba(255,255,255,0.10)',
-                backdropFilter: 'blur(14px)',
-                WebkitBackdropFilter: 'blur(14px)',
-              }}
+              // Обводка, а не заливка: сплошная плашка во всю ширину закрыла бы
+              // низ фотографии, а контур по дымке очерчивает поле ввода и
+              // оставляет кадр видимым. Материал общий — см. .material-media.
+              className="material-media flex min-w-0 flex-1 items-center gap-2 rounded-full px-4 py-3 text-left text-[14px]"
               onClick={(event) => event.stopPropagation()}
             >
               {replySent ? (
@@ -713,11 +707,12 @@ function StoryAction({
       }}
       aria-label={label}
       aria-pressed={active}
-      className="flex h-10 w-10 flex-none items-center justify-center rounded-full transition-transform active:scale-90"
+      className="material-media flex h-11 w-11 flex-none items-center justify-center rounded-full transition-transform active:scale-90"
       style={{
-        background: active ? 'rgba(255,255,255,0.34)' : 'rgba(255,255,255,0.16)',
-        backdropFilter: 'blur(14px)',
-        WebkitBackdropFilter: 'blur(14px)',
+        // Отданный голос плотнее — но краску кладём поверх материала, а не
+        // вместо него: иначе нажатая кнопка теряла бы стекло и выглядела
+        // плашкой из другого интерфейса.
+        background: active ? 'rgba(255,255,255,0.34)' : undefined,
         color: tint ?? '#ffffff',
       }}
     >

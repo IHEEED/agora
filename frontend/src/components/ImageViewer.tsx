@@ -264,13 +264,8 @@ export function ImageViewer({
       <button
         onClick={closeWithReturn}
         aria-label="Закрыть"
-        className="absolute right-3 flex h-12 w-12 items-center justify-center rounded-full text-white transition-transform active:scale-90"
-        style={{
-          top: 'calc(12px + env(safe-area-inset-top))',
-          background: 'rgba(255, 255, 255, 0.14)',
-          backdropFilter: 'blur(12px)',
-          WebkitBackdropFilter: 'blur(12px)',
-        }}
+        className="material-media absolute right-3 flex h-12 w-12 items-center justify-center rounded-full transition-transform active:scale-90"
+        style={{ top: 'calc(12px + env(safe-area-inset-top))' }}
       >
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
           <path d="M6 6l12 12M18 6 6 18" />
@@ -280,12 +275,9 @@ export function ImageViewer({
       {images.length > 1 && (
         <>
           <span
-            className="font-num absolute left-1/2 -translate-x-1/2 rounded-full px-3 py-1 text-[13px] font-medium text-white/90"
+            className="material-media font-num absolute left-1/2 -translate-x-1/2 rounded-full px-3 py-1 text-[13px] font-medium"
             style={{
               top: 'calc(18px + env(safe-area-inset-top))',
-              background: 'rgba(255, 255, 255, 0.14)',
-              backdropFilter: 'blur(12px)',
-              WebkitBackdropFilter: 'blur(12px)',
             }}
           >
             {index + 1} / {images.length}
