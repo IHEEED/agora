@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { apiFetch } from '@/lib/api';
 import { invalidate, useApiData } from '@/lib/useApiData';
+import { MediaEditor } from '@/components/MediaEditor';
 import { BottomSheet } from '@/components/BottomSheet';
 import { useScreenExit } from '@/lib/screenExit';
 import { markGoingBack } from '@/lib/navDirection';
@@ -242,6 +243,8 @@ function CreatePost() {
    * по индексу пришлось бы при каждой отмене загрузки.
    */
   const [shots, setShots] = useState<Shot[]>([]);
+  /** Снимок, который сейчас кадрируют. Пусто — окно закрыто. */
+  const [cropping, setCropping] = useState<Shot | null>(null);
   const uploading = shots.some((shot) => shot.url === null);
 
 
@@ -370,6 +373,37 @@ function CreatePost() {
           current.map((item) => (item.key === shot.key ? { ...item, url: data.publicUrl } : item))
         );
       })
+    );
+  }
+
+  /**
+   * Заменить снимок подрезанным.
+   *
+   * Старый файл в хранилище не удаляем: запись ещё не опубликована, и адрес
+   * нигде не записан — он просто останется висеть. Это плата за простоту, и
+   * платить её лучше здесь, чем ловить состояние «удалили, а замена не
+   * загрузилась» и оставлять человека без снимка вообще.
+   */
+  async function replaceShot(key: string, blob: Blob) {
+    const preview = URL.createObjectURL(blob);
+    setCropping(null);
+    setShots((current) =>
+      current.map((shot) => (shot.key === key ? { ...shot, preview, url: null } : shot))
+    );
+
+    const path = `${session?.user.id ?? 'anon'}/${key}-crop.jpg`;
+    const { error: uploadError } = await supabase.storage
+      .from(MEDIA_BUCKET)
+      .upload(path, blob, { cacheControl: '3600', upsert: true });
+
+    if (uploadError) {
+      setError(uploadError.message);
+      return;
+    }
+
+    const { data } = supabase.storage.from(MEDIA_BUCKET).getPublicUrl(path);
+    setShots((current) =>
+      current.map((shot) => (shot.key === key ? { ...shot, url: data.publicUrl } : shot))
     );
   }
 
@@ -821,6 +855,24 @@ function CreatePost() {
                     <path d="M6 6l12 12M18 6 6 18" />
                   </svg>
                 </button>
+
+                {/* Кадрирование — кнопкой на снимке, а не окном при выборе.
+                    Выбирают здесь сразу несколько файлов, и окно на каждом
+                    превратило бы добавление четырёх снимков в четыре
+                    обязательных решения подряд. Кнопка оставляет выбор за
+                    человеком: подрезать нужно обычно один из четырёх, и
+                    остальные три не должны за него платить. */}
+                <button
+                  type="button"
+                  onClick={() => setCropping(shot)}
+                  aria-label="Подогнать кадр"
+                  className="absolute bottom-1.5 right-1.5 flex h-7 w-7 items-center justify-center rounded-full bg-black/55 text-white transition-transform active:scale-90"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M6 2v14a2 2 0 0 0 2 2h14" />
+                    <path d="M18 22V8a2 2 0 0 0-2-2H2" />
+                  </svg>
+                </button>
               </div>
             ))}
           </div>
@@ -915,6 +967,16 @@ function CreatePost() {
         </div>
 
         {error && <p className="text-[14px]" style={{ color: 'var(--down)' }}>{error}</p>}
+
+        {/* Подгонка кадра. Работает по превью, а не по адресу в хранилище:
+            превью — это локальный файл, а по чужому адресу canvas отказался бы
+            отдавать пиксели, если на бакете нет разрешающего заголовка. */}
+        <MediaEditor
+          open={cropping !== null}
+          src={cropping?.preview ?? null}
+          onCancel={() => setCropping(null)}
+          onApply={(blob) => cropping && void replaceShot(cropping.key, blob)}
+        />
     </form>,
     <button
       type="submit"

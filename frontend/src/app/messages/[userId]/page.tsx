@@ -16,6 +16,7 @@ import { useSession } from '@/lib/useSession';
 import { invalidate, useApiData } from '@/lib/useApiData';
 import { Message, UserProfile, UserSummary } from '@/lib/types';
 import { DefaultAvatar } from '@/components/DefaultAvatar';
+import { MediaEditor } from '@/components/MediaEditor';
 import { MessageActions } from '@/components/MessageActions';
 import { BottomSheet } from '@/components/BottomSheet';
 import { PersonMenuSheet } from '@/components/PersonMenuSheet';
@@ -191,6 +192,8 @@ export default function ChatPage() {
    */
   const photoInputRef = useRef<HTMLInputElement>(null);
   const [photo, setPhoto] = useState<{ preview: string; url: string | null } | null>(null);
+  /** Снимок, который сейчас кадрируют. Пусто — окно подгонки закрыто. */
+  const [cropping, setCropping] = useState<string | null>(null);
   const voice = useVoiceRecorder();
 
   async function upload(file: Blob, extension: string): Promise<string | null> {
@@ -219,7 +222,14 @@ export default function ChatPage() {
     return supabase.storage.from(MEDIA_BUCKET).getPublicUrl(path).data.publicUrl;
   }
 
-  async function pickPhoto(event: React.ChangeEvent<HTMLInputElement>) {
+  /**
+   * Выбранный файл сначала показываем в кадре, и только потом отправляем.
+   *
+   * Раньше снимок уходил на сервер прямо из проводника — то есть ровно таким,
+   * каким его сняла камера: с лишним небом сверху, повёрнутым, на четыре
+   * мегабайта. Поправить было нечем, оставалось удалить и переснять.
+   */
+  function pickPhoto(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     // Сбрасываем поле сразу: без этого повторный выбор того же файла не даёт
     // события change, и снимок «не выбирается» со второго раза.
@@ -227,9 +237,20 @@ export default function ChatPage() {
     if (!file) return;
 
     setError(null);
-    const preview = URL.createObjectURL(file);
+    setCropping(URL.createObjectURL(file));
+  }
+
+  /** Кадр выбран — грузим уже обрезанное и сжатое. */
+  async function uploadCropped(blob: Blob) {
+    const source = cropping;
+    setCropping(null);
+
+    const preview = URL.createObjectURL(blob);
     setPhoto({ preview, url: null });
-    const url = await upload(file, file.name.split('.').pop() ?? 'jpg');
+    // Исходник больше не нужен: дальше живёт только обрезанное.
+    if (source) URL.revokeObjectURL(source);
+
+    const url = await upload(new File([blob], 'photo.jpg', { type: blob.type }), 'jpg');
     if (!url) {
       URL.revokeObjectURL(preview);
       setPhoto(null);
@@ -1535,6 +1556,18 @@ export default function ChatPage() {
 
           document.body
         )}
+
+      {/* Подгонка снимка перед отправкой. Отменили — исходник отпускаем:
+          blob-адреса живут до перезагрузки страницы и сами не убираются. */}
+      <MediaEditor
+        open={cropping !== null}
+        src={cropping}
+        onCancel={() => {
+          if (cropping) URL.revokeObjectURL(cropping);
+          setCropping(null);
+        }}
+        onApply={(blob) => void uploadCropped(blob)}
+      />
 
       <MessageActions
         open={menuFor !== null}
