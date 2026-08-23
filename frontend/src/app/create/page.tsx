@@ -17,6 +17,7 @@ import { isPhoneNotVerifiedError, usePhoneGate } from '@/components/PhoneGateCon
 import { CommunityAvatar } from '@/components/CommunityAvatar';
 import { DefaultAvatar } from '@/components/DefaultAvatar';
 import { HintDot } from '@/components/HintDot';
+import { BanNotice } from '@/components/BanNotice';
 import { useT } from '@/lib/i18n';
 
 /** Бакет в Supabase Storage, куда складываются картинки постов. */
@@ -641,6 +642,11 @@ function CreatePost() {
         transition: 'opacity var(--step-ms) ease, transform var(--step-ms) var(--enter-ease)',
       }}
     >
+        {/* Первым, до всего остального: если писать нельзя, об этом надо
+            узнать до того, как текст набран, а не на кнопке «Опубликовать».
+            Ничего не рисует, пока бана нет. */}
+        <BanNotice />
+
         {/* Возврат к выбору тоже с паузой: экран написания успевает погаснуть,
             и шаги не меняются встык, одним кадром. */}
         <button

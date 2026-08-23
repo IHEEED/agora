@@ -37,9 +37,10 @@ type Item = {
  * Высоту правим прямо в разметке из layout-эффекта, а не состоянием: это
  * измерение, а не данные, и лишний проход рендера ему ни к чему.
  *
- * Жалоба никуда не уходит: таблицы под неё нет, и делать вид, что письмо
- * улетело модератору, было бы враньём. Поэтому выбранная причина
- * подтверждается прямо здесь, а отправка появится вместе с бэкендом.
+ * Жалоба уходит на сервер и ложится в очередь модератора. Экран подтверждения
+ * показывается и тогда, когда сервер ответил «уже жаловались»: для человека это
+ * один и тот же исход — жалоба лежит, где должна, — а разница между «принято» и
+ * «принято ещё в прошлый раз» ему ничего не даёт, кроме повода нажать снова.
  */
 export function PostMenuSheet({
   open,
@@ -71,6 +72,7 @@ export function PostMenuSheet({
   const { t } = useT();
   const [step, setStep] = useState<Step>('menu');
   const [copied, setCopied] = useState(false);
+  const [reportFailed, setReportFailed] = useState(false);
 
   const stackRef = useRef<HTMLDivElement>(null);
   const stepRefs = useRef<Record<Step, HTMLDivElement | null>>({
@@ -87,6 +89,7 @@ export function PostMenuSheet({
     if (open) {
       setStep('menu');
       setCopied(false);
+      setReportFailed(false);
     }
   }
 
@@ -96,7 +99,30 @@ export function PostMenuSheet({
     if (!stack || !active) return;
 
     stack.style.height = `${active.offsetHeight}px`;
-  }, [step, open, copied, isMine]);
+    // reportFailed в зависимостях не для красоты: текст подтверждения на
+    // неудаче другой длины, и без пересчёта шторка осталась бы прежней высоты.
+  }, [step, open, copied, isMine, reportFailed]);
+
+  /**
+   * Причина уходит на сервер коротким словом, а не ключом перевода: в базе
+   * лежит `spam`, а не `reason.spam`, иначе отчётность модератора зависела бы
+   * от того, как в интерфейсе называются строки.
+   */
+  async function report(reasonKey: TranslationKey) {
+    setStep('done');
+    setReportFailed(false);
+
+    try {
+      await apiFetch('/reports', {
+        method: 'POST',
+        body: JSON.stringify({ postId, reason: reasonKey.replace('reason.', '') }),
+      });
+    } catch {
+      // Шаг уже сменился — возвращать человека к списку причин поздно и
+      // незачем. Честнее сказать на том же экране, что не дошло.
+      setReportFailed(true);
+    }
+  }
 
   async function copyLink() {
     try {
@@ -264,7 +290,7 @@ export function PostMenuSheet({
               <button
                 key={reason}
                 type="button"
-                onClick={() => setStep('done')}
+                onClick={() => report(reason)}
                 className="rounded-xl px-1 py-3.5 text-left text-[15px] text-[var(--text)] transition-colors hover:bg-[var(--surface-2)]"
               >
                 {t(reason)}
@@ -295,8 +321,9 @@ export function PostMenuSheet({
               </svg>
             </span>
             <p className="text-[14.5px] leading-relaxed text-[var(--text-muted)]">
-              Спасибо, мы посмотрим. Отправка модераторам появится вместе с их
-              разделом — сейчас жалоба дальше этого экрана не уходит.
+              {reportFailed
+                ? 'Жалоба не ушла — проверьте связь и попробуйте ещё раз.'
+                : 'Спасибо, мы посмотрим. Жалоба ушла модераторам.'}
             </p>
             <button
               type="button"

@@ -1,6 +1,7 @@
 import { Response, Router } from 'express';
 import { supabase } from '../config/supabase';
-import { optionalAuth, requireAuth } from '../middleware/auth';
+import { hiddenUserIds } from '../lib/blocks';
+import { isBanned, optionalAuth, requireAuth } from '../middleware/auth';
 import { userColumns } from '../config/schema';
 
 /** Человек в выдаче. Аватарки может не быть — см. config/schema. */
@@ -52,11 +53,48 @@ router.get('/suggestions', optionalAuth, async (req, res) => {
   }
 
   const following = await followingIds(me);
+  // Предлагать подписаться на того, кого человек заблокировал, — худшее, что
+  // может сделать раздел рекомендаций.
+  const hidden = await hiddenUserIds(me);
   const suggestions = data
-    .filter((user) => user.id !== me && !following.has(user.id))
+    .filter((user) => user.id !== me && !following.has(user.id) && !hidden.has(user.id))
     .slice(0, 10);
 
   res.json(suggestions);
+});
+
+/**
+ * Всё о себе одним запросом.
+ *
+ * Роль, бан и запас приглашений спрашиваются на каждом экране: показать ли
+ * раздел модерации, не пора ли объяснить, почему не отправляется сообщение,
+ * сколько кодов осталось. Тремя запросами это было бы три ожидания подряд на
+ * первом же кадре.
+ *
+ * Стоит выше `/:id` намеренно: иначе Express примет «me» за идентификатор.
+ */
+router.get('/me', requireAuth, async (req, res) => {
+  const { data, error } = await supabase
+    .from('users')
+    .select('id, username, karma, role, banned_until, ban_reason, invites_left, created_at')
+    .eq('id', req.user!.id)
+    .maybeSingle();
+
+  if (error || !data) {
+    console.error('users: me read failed', error);
+    return res.status(500).json({ error: 'Не удалось прочитать профиль' });
+  }
+
+  const banned = isBanned(data.banned_until);
+
+  res.json({
+    ...data,
+    // Отдаём вычисленное «забанен прямо сейчас», а не только дату: срок мог
+    // истечь, и сравнивать его с часами браузера — значит доверять часам
+    // браузера. Они бывают сдвинуты, и как раз у того, кто хочет их сдвинуть.
+    banned,
+    isModerator: data.role === 'moderator' || data.role === 'admin',
+  });
 });
 
 /**

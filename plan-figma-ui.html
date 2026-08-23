@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>План дизайна интерфейса соцсети в Figma</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f6f6f3;
+    --surface:#ffffff;
+    --ink:#1a1d23;
+    --ink-soft:#5a6070;
+    --ink-faint:#8a8f9c;
+    --border:#e3e3dd;
+    --up:#ff4517;
+    --up-soft:#fff1ec;
+    --down:#4a5df0;
+    --down-soft:#eef0ff;
+    --good:#1c9d5b;
+    --good-soft:#e9f8f0;
+    --bad:#e0393e;
+    --bad-soft:#fdecec;
+    --accent:#f6a01a;
+    --radius:14px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0; background:var(--bg); color:var(--ink); font-family:'Inter',sans-serif; line-height:1.6; font-size:16px;}
+  h1,h2,h3,h4{font-family:'Space Grotesk',sans-serif; margin:0; letter-spacing:-0.01em;}
+  code,.mono{font-family:'JetBrains Mono',monospace; font-size:0.88em;}
+
+  /* ---- HERO ---- */
+  .hero{padding:64px 24px 48px; max-width:920px; margin:0 auto; position:relative;}
+  .hero-badge{display:inline-flex; align-items:center; gap:8px; background:var(--up-soft); color:var(--up);
+    font-family:'JetBrains Mono',monospace; font-size:13px; font-weight:500; padding:6px 14px; border-radius:999px; margin-bottom:22px;}
+  .hero h1{font-size:clamp(32px,5vw,50px); font-weight:700; line-height:1.1; max-width:780px;}
+  .hero .accent{color:var(--up);}
+  .hero p.lead{margin-top:20px; font-size:18px; color:var(--ink-soft); max-width:660px;}
+  .frame-decor{position:absolute; right:24px; top:64px; display:flex; flex-direction:column; align-items:flex-end; gap:4px; opacity:0.9;}
+  .frame-decor .fr{font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--ink-faint); border:1.5px dashed var(--ink-faint); border-radius:6px; padding:3px 10px;}
+  .frame-decor .fr.on{color:var(--up); border-color:var(--up); border-style:solid;}
+  @media (max-width:720px){ .frame-decor{display:none;} }
+
+  /* ---- TOC ---- */
+  .toc-wrap{max-width:920px; margin:0 auto 56px; padding:0 24px;}
+  .toc{background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:22px 26px; display:grid; grid-template-columns:1fr 1fr; gap:6px 28px;}
+  @media (max-width:640px){ .toc{grid-template-columns:1fr;} }
+  .toc-title{grid-column:1/-1; font-family:'JetBrains Mono',monospace; font-size:12px; text-transform:uppercase; letter-spacing:0.08em; color:var(--ink-faint); margin-bottom:10px;}
+  .toc a{color:var(--ink); text-decoration:none; font-size:14.5px; padding:5px 0; display:flex; gap:8px; border-bottom:1px dashed transparent;}
+  .toc a:hover{border-bottom-color:var(--ink-faint);}
+  .toc a .n{color:var(--ink-faint); font-family:'JetBrains Mono',monospace; font-size:13px; min-width:20px;}
+
+  /* ---- SECTIONS ---- */
+  section{max-width:920px; margin:0 auto; padding:0 24px 64px;}
+  .sec-head{margin-bottom:28px; scroll-margin-top:24px;}
+  .sec-eyebrow{font-family:'JetBrains Mono',monospace; font-size:12.5px; color:var(--up); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:10px; display:block;}
+  .sec-head h2{font-size:clamp(24px,3.4vw,32px); font-weight:700;}
+  .sec-head p.desc{color:var(--ink-soft); margin-top:12px; font-size:15.5px; max-width:680px;}
+
+  .callout{background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:20px 22px; margin:18px 0; font-size:15px;}
+  .callout.tip{border-left:4px solid var(--accent);}
+  .callout.warn{border-left:4px solid var(--down);}
+  .callout p{margin:6px 0;}
+
+  /* decision blocks (reused from stack plan) */
+  .problem{background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:24px 26px; margin-bottom:22px;}
+  .problem-title{display:flex; align-items:baseline; gap:10px; margin-bottom:6px; flex-wrap:wrap;}
+  .problem-title h3{font-size:19px; font-weight:600;}
+  .problem-title .tag{font-family:'JetBrains Mono',monospace; font-size:11.5px; color:var(--ink-faint); background:var(--bg); padding:2px 9px; border-radius:999px; border:1px solid var(--border);}
+  .problem-why{color:var(--ink-soft); font-size:14.5px; margin-bottom:16px;}
+
+  .options{display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:14px; margin-bottom:14px;}
+  .option{border:1px solid var(--border); border-radius:10px; padding:16px 16px 14px; background:var(--bg);}
+  .option.picked{border-color:var(--up); background:var(--up-soft);}
+  .option h4{font-size:15px; font-weight:600; margin-bottom:10px; display:flex; align-items:center; gap:8px;}
+  .option.picked h4::after{content:"выбор"; font-family:'JetBrains Mono',monospace; font-size:10.5px; font-weight:500; background:var(--up); color:#fff; padding:2px 8px; border-radius:999px; margin-left:auto;}
+  .pc{margin:0 0 4px; padding:0; list-style:none;}
+  .pc li{display:flex; gap:8px; font-size:13.8px; margin-bottom:5px; align-items:flex-start;}
+  .pc li .m{flex-shrink:0; font-weight:700; width:16px; text-align:center;}
+  .pc.plus li .m{color:var(--good);}
+  .pc.minus li .m{color:var(--bad);}
+
+  .verdict{display:flex; gap:10px; align-items:flex-start; background:var(--up-soft); border-radius:10px; padding:14px 16px; font-size:14.5px; margin-top:6px;}
+  .verdict .icon{color:var(--up); font-size:17px; flex-shrink:0;}
+  .verdict b{color:var(--up);}
+
+  /* checklist */
+  .checklist{display:grid; gap:12px;}
+  .check-item{background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:16px 18px; display:flex; gap:14px;}
+  .check-item .num{font-family:'JetBrains Mono',monospace; color:var(--ink-faint); font-size:13px; flex-shrink:0; padding-top:2px;}
+  .check-item h4{font-size:15px; margin-bottom:4px;}
+  .check-item p{margin:0; font-size:13.8px; color:var(--ink-soft);}
+
+  /* concept glossary cards */
+  .concepts{display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:14px;}
+  .concept{background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:18px 18px 16px;}
+  .concept .letter{width:32px; height:32px; border-radius:8px; background:var(--up-soft); color:var(--up); display:flex; align-items:center; justify-content:center; font-family:'JetBrains Mono',monospace; font-weight:700; font-size:14px; margin-bottom:10px;}
+  .concept h4{font-size:15.5px; margin-bottom:6px;}
+  .concept p{margin:0; font-size:13.8px; color:var(--ink-soft);}
+  .concept .analogy{margin-top:8px; font-size:12.5px; color:var(--ink-faint); font-style:italic;}
+
+  /* screen spec card */
+  .screen{background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:24px 26px; margin-bottom:22px;}
+  .screen-title{display:flex; align-items:baseline; gap:10px; margin-bottom:6px; flex-wrap:wrap;}
+  .screen-title h3{font-size:19px; font-weight:600;}
+  .screen-title .tag{font-family:'JetBrains Mono',monospace; font-size:11.5px; color:var(--ink-faint); background:var(--bg); padding:2px 9px; border-radius:999px; border:1px solid var(--border);}
+  .screen-purpose{color:var(--ink-soft); font-size:14.5px; margin-bottom:18px;}
+  .screen h5{font-family:'JetBrains Mono',monospace; font-size:12px; text-transform:uppercase; letter-spacing:0.06em; color:var(--ink-faint); margin-bottom:10px; margin-top:18px;}
+  .screen h5:first-of-type{margin-top:0;}
+  .elements{display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:7px 22px; margin:0; padding:0; list-style:none;}
+  .elements li{font-size:13.8px; display:flex; gap:8px; align-items:flex-start; color:var(--ink);}
+  .elements li::before{content:"—"; color:var(--ink-faint); flex-shrink:0;}
+  .steps{counter-reset:step; margin:0; padding:0; list-style:none;}
+  .steps li{counter-increment:step; display:flex; gap:12px; font-size:14px; margin-bottom:11px; align-items:flex-start;}
+  .steps li::before{content:counter(step); flex-shrink:0; width:22px; height:22px; border-radius:50%; background:var(--up); color:#fff; font-family:'JetBrains Mono',monospace; font-size:12px; font-weight:600; display:flex; align-items:center; justify-content:center; margin-top:1px;}
+
+  /* kbd */
+  .kbd{display:inline-block; font-family:'JetBrains Mono',monospace; font-size:12px; background:var(--bg); border:1px solid var(--border); border-bottom-width:2px; border-radius:5px; padding:2px 7px; margin:0 1px; white-space:nowrap;}
+  .kbd-table{width:100%; border-collapse:collapse; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; margin-top:8px;}
+  .kbd-table th,.kbd-table td{text-align:left; padding:11px 16px; font-size:14px; border-bottom:1px solid var(--border);}
+  .kbd-table th{background:var(--bg); font-family:'JetBrains Mono',monospace; font-size:12px; text-transform:uppercase; letter-spacing:0.05em; color:var(--ink-faint);}
+  .kbd-table tr:last-child td{border-bottom:none;}
+
+  /* roadmap timeline */
+  .timeline{position:relative; margin-top:10px; padding-left:28px;}
+  .timeline::before{content:""; position:absolute; left:9px; top:6px; bottom:6px; width:2px; background:var(--border);}
+  .phase{position:relative; margin-bottom:22px;}
+  .phase::before{content:""; position:absolute; left:-28px; top:4px; width:12px; height:12px; border-radius:50%; background:var(--up); border:3px solid var(--up-soft);}
+  .phase h4{font-size:16px; margin-bottom:4px;}
+  .phase .goal{font-size:13.5px; color:var(--ink-faint); font-family:'JetBrains Mono',monospace; margin-bottom:6px;}
+  .phase p{margin:0; font-size:14.5px; color:var(--ink-soft);}
+
+  /* color / type swatches */
+  .swatches{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; margin:14px 0 18px;}
+  .swatch{border:1px solid var(--border); border-radius:10px; overflow:hidden; background:var(--surface);}
+  .swatch .fill{height:52px;}
+  .swatch .label{padding:8px 10px; font-size:12.5px;}
+  .swatch .label b{display:block; font-size:13px; margin-bottom:1px;}
+  .swatch .label .hex{color:var(--ink-faint); font-family:'JetBrains Mono',monospace; font-size:11.5px;}
+
+  table{width:100%; border-collapse:collapse; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden;}
+  th,td{text-align:left; padding:12px 16px; font-size:14px; border-bottom:1px solid var(--border);}
+  th{background:var(--bg); font-family:'JetBrains Mono',monospace; font-size:12px; text-transform:uppercase; letter-spacing:0.05em; color:var(--ink-faint);}
+  tr:last-child td{border-bottom:none;}
+
+  footer{max-width:920px; margin:0 auto; padding:0 24px 80px; color:var(--ink-faint); font-size:13.5px;}
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <div class="frame-decor">
+    <span class="fr">Wireframe</span>
+    <span class="fr on">Дизайн-система</span>
+    <span class="fr">Прототип</span>
+  </div>
+  <div class="hero-badge">▲ figma · с нуля · 0 → кликабельный макет</div>
+  <h1>Как спроектировать интерфейс <span class="accent">соцсети с апвоутами</span> в Figma — если вы никогда её не открывали</h1>
+  <p class="lead">Продолжение плана: стек и архитектура уже выбраны, теперь очередь интерфейса. Здесь — пошаговая инструкция, как с нуля дойти до кликabельного макета всех экранов (лента, пост, профиль и остальные), который потом можно отдать в разработку.</p>
+</div>
+
+<div class="toc-wrap">
+  <div class="toc">
+    <div class="toc-title">Содержание</div>
+    <a href="#why"><span class="n">01</span> Зачем сначала Figma, а не код</a>
+    <a href="#start"><span class="n">02</span> Первые шаги: аккаунт и интерфейс</a>
+    <a href="#glossary"><span class="n">03</span> Словарь Figma: 7 понятий</a>
+    <a href="#system"><span class="n">04</span> Дизайн-система: цвет, шрифт, сетка</a>
+    <a href="#comp-card"><span class="n">05</span> Компонент: карточка поста</a>
+    <a href="#comp-vote"><span class="n">06</span> Компонент: виджет голосования</a>
+    <a href="#feed"><span class="n">07</span> Экран: Лента</a>
+    <a href="#post"><span class="n">08</span> Экран: Пост и комментарии</a>
+    <a href="#profile"><span class="n">09</span> Экран: Профиль</a>
+    <a href="#create"><span class="n">10</span> Экран: Создание поста</a>
+    <a href="#community"><span class="n">11</span> Экран: Сообщество</a>
+    <a href="#other"><span class="n">12</span> Остальные экраны</a>
+    <a href="#responsive"><span class="n">13</span> Сайт и приложение: что переиспользовать</a>
+    <a href="#prototype"><span class="n">14</span> Прототип: соединяем экраны</a>
+    <a href="#handoff"><span class="n">15</span> Передача в разработку</a>
+    <a href="#roadmap"><span class="n">16</span> Поэтапный план работы</a>
+  </div>
+</div>
+
+<!-- 01 WHY -->
+<section id="why">
+  <div class="sec-head">
+    <span class="sec-eyebrow">01 / Фундамент</span>
+    <h2>Зачем сначала Figma, а не сразу код</h2>
+    <p class="desc">В общем плане проекта Фаза 0 уже отводила 1–2 недели на макет в Figma до первой строчки кода — вот детальная инструкция именно для этого этапа.</p>
+  </div>
+  <div class="callout">
+    <p>Пока экран существует только в коде, любое изменение — «подвинуть кнопку», «сделать карточку компактнее» — это правки в CSS/JSX и пересборка. В Figma то же самое — это перетаскивание мышкой за секунды, без единой строчки кода. Поэтому дешевле ошибиться и переделать макет 10 раз, чем один раз переделать готовый экран в React.</p>
+    <p style="margin-top:10px; color:var(--ink-soft)">Второй эффект: у вас три «фасада» — сайт, iOS- и Android-приложение — которые показывают одни и те же посты, голоса и профили. Если сначала спроектировать переиспользуемые компоненты (карточка поста, кнопка голосования, аватар) в Figma, то и разработчик (тоже вы) переиспользует их логику в коде, а не изобретает вёрстку заново для каждого экрана.</p>
+  </div>
+</section>
+
+<!-- 02 START -->
+<section id="start">
+  <div class="sec-head">
+    <span class="sec-eyebrow">02 / Старт</span>
+    <h2>Первые шаги: аккаунт и интерфейс программы</h2>
+  </div>
+  <div class="callout">
+    <p><b>Регистрация:</b> зайдите на <span class="mono">figma.com</span>, зарегистрируйтесь бесплатно (почта или Google). Работает прямо в браузере, ничего устанавливать не обязательно — есть и десктопное приложение, но для старта хватит вкладки браузера.</p>
+    <p><b>Бесплатный тариф:</b> личные черновики (Drafts) не ограничены по количеству — для одного человека, работающего вне команды, этого достаточно на весь проект. Единственное ограничение, которое встретится позже — режим <b>Dev Mode</b> для передачи разработчику недоступен на бесплатном тарифе; в разделе 15 показана бесплatная альтернатива.</p>
+    <p><b>Создание файла:</b> на главном экране нажмите «+ Design file» — откроется пустой холст. Сразу переименуйте файл сверху слева, например «Соцсеть — UI».</p>
+  </div>
+  <div class="problem">
+    <div class="problem-title"><h3>Из чего состоит окно программы</h3></div>
+    <ul class="elements" style="margin-bottom:4px;">
+      <li><b>Слева</b> — панель <span class="mono">Layers</span> (список всех объектов на текущем экране, как папки и файлы) и вкладка <span class="mono">Assets</span> (ваши сохранённые компоненты)</li>
+      <li><b>Центр</b> — холст (canvas), бесконечное полотно, на котором рядом друг с другом располагаются все экраны</li>
+      <li><b>Справа</b> — панель <span class="mono">Design</span> (свойства выбранного объекта: размер, цвет, отступы) и вкладка <span class="mono">Prototype</span> (связи между экранами, раздел 14)</li>
+      <li><b>Сверху слева</b> — тулбар: инструменты Move, Frame, фигуры, текст, комментарий</li>
+    </ul>
+  </div>
+</section>
+
+<!-- 03 GLOSSARY -->
+<section id="glossary">
+  <div class="sec-head">
+    <span class="sec-eyebrow">03 / Словарь</span>
+    <h2>7 понятий Figma, без которых никуда</h2>
+    <p class="desc">Дальше в плане эти слова используются постоянно — лучше один раз прочитать, что они значат, чем гадать по ходу дела.</p>
+  </div>
+  <div class="concepts">
+    <div class="concept">
+      <div class="letter">01</div>
+      <h4>Frame (фрейм)</h4>
+      <p>Прямоугольная область фиксированного размера — это и есть «экран». Клавиша <span class="kbd">F</span>, справа в панели можно выбрать готовый пресет размера, например «iPhone 14» или «Desktop».</p>
+      <div class="analogy">Аналогия: лист бумаги, на котором рисуется один конкретный экран приложения.</div>
+    </div>
+    <div class="concept">
+      <div class="letter">02</div>
+      <h4>Auto Layout</h4>
+      <p>Превращает группу элементов в «резиновый» контейнер: сам расставляет отступы между элементами и растягивается при добавлении нового. Без этого при любой правке пришлось бы вручную двигать всё, что стоит ниже.</p>
+      <div class="analogy">Аналогия: flexbox из CSS, только с визуальными ползунками вместо кода.</div>
+    </div>
+    <div class="concept">
+      <div class="letter">03</div>
+      <h4>Component / Instance</h4>
+      <p>Component — «эталон» элемента (например, карточка поста), Instance — его копия на экране. Меняете эталон один раз — меняются все копии сразу, во всех экранах, где они используются.</p>
+      <div class="analogy">Аналогия: как переиспользуемый React-компонент — один источник правды для всех мест использования.</div>
+    </div>
+    <div class="concept">
+      <div class="letter">04</div>
+      <h4>Variants</h4>
+      <p>Разные состояния одного компонента, объединённые в один переключаемый набор: например, кнопка голосования — «обычная», «нажат апвоут», «нажат даунвоут».</p>
+      <div class="analogy">Аналогия: пропс <span class="mono">state</span> у компонента, который меняет его вид.</div>
+    </div>
+    <div class="concept">
+      <div class="letter">05</div>
+      <h4>Constraints</h4>
+      <p>Правило, как элемент ведёт себя при изменении размера фрейма — «прилипнуть к левому краю», «растянуться по ширине». Важно для адаптации одного макета под разные экраны.</p>
+      <div class="analogy">Аналогия: правила позиционирования, как <span class="mono">position: sticky</span> в вёрстке.</div>
+    </div>
+    <div class="concept">
+      <div class="letter">06</div>
+      <h4>Styles (цвет / текст)</h4>
+      <p>Именованный набор значений — например, цвет «Up / Orange» или текстовый стиль «Заголовок H2» — применяется в один клик вместо ручного подбора значений каждый раз.</p>
+      <div class="analogy">Аналогия: CSS-переменные <span class="mono">--up</span> и классы типографики.</div>
+    </div>
+    <div class="concept">
+      <div class="letter">07</div>
+      <h4>Prototype</h4>
+      <p>Режим, в котором экраны соединяются стрелками-переходами: «нажатие на карточку поста → открывает экран поста». Результат — кликабельный макет, который можно открыть по ссылке как настоящее приложение.</p>
+      <div class="analogy">Аналогия: роутинг между страницами, но без единой строчки кода.</div>
+    </div>
+  </div>
+</section>
+
+<!-- 04 SYSTEM -->
+<section id="system">
+  <div class="sec-head">
+    <span class="sec-eyebrow">04 / Решение</span>
+    <h2>Дизайн-система: делаем один раз до любых экранов</h2>
+    <p class="desc">Соблазн — сразу открыть фрейм и рисовать ленту. Правильный порядок — наоборот: сначала зафиксировать цвета, шрифты и отступы, чтобы потом не перекрашивать 40 элементов вручную.</p>
+  </div>
+
+  <div class="problem">
+    <div class="problem-title"><h3>Цвет: сохраните палитру как Color Styles</h3></div>
+    <div class="swatches">
+      <div class="swatch"><div class="fill" style="background:#ff4517"></div><div class="label"><b>Up / Accent</b><span class="hex">#ff4517</span></div></div>
+      <div class="swatch"><div class="fill" style="background:#4a5df0"></div><div class="label"><b>Down</b><span class="hex">#4a5df0</span></div></div>
+      <div class="swatch"><div class="fill" style="background:#1a1d23"></div><div class="label"><b>Ink</b><span class="hex">#1a1d23</span></div></div>
+      <div class="swatch"><div class="fill" style="background:#5a6070"></div><div class="label"><b>Ink Soft</b><span class="hex">#5a6070</span></div></div>
+      <div class="swatch"><div class="fill" style="background:#8a8f9c"></div><div class="label"><b>Ink Faint</b><span class="hex">#8a8f9c</span></div></div>
+      <div class="swatch"><div class="fill" style="background:#f6f6f3; border-bottom:1px solid var(--border)"></div><div class="label"><b>Background</b><span class="hex">#f6f6f3</span></div></div>
+    </div>
+    <div class="steps">
+      <li>Нарисуйте прямоугольник, залейте нужным цветом (панель Fill справа)</li>
+      <li>Кликните на кружок рядом с заливкой → значок «стиль» (четыре точки) → «+»</li>
+      <li>Назовите по смыслу, не по цвету: <span class="mono">Up / Accent</span>, а не «оранжевый» — при смене оттенка имя останется верным</li>
+      <li>Повторите для 6–8 базовых цветов: акцент, фон, поверхность, три оттенка текста, цвет ошибки/успеха</li>
+    </div>
+  </div>
+
+  <div class="problem">
+    <div class="problem-title"><h3>Шрифт: два семейства, не больше</h3></div>
+    <div class="options">
+      <div class="option picked">
+        <h4>Space Grotesk + Inter</h4>
+        <ul class="pc plus">
+          <li><span class="m">+</span>Space Grotesk — для заголовков, у него характерный «инженерный» рисунок, хорошо читается крупным кеглем</li>
+          <li><span class="m">+</span>Inter — для основного текста, один из самых читаемых UI-шрифтов, бесплатный (Google Fonts)</li>
+        </ul>
+      </div>
+      <div class="option">
+        <h4>Системный шрифт (San Francisco / Roboto)</h4>
+        <ul class="pc plus"><li><span class="m">+</span>Ничего подключать не нужно, выглядит «как родное приложение»</li></ul>
+        <ul class="pc minus"><li><span class="m">−</span>Нет собственного характера, макет сложнее отличить от шаблонного</li></ul>
+      </div>
+    </div>
+    <div class="verdict"><span class="icon">▲</span><div><b>Рекомендация:</b> та же пара шрифтов, что уже используется в текстовом плане проекта — согласованность визуального языка между документами и продуктом. Заведите 4–5 Text Styles: H1, H2, Body, Caption, Mono (для счётчиков голосов) — тем же способом, что и цвета.</div></div>
+  </div>
+
+  <div class="problem">
+    <div class="problem-title"><h3>Сетка и отступы: система на 8</h3></div>
+    <div class="callout tip">
+      <p>Используйте отступы кратные 8 (8 / 16 / 24 / 32 / 48px) — глазу легче воспринимать регулярный ритм, а Auto Layout удобно настраивать круглыми числами. Радиус скругления карточек — 12–14px, той же логике, что в исходном стайлгайде плана (<span class="mono">--radius: 14px</span>).</p>
+    </div>
+  </div>
+</section>
+
+<!-- 05 COMPONENT CARD -->
+<section id="comp-card">
+  <div class="sec-head">
+    <span class="sec-eyebrow">05 / Ключевой компонент</span>
+    <h2>Компонент №1: карточка поста</h2>
+    <p class="desc">Карточка поста встречается в ленте, в сообществе и в профиле — соберите её один раз как компонент, и дальше вставляйте копии.</p>
+  </div>
+  <div class="screen">
+    <h5>Из чего состоит карточка</h5>
+    <ul class="elements">
+      <li>Виджет голосования слева (компонент №2, раздел 06)</li>
+      <li>Аватар + название сообщества + автор + время («r/название · u/автор · 3ч»)</li>
+      <li>Заголовок поста</li>
+      <li>Превью картинки/видео (может отсутствовать — текстовый пост)</li>
+      <li>Нижняя строка: иконка комментариев + число, «Поделиться»</li>
+    </ul>
+    <h5>Как собрать в Figma</h5>
+    <div class="steps">
+      <li>Нарисуйте фрейм 400×140px (примерный размер одной карточки), внутри — прямоугольник-заглушка под будущий контент</li>
+      <li>Добавьте текстовые слои и виджет голосования, выставьте их мышкой примерно как на скетче</li>
+      <li>Выделите всё содержимое и нажмите <span class="kbd">Shift + A</span> — включится Auto Layout, элементы встанут в ряд/колонку автоматически</li>
+      <li>В панели справа настройте направление (горизонтально), отступы между элементами (gap) и внутренние поля (padding) — кратно 8</li>
+      <li>Для заголовка поста задайте ширину <span class="mono">Fill container</span>, чтобы он растягивался и переносился на новую строку, а не вылезал за карточку</li>
+      <li>Выделите готовую карточку целиком → <span class="kbd">Ctrl/Cmd + Alt + K</span> — превратится в Component (в Layers появится ромбик вместо квадрата)</li>
+    </div>
+    <div class="callout tip">
+      <p>Отсутствие картинки — тоже состояние, а не баг макета: в панели Assets создайте Variant карточки «без медиа», где блок превью просто скрыт (Boolean-свойство), а не оставляйте пустой серый прямоугольник, которого не будет в реальных данных.</p>
+    </div>
+  </div>
+</section>
+
+<!-- 06 COMPONENT VOTE -->
+<section id="comp-vote">
+  <div class="sec-head">
+    <span class="sec-eyebrow">06 / Ключевой компонент</span>
+    <h2>Компонент №2: виджет голосования</h2>
+    <p class="desc">Самый маленький, но самый важный компонент продукта — с него стоит начать практику Variants.</p>
+  </div>
+  <div class="screen">
+    <h5>Три состояния (Variants)</h5>
+    <ul class="elements">
+      <li>Idle — обе стрелки серые, счёт нейтрального цвета</li>
+      <li>Upvoted — верхняя стрелка и счёт окрашены в акцентный оранжевый (<span class="mono">--up</span>)</li>
+      <li>Downvoted — нижняя стрелка и счёт окрашены в синий (<span class="mono">--down</span>)</li>
+    </ul>
+    <h5>Как собрать</h5>
+    <div class="steps">
+      <li>Соберите одно состояние (Idle): стрелка вверх, число, стрелка вниз — в вертикальной Auto Layout колонке, gap 2px</li>
+      <li>Сделайте Component (<span class="kbd">Ctrl/Cmd + Alt + K</span>), затем скопируйте (<span class="kbd">Ctrl/Cmd + D</span>) ещё 2 раза и перекрасьте копии в состояния Upvoted / Downvoted</li>
+      <li>Выделите все три копии → правая кнопка мыши → «Combine as variants» — Figma объединит их в один компонент с переключателем <span class="mono">state</span></li>
+      <li>Вставьте этот компонент внутрь карточки поста из раздела 05 — теперь при обновлении виджета голосования он обновится сразу во всех карточках, где использован</li>
+    </div>
+  </div>
+</section>
+
+<!-- 07 FEED -->
+<section id="feed">
+  <div class="sec-head">
+    <span class="sec-eyebrow">07 / Экран</span>
+    <h2>Лента</h2>
+  </div>
+  <div class="screen">
+    <div class="screen-title"><h3>Feed</h3><span class="tag">главный экран</span></div>
+    <p class="screen-purpose">Список постов, отсортированных по одному из трёх режимов — то, что пользователь видит первым делом при открытии.</p>
+    <h5>Из чего состоит</h5>
+    <ul class="elements">
+      <li>Верхняя панель: логотип, иконка поиска, иконка уведомлений, аватар</li>
+      <li>Переключатель сортировки: Hot / New / Top (вкладки)</li>
+      <li>Список Instance-копий карточки поста (компонент из раздела 05), друг под другом</li>
+      <li>Нижняя навигация (мобильная версия): Главная / Поиск / Создать пост (+) / Уведомления / Профиль</li>
+      <li>Состояние загрузки следующей порции постов внизу списка</li>
+    </ul>
+    <h5>Как собрать</h5>
+    <div class="steps">
+      <li>Создайте фрейм под мобильный экран — при нажатии <span class="kbd">F</span> справа выберите пресет телефона</li>
+      <li>Соберите верхнюю панель и нижнюю навигацию как отдельные компоненты — они переиспользуются почти на всех экранах</li>
+      <li>Между шапкой и навигацией — Auto Layout колонка с несколькими Instance карточки поста, gap 12px</li>
+      <li>Обязательно нарисуйте состояние «лента пуста» отдельным фреймом рядом — с иконкой и текстом «Пока нет постов — станьте первым» вместо пустого белого экрана</li>
+    </div>
+  </div>
+</section>
+
+<!-- 08 POST -->
+<section id="post">
+  <div class="sec-head">
+    <span class="sec-eyebrow">08 / Экран</span>
+    <h2>Страница поста и комментарии</h2>
+  </div>
+  <div class="screen">
+    <div class="screen-title"><h3>Post Detail</h3></div>
+    <p class="screen-purpose">Открывается по нажатию на карточку в ленте — полный текст поста и дерево комментариев.</p>
+    <h5>Из чего состоит</h5>
+    <ul class="elements">
+      <li>Кнопка «назад» вверху</li>
+      <li>Полная карточка поста: заголовок, текст целиком, картинка/видео в полный размер, крупный виджет голосования</li>
+      <li>Переключатель сортировки комментариев: Лучшие / Новые</li>
+      <li>Поле ввода нового комментария (закреплено внизу экрана)</li>
+      <li>Список комментариев — у каждого свой мини-виджет голосования и отступ слева, растущий с глубиной вложенности (ответ на ответ)</li>
+    </ul>
+    <h5>Как собрать</h5>
+    <div class="steps">
+      <li>Дублируйте карточку поста, увеличьте ширину до полного экрана, растяните текстовый блок — компонент подстроится за счёт Fill container</li>
+      <li>Соберите один Component «Комментарий» с виджетом голосования, автором и текстом ответа</li>
+      <li>Для вложенных ответов не рисуйте отдельный компонент — оберните тот же компонент «Комментарий» во Frame с отступом слева 24/48/72px по уровню вложенности</li>
+      <li>Ограничьте глубину видимой вложенности 3–4 уровнями — глубже добавьте ссылку «Показать ещё ответы», иначе комментарии на телефоне превратятся в узкую полоску текста</li>
+    </div>
+  </div>
+</section>
+
+<!-- 09 PROFILE -->
+<section id="profile">
+  <div class="sec-head">
+    <span class="sec-eyebrow">09 / Экран</span>
+    <h2>Профиль</h2>
+  </div>
+  <div class="screen">
+    <div class="screen-title"><h3>Profile</h3></div>
+    <p class="screen-purpose">Один макет экрана, два состояния: свой профиль и чужой — отличаются только правым верхним углом.</p>
+    <h5>Из чего состоит</h5>
+    <ul class="elements">
+      <li>Аватар, имя пользователя, карма (сумма голосов), короткое био</li>
+      <li>Своя страница: кнопка «Редактировать профиль»</li>
+      <li>Чужая страница: кнопка «Подписаться» / «Написать»</li>
+      <li>Вкладки: Посты / Комментарии / Сохранённое</li>
+      <li>Список карточек постов пользователя (тот же компонент из раздела 05)</li>
+    </ul>
+    <h5>Как собрать</h5>
+    <div class="steps">
+      <li>Соберите общую верхнюю часть (аватар, имя, карма, био) как один компонент с Variant-переключателем «own / other», меняющим только кнопку справа</li>
+      <li>Вкладки сделайте отдельным маленьким компонентом с состояниями active/inactive — переиспользуется и в сообществе (раздел 11)</li>
+      <li>Ниже — тот же список карточек постов, что и в ленте: не создавайте вторую версию карточки специально для профиля</li>
+    </div>
+  </div>
+</section>
+
+<!-- 10 CREATE -->
+<section id="create">
+  <div class="sec-head">
+    <span class="sec-eyebrow">10 / Экран</span>
+    <h2>Создание поста</h2>
+  </div>
+  <div class="screen">
+    <div class="screen-title"><h3>Create Post</h3></div>
+    <p class="screen-purpose">Открывается по кнопке «+» в нижней навигации — форма публикации.</p>
+    <h5>Из чего состоит</h5>
+    <ul class="elements">
+      <li>Выбор сообщества (выпадающий список — «Выберите сообщество»)</li>
+      <li>Переключатель типа поста: Текст / Картинка / Ссылка</li>
+      <li>Поле заголовка (с ограничением по длине — покажите счётчик символов)</li>
+      <li>Поле текста или кнопка загрузки картинки, в зависимости от выбранного типа</li>
+      <li>Кнопка «Опубликовать», неактивна пока не заполнено обязательное поле</li>
+    </ul>
+    <h5>Как собрать</h5>
+    <div class="steps">
+      <li>Нарисуйте состояние кнопки «Опубликовать» в двух Variant: активная (акцентный цвет) и неактивная (серая, полупрозрачная) — это заранее покажет разработчику логику валидации формы</li>
+      <li>Три типа поста — это Variants одного фрейма формы, а не три разных экрана: переключается только средний блок под заголовком</li>
+    </div>
+  </div>
+</section>
+
+<!-- 11 COMMUNITY -->
+<section id="community">
+  <div class="sec-head">
+    <span class="sec-eyebrow">11 / Экран</span>
+    <h2>Сообщество</h2>
+  </div>
+  <div class="screen">
+    <div class="screen-title"><h3>Community</h3></div>
+    <p class="screen-purpose">Аналог сабреддита — лента, отфильтрованная по одному сообществу, плюс информация о нём.</p>
+    <h5>Из чего состоит</h5>
+    <ul class="elements">
+      <li>Баннер и иконка сообщества, название, число подписчиков</li>
+      <li>Кнопка «Подписаться» / «Отписаться»</li>
+      <li>Описание и краткие правила (сворачиваемый блок)</li>
+      <li>Та же лента постов, что и на главном экране, но только из этого сообщества</li>
+    </ul>
+    <h5>Как собрать</h5>
+    <div class="steps">
+      <li>Верхний блок (баннер + описание) соберите как отдельный компонент — переиспользуется, если позже понадобится страница «Создать сообщество» с похожей структурой</li>
+      <li>Ленту постов не пересобирайте — вставьте те же Instance карточки, что и в разделе 07</li>
+    </div>
+  </div>
+</section>
+
+<!-- 12 OTHER SCREENS -->
+<section id="other">
+  <div class="sec-head">
+    <span class="sec-eyebrow">12 / Остальное</span>
+    <h2>Остальные экраны — короче, но не менее важно</h2>
+    <p class="desc">Эти экраны реже попадают в первые наброски, но без них макет нельзя считать «полным комплектом», а не витриной из трёх красивых картинок.</p>
+  </div>
+  <div class="checklist">
+    <div class="check-item"><div class="num">01</div><div><h4>Вход и регистрация</h4><p>Форма email + пароль, кнопки входа через Google/GitHub (переиспользуют кнопки из раздела 04 «Стили»), состояние ошибки под полем — «Неверный пароль», а не общее «Ошибка».</p></div></div>
+    <div class="check-item"><div class="num">02</div><div><h4>Поиск</h4><p>Поле ввода вверху, ниже — недавние запросы до начала ввода, после ввода — вкладки результатов: Посты / Сообщества / Люди.</p></div></div>
+    <div class="check-item"><div class="num">03</div><div><h4>Уведомления</h4><p>Список: «ответили в комментариях», «пост набрал 100 апвоутов» — сгруппируйте по дате (Сегодня / Ранее), непрочитанные выделите точкой акцентного цвета.</p></div></div>
+    <div class="check-item"><div class="num">04</div><div><h4>Настройки</h4><p>Аккаунт, уведомления (переключатели push/email), приватность, кнопка «Выйти» — отдельным, визуально «опасным» цветом от остальных пунктов.</p></div></div>
+    <div class="check-item"><div class="num">05</div><div><h4>Пустые состояния и ошибки</h4><p>Пустая лента, «нет интернета», «страница не найдена», «нет результатов поиска» — у каждого своя иконка и текст с понятным следующим шагом, а не просто «Ошибка».</p></div></div>
+    <div class="check-item"><div class="num">06</div><div><h4>Модерация</h4><p>Кнопка «Пожаловаться» на посте/комментарии с коротким списком причин, и отдельный экран очереди жалоб для модератора — даже если реализуете эту часть кода в последнюю очередь.</p></div></div>
+  </div>
+</section>
+
+<!-- 13 RESPONSIVE -->
+<section id="responsive">
+  <div class="sec-head">
+    <span class="sec-eyebrow">13 / Решение</span>
+    <h2>Сайт и мобильное приложение: что переиспользовать</h2>
+    <p class="desc">У проекта три фасада — сайт, iOS и Android — но дизайнить с нуля три раза не нужно.</p>
+  </div>
+  <div class="problem">
+    <div class="problem-title"><h3>Проблема: с какого размера экрана начинать</h3></div>
+    <div class="options">
+      <div class="option picked">
+        <h4>Сначала мобильный фрейм (375×812)</h4>
+        <ul class="pc plus">
+          <li><span class="m">+</span>Мобильное приложение (React Native + Expo) — по общему плану проекта отдельная и полноценная часть продукта, а не «довесок» к сайту</li>
+          <li><span class="m">+</span>Уже спроектированные компоненты (карточка, виджет голосования) на узком экране проще растянуть на широкий, чем сжать широкий макет до телефона</li>
+        </ul>
+      </div>
+      <div class="option">
+        <h4>Сначала десктопный фрейм (1440×1024)</h4>
+        <ul class="pc plus"><li><span class="m">+</span>Больше места, проще уместить все элементы на одном экране без прокрутки</li></ul>
+        <ul class="pc minus"><li><span class="m">−</span>Легко «нарисовать» плотный десктопный интерфейс, который потом физически не влезает на телефон</li></ul>
+      </div>
+    </div>
+    <div class="verdict"><span class="icon">▲</span><div><b>Рекомендация:</b> начните с мобильного фрейма 375×812 для всех 11 экранов выше. Когда компоненты и дизайн-система готовы, продублируйте 2–3 ключевых экрана (лента, пост) в десктопный фрейм 1440px — благодаря Auto Layout и Constraints большая часть содержимого просто перетечёт в более широкий контейнер без пересборки с нуля.</div></div>
+  </div>
+  <div class="callout tip">
+    <p>Для десктопной версии используйте Constraints «Left and Right» на центральной колонке ленты, чтобы она не растягивалась на всю ширину монитора, а оставалась читаемой шириной (около 600–680px) с пустыми полями по бокам — так же, как в этом текстовом плане.</p>
+  </div>
+</section>
+
+<!-- 14 PROTOTYPE -->
+<section id="prototype">
+  <div class="sec-head">
+    <span class="sec-eyebrow">14 / Практика</span>
+    <h2>Прототип: делаем макет кликабельным</h2>
+    <p class="desc">Пока экраны не связаны друг с другом — это просто картинки. Режим Prototype соединяет их в интерактивный макет.</p>
+  </div>
+  <div class="checklist">
+    <div class="check-item"><div class="num">01</div><div><h4>Переключитесь на вкладку Prototype</h4><p>Справа, там же где была вкладка Design — переключатель вверху правой панели.</p></div></div>
+    <div class="check-item"><div class="num">02</div><div><h4>Наведите на карточку поста в ленте</h4><p>Справа от неё появится синий кружок — потяните из него стрелку к фрейму экрана поста. Это и есть переход «On tap → Navigate to».</p></div></div>
+    <div class="check-item"><div class="num">03</div><div><h4>Повторите для всех переходов</h4><p>Кнопка «+» → экран создания поста, аватар → профиль, иконка сообщества → экран сообщества, нижняя навигация → соответствующие экраны.</p></div></div>
+    <div class="check-item"><div class="num">04</div><div><h4>Добавьте отклик на голосование</h4><p>Для виджета голосования свяжите переход не между экранами, а между Variants компонента («Idle → Upvoted» при нажатии) с анимацией <span class="mono">Smart Animate</span> — кнопка визуально «оживёт» без единой строчки кода.</p></div></div>
+    <div class="check-item"><div class="num">05</div><div><h4>Нажмите ▶ Present</h4><p>Откроется отдельное окно, где по макету можно кликать как по настоящему приложению — это удобно проверять на себе и показывать другим людям для обратной связи.</p></div></div>
+  </div>
+</section>
+
+<!-- 15 HANDOFF -->
+<section id="handoff">
+  <div class="sec-head">
+    <span class="sec-eyebrow">15 / Передача</span>
+    <h2>Передача в разработку</h2>
+    <p class="desc">Раз кодить сайт и приложение тоже будете вы — этот раздел скорее «шпаргалка самому себе», чем инструкция для чужого разработчика.</p>
+  </div>
+  <div class="callout warn">
+    <p><b>Важный нюанс бесплатного тарифа:</b> полноценный режим Dev Mode (с автогенерацией CSS/значений в один клик) на бесплатном тарифе Figma недоступен. Это не блокирует работу — нужные значения всё равно доступны через обычную панель Design и контекстное меню, просто на один клик больше.</p>
+  </div>
+  <div class="checklist">
+    <div class="check-item"><div class="num">01</div><div><h4>Считать отступы и размеры</h4><p>Выделите элемент — в панели Design справа видны точные значения width/height/padding/gap в пикселях, их и переносите в CSS/Tailwind-классы.</p></div></div>
+    <div class="check-item"><div class="num">02</div><div><h4>Скопировать цвет</h4><p>Клик по кружку заливки → значение HEX копируется напрямую, вставляется в CSS-переменную.</p></div></div>
+    <div class="check-item"><div class="num">03</div><div><h4>Экспорт иконок</h4><p>Выделите иконку → внизу панели Design «Export» → формат SVG — векторная иконка не теряет чёткость на любом экране, в отличие от PNG.</p></div></div>
+    <div class="check-item"><div class="num">04</div><div><h4>Поделиться ссылкой</h4><p>Кнопка «Share» вверху справа → «Anyone with the link can view» — по этой ссылке макет открывается в браузере без аккаунта Figma, удобно смотреть с телефона во время вёрстки.</p></div></div>
+  </div>
+</section>
+
+<!-- 16 ROADMAP -->
+<section id="roadmap">
+  <div class="sec-head">
+    <span class="sec-eyebrow">16 / Порядок действий</span>
+    <h2>Поэтапный план работы в Figma</h2>
+  </div>
+  <div class="timeline">
+    <div class="phase">
+      <h4>Шаг 1 — Дизайн-система</h4>
+      <div class="goal">1–2 дня</div>
+      <p>Color Styles, Text Styles, отступы кратные 8. Разделы 04.</p>
+    </div>
+    <div class="phase">
+      <h4>Шаг 2 — Базовые компоненты</h4>
+      <div class="goal">2–3 дня</div>
+      <p>Карточка поста, виджет голосования, кнопка, верхняя панель, нижняя навигация. Разделы 05–06.</p>
+    </div>
+    <div class="phase">
+      <h4>Шаг 3 — Основные экраны</h4>
+      <div class="goal">3–5 дней</div>
+      <p>Лента, пост с комментариями, профиль, создание поста, сообщество — из уже готовых компонентов. Разделы 07–11.</p>
+    </div>
+    <div class="phase">
+      <h4>Шаг 4 — Второстепенные экраны</h4>
+      <div class="goal">2–3 дня</div>
+      <p>Вход/регистрация, поиск, уведомления, настройки, пустые состояния и ошибки. Раздел 12.</p>
+    </div>
+    <div class="phase">
+      <h4>Шаг 5 — Прототип</h4>
+      <div class="goal">1 день</div>
+      <p>Соединить все экраны переходами, добавить отклик кнопки голосования. Раздел 14.</p>
+    </div>
+    <div class="phase">
+      <h4>Шаг 6 — Обратная связь</h4>
+      <div class="goal">1–2 дня</div>
+      <p>Показать кликabельный макет 2–3 людям со стороны, спросить: «Что непонятно с первого взгляда?» — и поправить до начала кода, а не после.</p>
+    </div>
+    <div class="phase">
+      <h4>Шаг 7 — Верстка</h4>
+      <div class="goal">переход к Фазе 2 общего плана</div>
+      <p>Дальше — Next.js-вёрстка веб-интерфейса по готовому макету, значения отступов и цветов берутся напрямую из Figma (раздел 15).</p>
+    </div>
+  </div>
+</section>
+
+<footer>▲ Второй документ плана: пока в первом решался вопрос стека и бэкенда, здесь — только интерфейс. Все шаги выполнимы на бесплатном тарифе Figma, кроме Dev Mode, у которого есть бесплатная обходная замена (раздел 15).</footer>
+
+</body>
+</html>

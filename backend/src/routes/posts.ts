@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { supabase } from '../config/supabase';
+import { hiddenUserIds } from '../lib/blocks';
 import { requireAuth, requirePhoneVerified, optionalAuth } from '../middleware/auth';
 import { cached, forget } from '../config/cache';
 import { userEmbed } from '../config/schema';
@@ -569,7 +570,19 @@ router.get('/', optionalAuth, async (req, res) => {
   // Цепочки сворачиваем после обогащения: продолжения тоже должны нести свои
   // голоса и счётчики — они полноценные записи, просто показанные внутри
   // начала.
-  res.json(foldChains(sortPosts(await enrichPosts(data, req.user?.id), sort)));
+  /**
+   * Заблокированных отсеиваем после кеша, а не в запросе.
+   *
+   * Сама выборка одинакова для всех и потому кешируется одна на всех; чёрный
+   * список у каждого свой. Уйди фильтр в запрос — кеш пришлось бы держать
+   * персональный, и он перестал бы быть кешем ради десятка скрытых авторов.
+   */
+  const hidden = await hiddenUserIds(req.user?.id);
+  const visible = hidden.size
+    ? data.filter((post) => !hidden.has(post.author_id as string))
+    : data;
+
+  res.json(foldChains(sortPosts(await enrichPosts(visible, req.user?.id), sort)));
 });
 
 router.get('/community/:communityId', optionalAuth, async (req, res) => {
@@ -588,7 +601,12 @@ router.get('/community/:communityId', optionalAuth, async (req, res) => {
     return res.status(500).json({ error: 'Не удалось выполнить запрос, попробуйте ещё раз' });
   }
 
-  res.json(foldChains(sortPosts(await enrichPosts(data, req.user?.id), sort)));
+  const hidden = await hiddenUserIds(req.user?.id);
+  const visible = hidden.size
+    ? data.filter((post) => !hidden.has(post.author_id as string))
+    : data;
+
+  res.json(foldChains(sortPosts(await enrichPosts(visible, req.user?.id), sort)));
 });
 
 // Лента конкретного автора — используется на странице профиля.

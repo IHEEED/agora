@@ -91,7 +91,7 @@ for (const person of people) {
     // Колонки может не быть, если 015 ещё не выполнена. Говорим об этом один
     // раз и понятно, а не двадцатью одинаковыми строками подряд.
     if (/avatar_url/.test(faceError.message)) {
-      console.error('Нет колонки users.avatar_url — выполните миграцию 015 и повторите.');
+      console.error('Нет колонки users.avatar_url — выполните миграцию 017 и повторите.');
       break;
     }
     console.error(`${person.username}: ${faceError.message}`);

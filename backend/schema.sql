@@ -105,6 +105,10 @@ CREATE INDEX idx_poll_votes_option ON poll_votes(option_id);
 -- Триггер: автосоздание строки в public.users при регистрации
 -- через Supabase Auth. Уже создан и проверен напрямую в Supabase
 -- SQL Editor — здесь только для документации схемы.
+--
+-- ВНИМАНИЕ: рабочая версия функции живёт в migrations/016, а не здесь.
+-- Ниже — первая, которая брала ником часть почты до собачки и потому
+-- отказывала тёзкам: ivan@gmail.com и ivan@yandex.ru просят одно имя.
 -- ============================================================
 create or replace function public.handle_new_user()
 returns trigger

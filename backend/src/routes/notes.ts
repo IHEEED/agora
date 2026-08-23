@@ -95,7 +95,7 @@ router.put('/', requireAuth, async (req, res) => {
 
   if (error) {
     if (tableMissing(error)) {
-      return res.status(503).json({ error: 'Облачка ещё не включены — нужна миграция 017' });
+      return res.status(503).json({ error: 'Облачка ещё не включены — нужна миграция 019' });
     }
     console.error('notes: save failed', error);
     return res.status(500).json({ error: 'Не удалось сохранить' });

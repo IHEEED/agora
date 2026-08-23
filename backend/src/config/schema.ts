@@ -34,7 +34,7 @@ export async function probeSchema(): Promise<void> {
 
   if (!hasAvatarColumn) {
     console.warn(
-      'users.avatar_url не найдена — аватарки отключены. Выполните миграцию 015 и перезапустите.'
+      'users.avatar_url не найдена — аватарки отключены. Выполните миграцию 017 и перезапустите.'
     );
   }
 }

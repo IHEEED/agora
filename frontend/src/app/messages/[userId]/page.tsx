@@ -19,6 +19,7 @@ import { DefaultAvatar } from '@/components/DefaultAvatar';
 import { MediaEditor } from '@/components/MediaEditor';
 import { MessageActions } from '@/components/MessageActions';
 import { BottomSheet } from '@/components/BottomSheet';
+import { BanNotice } from '@/components/BanNotice';
 import { PersonMenuSheet } from '@/components/PersonMenuSheet';
 import { SkeletonList, SkeletonRow } from '@/components/Skeleton';
 import { setNavHidden } from '@/lib/navVisibility';
@@ -939,6 +940,8 @@ export default function ChatPage() {
       }}
     >
       <main className="below-header relative flex w-full max-w-2xl flex-1 flex-col px-2.5 pb-28">
+        {/* Забаненному объясняем это здесь, а не отказом на отправке. */}
+        <BanNotice />
         {/* Шапка переписки в двух видах. Пока ничего не выбрано — собеседник и
             выход; как только включён режим выбора, она превращается в панель
             действий над отмеченным. Так же ведут себя списки в почте: панель
