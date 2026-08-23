@@ -112,7 +112,7 @@ export function CommentThread({
         requestVerification();
         return;
       }
-      setReplyError(err instanceof Error ? err.message : 'Не удалось отправить ответ');
+      setReplyError(err instanceof Error ? err.message : t('comments.replyFailed'));
     } finally {
       setSubmitting(false);
     }
@@ -176,7 +176,7 @@ export function CommentThread({
                 rows={2}
                 value={body}
                 onChange={(e) => setBody(e.target.value)}
-                placeholder="Ваш ответ…"
+                placeholder={t('comments.replyPlaceholder')}
                 className="resize-none rounded-2xl border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 text-[14px] text-[var(--text)] outline-none focus:border-[var(--accent)]"
               />
               {replyError && (

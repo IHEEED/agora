@@ -593,6 +593,7 @@ function GlamEasterEgg({
   current: StyleId | null;
   onFound: (style: StyleId) => void;
 }) {
+  const { t } = useT();
   const [nearness, setNearness] = useState(0);
   const [bumps, setBumps] = useState(0);
   // Отдача: блок коротко подаётся вверх, как будто в него ткнулись. Без неё
@@ -712,8 +713,8 @@ function GlamEasterEgg({
             {(found || unlocked) && (
               <p className="mb-3 text-[13px] leading-relaxed text-[var(--text-muted)]">
                 {found
-                  ? 'Гламур включён. Обратно — любым оформлением выше.'
-                  : 'Ну хорошо. Здесь всё-таки кое-что есть.'}
+                  ? t('egg.found')
+                  : t('egg.almost')}
               </p>
             )}
 
@@ -736,7 +737,7 @@ function GlamEasterEgg({
                   boxShadow: found ? 'none' : '0 10px 30px -12px #e0338c',
                 }}
               >
-                {found ? 'Хватит' : 'Гламур'}
+                {found ? t('egg.enough') : t('egg.take')}
               </button>
             )}
           </div>

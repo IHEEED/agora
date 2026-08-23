@@ -128,6 +128,7 @@ export function StoryViewer({
   /** Открыть редактор истории с этим кадром. Без него репост не предлагаем. */
   onCompose?: (item: StoryItem) => void;
 }) {
+  const { t } = useT();
   const router = useRouter();
   const mounted = useSyncExternalStore(
     () => () => {},
@@ -572,7 +573,7 @@ export function StoryViewer({
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" className="flex-none">
                     <path d="M4 12.5 9 17.5 20 6.5" />
                   </svg>
-                  Отправлено
+                  {t('common.sent')}
                 </span>
               ) : (
                 <>
@@ -601,8 +602,8 @@ export function StoryViewer({
                       }
                     }}
                     enterKeyHint="send"
-                    placeholder="Ответить сообщением…"
-                    aria-label="Ответить сообщением"
+                    placeholder={t('story.replyPlaceholder')}
+                    aria-label={t('story.replyPlaceholder')}
                     className="min-w-0 flex-1 bg-transparent text-white outline-none placeholder:text-white/60"
                   />
                   {/* Кнопка появляется только когда есть что отправлять:

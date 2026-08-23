@@ -9,6 +9,7 @@ import { BottomSheet } from '@/components/BottomSheet';
 import { CommentThread } from '@/components/CommentThread';
 import { useCommentSpotlight } from '@/lib/useCommentSpotlight';
 import { SkeletonComment, SkeletonList } from '@/components/Skeleton';
+import { useT } from '@/lib/i18n';
 
 /** Быстрые реакции над строкой ввода — то же, что в Instagram. */
 const QUICK_EMOJI = ['❤️', '🙌', '🔥', '👏', '😢', '😍', '😮', '😂'];
@@ -27,6 +28,7 @@ export function CommentSheet({
   /** Комментарий, к которому нужно прокрутить и подсветить его на секунду. */
   highlightId?: string;
 }) {
+  const { t } = useT();
   const { requestVerification } = usePhoneGate();
   const [comments, setComments] = useState<Comment[]>([]);
   const [loaded, setLoaded] = useState(false);
@@ -108,7 +110,7 @@ export function CommentSheet({
     <BottomSheet
       open={open}
       onClose={onClose}
-      title="Комментарии"
+      title={t('comments.title')}
       // Почти во весь экран: комментариев на пост десятки, и семьдесят
       // процентов высоты означали, что за раз видно четыре.
       height="84dvh"
@@ -121,7 +123,7 @@ export function CommentSheet({
               </span>
               <button
                 onClick={() => setReplyTo(null)}
-                aria-label="Отменить ответ"
+                aria-label={t('comments.cancelReply')}
                 className="flex h-6 w-6 flex-none items-center justify-center rounded-full hover:bg-[var(--surface-2)]"
               >
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
@@ -157,14 +159,14 @@ export function CommentSheet({
               <input
                 value={text}
                 onChange={(e) => setText(e.target.value)}
-                placeholder="Поделитесь своим мнением"
+                placeholder={t('comments.placeholder')}
                 enterKeyHint="send"
                 className="min-w-0 flex-1 border-none bg-transparent py-2.5 text-[15px] text-[var(--text)] outline-none"
               />
               <button
                 type="submit"
                 disabled={!text.trim() || sending}
-                aria-label="Отправить"
+                aria-label={t('comments.send')}
                 className="flex h-8 w-8 flex-none items-center justify-center rounded-full transition-opacity disabled:opacity-30"
                 style={{ color: 'var(--accent)' }}
               >

@@ -3,6 +3,7 @@
 import { useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
 import { haptic } from '@/lib/haptics';
+import { useT } from '@/lib/i18n';
 
 /**
  * Плавающее меню действий над сообщением — то, что открывается удержанием.
@@ -42,6 +43,7 @@ export function MessageActions({
   onReact: (emoji: string) => void;
   onClose: () => void;
 }) {
+  const { t } = useT();
   const panelRef = useRef<HTMLDivElement>(null);
   /** Открыт ли ввод произвольного эмодзи вместо сетки. */
   const [freeform, setFreeform] = useState(false);
@@ -169,7 +171,7 @@ export function MessageActions({
                 // вопрос, куда нажимать.
                 inputMode="text"
                 enterKeyHint="done"
-                aria-label="Своя реакция"
+                aria-label={t('msg.ownReaction')}
                 className="w-14 flex-none rounded-xl px-2 py-1.5 text-center text-[21px]"
                 style={{ background: 'var(--surface-2)', color: 'var(--text)' }}
                 onChange={(event) => {
@@ -188,7 +190,7 @@ export function MessageActions({
                 }}
               />
               <span className="text-[12.5px] leading-snug text-[var(--text-muted)]">
-                Откройте эмодзи на клавиатуре и выберите любой
+                {t('msg.reactionHint')}
               </span>
             </div>
           ) : (
@@ -210,7 +212,7 @@ export function MessageActions({
                   haptic();
                   setFreeform(true);
                 }}
-                aria-label="Своя реакция"
+                aria-label={t('msg.ownReaction')}
                 className="flex h-9 w-9 items-center justify-center rounded-full text-[var(--text-muted)] transition-transform active:scale-90"
                 style={{ background: 'var(--surface-2)' }}
               >

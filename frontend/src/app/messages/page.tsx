@@ -247,12 +247,12 @@ export default function MessagesPage() {
             [
               {
                 key: 'pin',
-                label: menuFor.pinned ? 'Открепить' : 'Закрепить',
+                label: t(menuFor.pinned ? 'thread.unpin' : 'thread.pin'),
                 run: () => patchThread(menuFor.user.id, { pinned: !menuFor.pinned }),
               },
               {
                 key: 'read',
-                label: 'Отметить прочитанным',
+                label: t('thread.markRead'),
                 // Нечего отмечать — нечего и предлагать: пункт, который ничего
                 // не делает, читается сломанным.
                 hidden: menuFor.unread === 0,
@@ -269,12 +269,12 @@ export default function MessagesPage() {
               },
               {
                 key: 'mute',
-                label: menuFor.muted ? 'Вернуть звук' : 'Приглушить',
+                label: t(menuFor.muted ? 'thread.unmute' : 'thread.mute'),
                 run: () => patchThread(menuFor.user.id, { muted: !menuFor.muted }),
               },
               {
                 key: 'delete',
-                label: 'Удалить переписку',
+                label: t('thread.delete'),
                 danger: true,
                 // Не выполняем, а переспрашиваем: письма уходят у обоих, и
                 // отменить это нечем.
@@ -306,10 +306,10 @@ export default function MessagesPage() {
       <CenterDialog
         open={confirmDelete !== null}
         onClose={() => setConfirmDelete(null)}
-        title="Удалить переписку?"
+        title={t('thread.deleteAsk')}
       >
         <p className="mb-5 text-[14px] leading-relaxed text-[var(--text-muted)]">
-          Все письма с {confirmDelete?.user.username} исчезнут у обоих. Вернуть их будет нечем.
+          {t('thread.deleteWarn')}
         </p>
         <div className="flex gap-2">
           <button
@@ -318,7 +318,7 @@ export default function MessagesPage() {
             className="flex-1 rounded-full py-3 text-[15px] font-semibold transition-transform active:scale-[0.98]"
             style={{ background: 'var(--surface-2)', color: 'var(--text)' }}
           >
-            Отмена
+            {t('common.cancel')}
           </button>
           <button
             type="button"
@@ -329,7 +329,7 @@ export default function MessagesPage() {
               color: 'var(--down)',
             }}
           >
-            Удалить
+            {t('common.delete')}
           </button>
         </div>
       </CenterDialog>

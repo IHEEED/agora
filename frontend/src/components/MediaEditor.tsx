@@ -5,6 +5,7 @@ import { BottomSheet } from '@/components/BottomSheet';
 import { DEFAULT_FIT, Fit, ImageFitter } from '@/components/ImageFitter';
 import { cropImage } from '@/lib/cropImage';
 import { haptic } from '@/lib/haptics';
+import { useT } from '@/lib/i18n';
 
 /**
  * Подгонка снимка перед отправкой.
@@ -56,6 +57,7 @@ export function MediaEditor({
   /** Готовый файл: уже обрезанный и сжатый. */
   onApply: (blob: Blob) => void;
 }) {
+  const { t } = useT();
   const [fit, setFit] = useState<Fit>(DEFAULT_FIT);
   const [shape, setShape] = useState<ShapeId>('free');
   const [busy, setBusy] = useState(false);
@@ -99,7 +101,7 @@ export function MediaEditor({
   }
 
   return (
-    <BottomSheet open={open} onClose={onCancel} title="Кадр" height="auto">
+    <BottomSheet open={open} onClose={onCancel} title={t('crop.title')} height="auto">
       <div
         className="flex flex-col gap-3"
         style={{ paddingBottom: 'calc(14px + env(safe-area-inset-bottom))' }}
@@ -167,7 +169,7 @@ export function MediaEditor({
             </div>
 
             <p className="px-1 text-[12.5px] leading-snug text-[var(--text-muted)]">
-              Двигайте снимок пальцем, колесо мыши приближает.
+              {t('crop.hint')}
             </p>
 
             <div className="flex gap-2">
@@ -177,7 +179,7 @@ export function MediaEditor({
                 className="flex-1 rounded-full py-3 text-[15px] font-semibold transition-transform active:scale-[0.98]"
                 style={{ background: 'var(--surface-2)', color: 'var(--text)' }}
               >
-                Отмена
+                {t('common.cancel')}
               </button>
               <button
                 type="button"
@@ -186,7 +188,7 @@ export function MediaEditor({
                 className="flex-1 rounded-full py-3 text-[15px] font-semibold transition-transform active:scale-[0.98] disabled:opacity-60"
                 style={{ background: 'var(--accent)', color: 'var(--accent-contrast)' }}
               >
-                {busy ? 'Готовлю…' : 'Готово'}
+                {busy ? t('crop.working') : t('crop.done')}
               </button>
             </div>
           </>

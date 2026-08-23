@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { apiFetch } from '@/lib/api';
 import { haptic } from '@/lib/haptics';
+import { useT } from '@/lib/i18n';
 
 /**
  * Облачко над аватаркой: одна мысль на сутки.
@@ -62,6 +63,7 @@ export function ThoughtCloud({
   mine?: boolean;
   onChange?: (next: string | null) => void;
 }) {
+  const { t } = useT();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(text ?? '');
   // Подсказку выбираем один раз на открытие: меняющаяся на ходу заставляет
@@ -106,7 +108,7 @@ export function ThoughtCloud({
             }
           }}
           enterKeyHint="done"
-          aria-label="Мысль на сутки"
+          aria-label={t('note.label')}
           className="w-full bg-transparent text-center outline-none placeholder:text-[var(--text-muted)]"
         />
       </span>
@@ -132,7 +134,7 @@ export function ThoughtCloud({
       }
       style={mine && !text ? { color: 'var(--text-muted)' } : undefined}
     >
-      {text || 'мысль…'}
+      {text || t('note.empty')}
     </span>
   );
 }

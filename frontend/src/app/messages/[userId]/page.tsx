@@ -30,6 +30,7 @@ import { haptic } from '@/lib/haptics';
 import { useVoiceRecorder } from '@/lib/useVoiceRecorder';
 import { VoiceBubble } from '@/components/VoiceBubble';
 import { supabase } from '@/lib/supabase';
+import { useT, translate } from '@/lib/i18n';
 
 /** Как часто перечитываем переписку, пока она открыта.
     Раньше был 4000 — при плохой сети задержка на запросе могла совпасть
@@ -63,6 +64,15 @@ const QUICK_REACTIONS = [
 ];
 
 /** Разделитель по дням — чтобы не гадать, когда именно это было сказано. */
+/**
+ * «Сегодня» берём через функцию, а не константой.
+ *
+ * dayLabel вызывается вне компонента, где хука нет, а язык человек меняет на
+ * ходу — вычисленная один раз строка осталась бы на языке, который был при
+ * загрузке модуля.
+ */
+const TODAY_LABEL = () => translate('date.today');
+
 function dayLabel(iso: string): string {
   const date = new Date(iso);
   const today = new Date();
@@ -70,7 +80,7 @@ function dayLabel(iso: string): string {
     date.getDate() === today.getDate() &&
     date.getMonth() === today.getMonth() &&
     date.getFullYear() === today.getFullYear();
-  if (sameDay) return 'Сегодня';
+  if (sameDay) return TODAY_LABEL();
 
   return date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
 }
@@ -92,6 +102,7 @@ function timeLabel(iso: string): string {
  * которой больше нигде не пользуются.
  */
 export default function ChatPage() {
+  const { t } = useT();
   const { userId } = useParams<{ userId: string }>();
   const router = useRouter();
   const { session } = useSession();
@@ -1579,13 +1590,13 @@ export default function ChatPage() {
         actions={[
           {
             key: 'reply',
-            label: 'Ответить',
+            label: t('msg.reply'),
             icon: <path d="M11 5.5 4 12l7 6.5V15c4 0 7 1.2 9 4-.6-4.8-3.6-8.4-9-9Z" />,
             onSelect: () => menuFor && startReply(menuFor),
           },
           {
             key: 'forward',
-            label: 'Переслать',
+            label: t('msg.forward'),
             icon: <path d="M13 5.5 20 12l-7 6.5V15c-4 0-7 1.2-9 4 .6-4.8 3.6-8.4 9-9Z" />,
             onSelect: () => {
               if (menuFor) setForwarding([menuFor]);
@@ -1605,7 +1616,7 @@ export default function ChatPage() {
           },
           {
             key: 'select',
-            label: 'Выбрать',
+            label: t('msg.select'),
             icon: (
               <>
                 <rect x="3.5" y="3.5" width="17" height="17" rx="4.5" />
@@ -1616,7 +1627,7 @@ export default function ChatPage() {
           },
           {
             key: 'copy',
-            label: 'Скопировать',
+            label: t('msg.copy'),
             icon: (
               <>
                 <rect x="9" y="9" width="11" height="11" rx="2.5" />
@@ -1632,7 +1643,7 @@ export default function ChatPage() {
             ? [
                 {
                   key: 'edit',
-                  label: 'Редактировать',
+                  label: t('msg.edit'),
                   icon: (
                     <>
                       <path d="M4 20h4L19 9a2.1 2.1 0 0 0-3-3L5 17v3Z" />
@@ -1643,7 +1654,7 @@ export default function ChatPage() {
                 },
                 {
                   key: 'delete',
-                  label: 'Удалить',
+                  label: t('msg.delete'),
                   danger: true,
                   icon: (
                     <>

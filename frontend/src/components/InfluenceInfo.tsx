@@ -1,6 +1,7 @@
 'use client';
 
 import { useLayoutEffect, useRef, useState } from 'react';
+import { useT } from '@/lib/i18n';
 
 /**
  * Серая «i» рядом с кармой: коротко объясняет, откуда берётся число.
@@ -11,6 +12,7 @@ import { useLayoutEffect, useRef, useState } from 'react';
  * Экран же на месте всегда, поэтому и считаем от него.
  */
 export function InfluenceInfo() {
+  const { t } = useT();
   const [open, setOpen] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const tipRef = useRef<HTMLSpanElement>(null);
@@ -43,7 +45,7 @@ export function InfluenceInfo() {
       <button
         ref={buttonRef}
         onClick={() => setOpen((v) => !v)}
-        aria-label="Что такое influence-очки"
+        aria-label={t('influence.what')}
         aria-expanded={open}
         className="influence-i transition-transform active:scale-90"
         style={{ color: 'var(--text-muted)' }}
@@ -74,8 +76,7 @@ export function InfluenceInfo() {
         className="influence-tip fixed inset-x-3 z-50 mx-auto max-w-[340px] rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 text-left text-[12.5px] font-normal leading-relaxed text-[var(--text-muted)] shadow-lg"
         data-open={open}
       >
-        Influence-очки — сумма голосов за все ваши посты. Каждый голос «за»
-        добавляет очко, «против» — отнимает. Чем полезнее ваши записи, тем их больше.
+        {t('influence.explain')}
       </span>
     </span>
   );

@@ -235,6 +235,82 @@ const DICTIONARY = {
     'settings.signOut': 'Выйти из аккаунта',
     'settings.localOnly':
       'Переключатели уведомлений, приватности и контента пока сохраняются только на этом устройстве — серверной части у них ещё нет.',
+
+    // ─── Влияние ────────────────────────────────────────────────────────────
+    'influence.what': 'Что такое influence-очки',
+    'influence.explain':
+      'Influence-очки — сумма голосов за все ваши записи. Каждый голос «за» добавляет очко, «против» — отнимает. Чем полезнее ваши записи, тем их больше.',
+
+    // ─── Даты в переписке ───────────────────────────────────────────────────
+    'date.today': 'Сегодня',
+
+    // ─── Комментарии ────────────────────────────────────────────────────────
+    'comments.title': 'Комментарии',
+    'comments.placeholder': 'Поделитесь своим мнением',
+    'comments.replyPlaceholder': 'Ваш ответ…',
+    'comments.cancelReply': 'Отменить ответ',
+    'comments.send': 'Отправить',
+    'comments.replyFailed': 'Не удалось отправить ответ',
+
+    // ─── Действия над сообщением ────────────────────────────────────────────
+    'msg.reply': 'Ответить',
+    'msg.forward': 'Переслать',
+    'msg.select': 'Выбрать',
+    'msg.copy': 'Скопировать',
+    'msg.edit': 'Редактировать',
+    'msg.delete': 'Удалить',
+    'msg.pin': 'Закрепить',
+    'msg.unpin': 'Открепить',
+    'msg.ownReaction': 'Своя реакция',
+    'msg.reactionHint': 'Откройте эмодзи на клавиатуре и выберите любой',
+
+    // ─── Переписки ──────────────────────────────────────────────────────────
+    'thread.pin': 'Закрепить',
+    'thread.unpin': 'Открепить',
+    'thread.mute': 'Приглушить',
+    'thread.unmute': 'Вернуть звук',
+    'thread.markRead': 'Отметить прочитанным',
+    'thread.delete': 'Удалить переписку',
+    'thread.deleteAsk': 'Удалить переписку?',
+    'thread.deleteWarn': 'Все письма исчезнут у обоих. Вернуть их будет нечем.',
+
+    // ─── Облачко ────────────────────────────────────────────────────────────
+    'note.empty': 'мысль…',
+    'note.label': 'Мысль на сутки',
+
+    // ─── Кадр ───────────────────────────────────────────────────────────────
+    'crop.title': 'Кадр',
+    'crop.free': 'Как есть',
+    'crop.square': 'Квадрат',
+    'crop.hint': 'Двигайте снимок пальцем, колесо мыши приближает.',
+    'crop.working': 'Готовлю…',
+    'crop.done': 'Готово',
+    'crop.adjust': 'Подогнать кадр',
+
+    // ─── Оформления ─────────────────────────────────────────────────────────
+    'style.chronicle': 'Хроника',
+    'style.chronicle.hint': 'Тёплая бумага, терракота, газетная антиква',
+    'style.atelier': 'Ателье',
+    'style.atelier.hint': 'Чернила на бумаге, без единого лишнего цвета',
+    'style.midnight': 'Полночь',
+    'style.midnight.hint': 'Синий полумрак и ледяной акцент',
+    'style.garden': 'Сад',
+    'style.garden.hint': 'Приглушённая зелень и тёплый небелый',
+    'style.signal': 'Сигнал',
+    'style.signal.hint': 'Нейтральный холст и одна фиолетовая нота',
+    'style.glam': 'Гламур',
+    'style.glam.hint': 'Розовое, блестящее и совершенно неуместное',
+
+    // ─── Пасхалка ───────────────────────────────────────────────────────────
+    'egg.found': 'Гламур включён. Обратно — любым оформлением выше.',
+    'egg.almost': 'Ну хорошо. Здесь всё-таки кое-что есть.',
+    'egg.enough': 'Хватит',
+    'egg.take': 'Гламур',
+
+    // ─── Общее ──────────────────────────────────────────────────────────────
+    'common.delete': 'Удалить',
+    'common.sent': 'Отправлено',
+    'story.replyPlaceholder': 'Ответить сообщением…',
   },
 
   en: {
@@ -452,6 +528,73 @@ const DICTIONARY = {
     'settings.signOut': 'Sign out',
     'settings.localOnly':
       'Notification, privacy and content switches are stored on this device only — there is no server side for them yet.',
+
+    // ─── Influence ──────────────────────────────────────────────────────────
+    'influence.what': 'What influence points are',
+    'influence.explain':
+      'Influence is the sum of votes on everything you have posted. Every vote up adds a point, every vote down takes one away. The more useful your posts, the more you have.',
+
+    'date.today': 'Today',
+
+    'comments.title': 'Comments',
+    'comments.placeholder': 'Say what you think',
+    'comments.replyPlaceholder': 'Your reply…',
+    'comments.cancelReply': 'Cancel reply',
+    'comments.send': 'Send',
+    'comments.replyFailed': 'Could not send the reply',
+
+    'msg.reply': 'Reply',
+    'msg.forward': 'Forward',
+    'msg.select': 'Select',
+    'msg.copy': 'Copy',
+    'msg.edit': 'Edit',
+    'msg.delete': 'Delete',
+    'msg.pin': 'Pin',
+    'msg.unpin': 'Unpin',
+    'msg.ownReaction': 'Your own reaction',
+    'msg.reactionHint': 'Open emoji on your keyboard and pick any one',
+
+    'thread.pin': 'Pin',
+    'thread.unpin': 'Unpin',
+    'thread.mute': 'Mute',
+    'thread.unmute': 'Unmute',
+    'thread.markRead': 'Mark as read',
+    'thread.delete': 'Delete conversation',
+    'thread.deleteAsk': 'Delete this conversation?',
+    'thread.deleteWarn': 'Every message disappears for both of you. Nothing brings them back.',
+
+    'note.empty': 'a thought…',
+    'note.label': 'A thought for a day',
+
+    'crop.title': 'Frame',
+    'crop.free': 'As is',
+    'crop.square': 'Square',
+    'crop.hint': 'Drag the photo with your finger; the wheel zooms.',
+    'crop.working': 'Preparing…',
+    'crop.done': 'Done',
+    'crop.adjust': 'Adjust the frame',
+
+    'style.chronicle': 'Chronicle',
+    'style.chronicle.hint': 'Warm paper, terracotta, newspaper serif',
+    'style.atelier': 'Atelier',
+    'style.atelier.hint': 'Ink on paper, not one colour more',
+    'style.midnight': 'Midnight',
+    'style.midnight.hint': 'Blue dusk and an icy accent',
+    'style.garden': 'Garden',
+    'style.garden.hint': 'Muted greens and a warm off-white',
+    'style.signal': 'Signal',
+    'style.signal.hint': 'A neutral canvas and one violet note',
+    'style.glam': 'Glam',
+    'style.glam.hint': 'Pink, glittery and entirely out of place',
+
+    'egg.found': 'Glam is on. Any style above turns it off.',
+    'egg.almost': 'Fine. There is something here after all.',
+    'egg.enough': 'Enough',
+    'egg.take': 'Glam',
+
+    'common.delete': 'Delete',
+    'common.sent': 'Sent',
+    'story.replyPlaceholder': 'Reply with a message…',
   },
 
   es: {
@@ -669,6 +812,73 @@ const DICTIONARY = {
     'settings.signOut': 'Cerrar sesión',
     'settings.localOnly':
       'Los interruptores de notificaciones, privacidad y contenido se guardan solo en este dispositivo: todavía no tienen parte servidor.',
+
+    // ─── Influence ──────────────────────────────────────────────────────────
+    'influence.what': 'Qué son los puntos de influence',
+    'influence.explain':
+      'Influence es la suma de los votos de todo lo que has publicado. Cada voto a favor suma un punto y cada voto en contra resta uno. Cuanto más útiles sean tus publicaciones, más tendrás.',
+
+    'date.today': 'Hoy',
+
+    'comments.title': 'Comentarios',
+    'comments.placeholder': 'Di lo que piensas',
+    'comments.replyPlaceholder': 'Tu respuesta…',
+    'comments.cancelReply': 'Cancelar respuesta',
+    'comments.send': 'Enviar',
+    'comments.replyFailed': 'No se pudo enviar la respuesta',
+
+    'msg.reply': 'Responder',
+    'msg.forward': 'Reenviar',
+    'msg.select': 'Seleccionar',
+    'msg.copy': 'Copiar',
+    'msg.edit': 'Editar',
+    'msg.delete': 'Eliminar',
+    'msg.pin': 'Fijar',
+    'msg.unpin': 'No fijar',
+    'msg.ownReaction': 'Tu propia reacción',
+    'msg.reactionHint': 'Abre los emoji en el teclado y elige cualquiera',
+
+    'thread.pin': 'Fijar',
+    'thread.unpin': 'No fijar',
+    'thread.mute': 'Silenciar',
+    'thread.unmute': 'Activar sonido',
+    'thread.markRead': 'Marcar como leído',
+    'thread.delete': 'Eliminar la conversación',
+    'thread.deleteAsk': '¿Eliminar la conversación?',
+    'thread.deleteWarn': 'Todos los mensajes desaparecen para los dos. No hay forma de recuperarlos.',
+
+    'note.empty': 'una idea…',
+    'note.label': 'Una idea por un día',
+
+    'crop.title': 'Encuadre',
+    'crop.free': 'Tal cual',
+    'crop.square': 'Cuadrado',
+    'crop.hint': 'Mueve la foto con el dedo; la rueda acerca.',
+    'crop.working': 'Preparando…',
+    'crop.done': 'Listo',
+    'crop.adjust': 'Ajustar el encuadre',
+
+    'style.chronicle': 'Crónica',
+    'style.chronicle.hint': 'Papel cálido, terracota, serif de periódico',
+    'style.atelier': 'Atelier',
+    'style.atelier.hint': 'Tinta sobre papel, ni un color de más',
+    'style.midnight': 'Medianoche',
+    'style.midnight.hint': 'Penumbra azul y un acento helado',
+    'style.garden': 'Jardín',
+    'style.garden.hint': 'Verdes apagados y un blanco cálido',
+    'style.signal': 'Señal',
+    'style.signal.hint': 'Un lienzo neutro y una nota violeta',
+    'style.glam': 'Glam',
+    'style.glam.hint': 'Rosa, brillante y totalmente fuera de lugar',
+
+    'egg.found': 'Glam activado. Cualquier estilo de arriba lo apaga.',
+    'egg.almost': 'Está bien. Aquí sí que hay algo.',
+    'egg.enough': 'Basta',
+    'egg.take': 'Glam',
+
+    'common.delete': 'Eliminar',
+    'common.sent': 'Enviado',
+    'story.replyPlaceholder': 'Responder con un mensaje…',
   },
 } as const;
 
@@ -687,6 +897,22 @@ export function applyLocale(locale: Locale) {
   document.documentElement.lang = locale;
   // Разослать всем подписанным компонентам без перезагрузки страницы.
   window.dispatchEvent(new CustomEvent('parafraz-locale', { detail: locale }));
+}
+
+/**
+ * Перевод вне компонента.
+ *
+ * Нужен там, где хука нет по построению: в разделителях дней переписки, которые
+ * считаются обычной функцией задолго до отрисовки. Читает язык из хранилища на
+ * каждый вызов — по той же причине, по которой это делает formatDate: тащить
+ * хук ради одной строки в списке дороже, чем прочитать localStorage.
+ *
+ * В компонентах пользоваться этим не надо: там смена языка обязана
+ * перерисовывать экран, а эта функция об изменениях никого не оповещает.
+ */
+export function translate(key: TranslationKey): string {
+  const locale = typeof window === 'undefined' ? 'ru' : readLocale();
+  return DICTIONARY[locale][key] ?? DICTIONARY.ru[key] ?? key;
 }
 
 /**

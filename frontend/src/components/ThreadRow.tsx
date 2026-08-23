@@ -8,6 +8,7 @@ import { MessageThread } from '@/lib/types';
 import { holdBackdrop } from '@/lib/screenBackdrop';
 import { haptic } from '@/lib/haptics';
 import { ThoughtCloud } from '@/components/ThoughtCloud';
+import { useT } from '@/lib/i18n';
 
 /**
  * Строка переписки со свайпами и удержанием.
@@ -52,6 +53,7 @@ export function ThreadRow({
   onMute: () => void;
   onMenu: (rect: DOMRect) => void;
 }) {
+  const { t } = useT();
   const [dx, setDx] = useState(0);
   const [dragging, setDragging] = useState(false);
   const from = useRef<{ x: number; y: number } | null>(null);
@@ -147,12 +149,8 @@ export function ThreadRow({
           }}
         >
           {right
-            ? thread.pinned
-              ? 'Открепить'
-              : 'Закрепить'
-            : thread.muted
-              ? 'Вернуть звук'
-              : 'Приглушить'}
+            ? t(thread.pinned ? 'thread.unpin' : 'thread.pin')
+            : t(thread.muted ? 'thread.unmute' : 'thread.mute')}
         </span>
       )}
 
