@@ -13,6 +13,7 @@ import usersRouter from './routes/users';
 import messagesRouter from './routes/messages';
 import storiesRouter from './routes/stories';
 import { probeSchema } from './config/schema';
+import notesRouter from './routes/notes';
 
 dotenv.config();
 
@@ -100,6 +101,7 @@ app.use('/votes', votesRouter);
 app.use('/users', usersRouter);
 app.use('/messages', messagesRouter);
 app.use('/stories', storiesRouter);
+app.use('/notes', notesRouter);
 
 /**
  * Слушаем на всех интерфейсах, а не только на localhost.

@@ -4,10 +4,12 @@ import { useState } from 'react';
 import { apiFetch } from '@/lib/api';
 import Link from 'next/link';
 import { useApiData } from '@/lib/useApiData';
+import { useSession } from '@/lib/useSession';
 import { MessageThread, UserSummary } from '@/lib/types';
 import { DefaultAvatar } from '@/components/DefaultAvatar';
 import { BottomSheet } from '@/components/BottomSheet';
 import { ThreadRow } from '@/components/ThreadRow';
+import { ThoughtCloud } from '@/components/ThoughtCloud';
 import { CenterDialog } from '@/components/CenterDialog';
 import { SkeletonList, SkeletonRow } from '@/components/Skeleton';
 import { useBlockedUsers } from '@/lib/blockedUsers';
@@ -24,11 +26,14 @@ import { useT } from '@/lib/i18n';
  */
 export default function MessagesPage() {
   const { t } = useT();
+  const { session } = useSession();
   const [picking, setPicking] = useState(false);
   /** Переписка, по которой открыто меню действий. */
   const [menuFor, setMenuFor] = useState<MessageThread | null>(null);
   /** Переписка, удаление которой переспрашиваем. */
   const [confirmDelete, setConfirmDelete] = useState<MessageThread | null>(null);
+  /** Своя мысль на сутки. Правится прямо в облачке над своей аватаркой. */
+  const [myNote, setMyNote] = useState<string | null>(null);
   // Разворачивается из кнопки в шапке и складывается обратно в неё — так же,
   // как поиск. У мессенджера есть своя кнопка, и связь «нажал вот это — выросло
   // вот это» показать стоит: раздел открывается не из бара, и вернуться иначе
@@ -55,6 +60,37 @@ export default function MessagesPage() {
    * порядка строк, не влияет. Следующая загрузка списка приведёт его в согласие
    * с сервером — а до тех пор пусть будет так, как человек попросил.
    */
+  /**
+   * Мысли собеседников — одним запросом на весь список.
+   *
+   * Адрес собирается из идентификаторов, поэтому кеш useApiData сам различает
+   * разные наборы людей: сменился состав переписок — сменился ключ, приедут
+   * свежие облачка. Запрашивать их по одному на строку значило бы двадцать
+   * запросов на открытие экрана.
+   */
+  const me = session?.user.id;
+  // Себя добавляем в тот же запрос: своё облачко надо показать при открытии,
+  // а не только после того, как его напишут. Отдельный запрос ради одной
+  // строки был бы вторым обращением к тому же маршруту.
+  const noteIds = [...threads.map((thread) => thread.user.id), me]
+    .filter(Boolean)
+    .sort()
+    .join(',');
+  const notesResult = useApiData<{ author_id: string; body: string }[]>(
+    noteIds ? `/notes?ids=${noteIds}` : null
+  );
+  const notes = new Map((notesResult.data ?? []).map((note) => [note.author_id, note.body]));
+
+  // Своё облачко: пока его не трогали, показываем то, что приехало с сервера.
+  // Сравнение в отрисовке, а не эффект, — иначе после загрузки был бы кадр с
+  // пустым облачком поверх уже приехавшей мысли.
+  const loadedNote = me ? (notes.get(me) ?? null) : null;
+  const [lastLoadedNote, setLastLoadedNote] = useState(loadedNote);
+  if (lastLoadedNote !== loadedNote) {
+    setLastLoadedNote(loadedNote);
+    setMyNote(loadedNote);
+  }
+
   function patchThread(peerId: string, patch: { pinned?: boolean; muted?: boolean }) {
     threadsResult.mutate((prev) =>
       (prev ?? []).map((thread) =>
@@ -126,6 +162,20 @@ export default function MessagesPage() {
           </p>
         )}
 
+        {/* Своё облачко — над своим лицом, первой строкой.
+            Здесь же, где чужие, и по той же причине: мысль на сутки живёт в
+            списке переписок, а не в профиле. Отдельного экрана ей не надо —
+            всё, что с ней делают, это пишут одну строку и стирают. */}
+        <div className="mb-1 mt-6 flex justify-center">
+          <span className="relative">
+            <DefaultAvatar
+              name={(session?.user.email ?? '?').split('@')[0]}
+              size={44}
+            />
+            <ThoughtCloud text={myNote} mine onChange={setMyNote} />
+          </span>
+        </div>
+
         {/* Строки, а не карточки: список переписок читают сверху вниз одним
             движением глаз, и обойма вокруг каждой строки только сбивает ритм.
             Разделяет их волосяная черта под текстом, начинающаяся за аватаром —
@@ -137,6 +187,7 @@ export default function MessagesPage() {
               thread={thread}
               onPin={() => patchThread(thread.user.id, { pinned: !thread.pinned })}
               onMute={() => patchThread(thread.user.id, { muted: !thread.muted })}
+              note={notes.get(thread.user.id)}
               onMenu={() => setMenuFor(thread)}
             />
           ))}

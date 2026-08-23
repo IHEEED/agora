@@ -2200,3 +2200,72 @@ label,
     animation: none;
   }
 }
+
+/**
+ * Облачко над аватаркой.
+ *
+ * Хвостик вниз, к лицу, — это и есть всё сообщение: прямая речь принадлежит
+ * тому, над кем висит. Подпись под именем читалась бы описанием человека, а не
+ * его словами.
+ *
+ * Кегль нарочно мелкий. Облачко живёт в списке переписок, где главное — имя и
+ * последняя реплика; выйди оно на тот же уровень, список превратился бы в две
+ * колонки текста, конкурирующие за взгляд.
+ */
+.thought-cloud {
+  position: absolute;
+  bottom: calc(100% - 4px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+  max-width: 132px;
+  padding: 4px 9px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 11px;
+  line-height: 1.25;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: default;
+}
+
+/* Хвостик — два кружка убывающего размера, как в комиксах и в Instagram.
+   Треугольник смотрелся бы выноской из презентации: у него острый угол, а всё
+   остальное в интерфейсе скруглено. */
+.thought-cloud::before,
+.thought-cloud::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  border-radius: 50%;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+
+.thought-cloud::before {
+  width: 7px;
+  height: 7px;
+  bottom: -5px;
+  margin-left: -9px;
+}
+
+.thought-cloud::after {
+  width: 4px;
+  height: 4px;
+  bottom: -10px;
+  margin-left: -14px;
+}
+
+/* В правке облачко шире и не обрезает текст: пишущий должен видеть, что
+   написал, целиком — иначе он не знает, где кончилась мысль. */
+.thought-cloud-editing {
+  width: 168px;
+  max-width: none;
+  white-space: normal;
+  border-color: var(--accent);
+  cursor: text;
+}

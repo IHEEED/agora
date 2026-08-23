@@ -7,6 +7,7 @@ import { formatCompactAge } from '@/lib/formatDate';
 import { MessageThread } from '@/lib/types';
 import { holdBackdrop } from '@/lib/screenBackdrop';
 import { haptic } from '@/lib/haptics';
+import { ThoughtCloud } from '@/components/ThoughtCloud';
 
 /**
  * Строка переписки со свайпами и удержанием.
@@ -39,11 +40,14 @@ const HOLD_MS = 450;
 
 export function ThreadRow({
   thread,
+  note,
   onPin,
   onMute,
   onMenu,
 }: {
   thread: MessageThread;
+  /** Мысль собеседника на сутки. Нет — облачка не будет. */
+  note?: string | null;
   onPin: () => void;
   onMute: () => void;
   onMenu: (rect: DOMRect) => void;
@@ -182,7 +186,12 @@ export function ThreadRow({
           touchAction: 'pan-y',
         }}
       >
-        <DefaultAvatar name={thread.user.username} size={48} src={thread.user.avatar_url} />
+        {/* Аватарка в своей коробке: облачко висит над ней абсолютом, и
+            точкой отсчёта должно быть лицо, а не вся строка. */}
+        <span className="relative flex-none">
+          <DefaultAvatar name={thread.user.username} size={48} src={thread.user.avatar_url} />
+          <ThoughtCloud text={note} />
+        </span>
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           <div className="flex items-baseline gap-2">
             <span className="min-w-0 flex-1 truncate text-[15px] font-semibold text-[var(--text)]">
