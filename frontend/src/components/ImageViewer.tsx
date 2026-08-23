@@ -23,12 +23,18 @@ export function ImageViewer({
   index,
   onClose,
   onIndex,
+  originFor,
 }: {
   images: string[];
   /** Какая картинка открыта. Хранится снаружи: её задаёт нажатие в ленте. */
   index: number;
   onClose: () => void;
   onIndex: (next: number) => void;
+  /**
+   * Где эта картинка лежит в ленте. Нужна для возврата на место при закрытии.
+   * Необязательна: если origin неизвестен, просмотр просто гаснет.
+   */
+  originFor?: (index: number) => DOMRect | null;
 }) {
   const mounted = useSyncExternalStore(
     () => () => {},
@@ -42,6 +48,7 @@ export function ImageViewer({
   const [drag, setDrag] = useState({ x: 0, y: 0 });
   const [dragging, setDragging] = useState(false);
   const from = useRef<{ x: number; y: number } | null>(null);
+  const trackRef = useRef<HTMLDivElement>(null);
   /**
    * Текущий сдвиг — ещё и в ref, не только в состоянии.
    *
@@ -109,6 +116,59 @@ export function ImageViewer({
     setDrag(offset.current);
   }
 
+  /**
+   * Закрыть, вернув картинку туда, откуда её взяли.
+   *
+   * Открывается просмотр ростом из ленты — а закрывался простым угасанием, и
+   * связь терялась ровно там, где она нужнее: человек только что разглядывал
+   * снимок и должен понимать, в какое место ленты он возвращается. Особенно
+   * после листания вбок, когда открывали второй кадр, а долистали до пятого.
+   *
+   * Считаем два прямоугольника — где картинка сейчас и где её место в ленте, —
+   * и едем из первого во второй. Через Web Animations, а не через переход
+   * состояния: узел через мгновение исчезнет вместе с порталом, и дожидаться
+   * его анимации в React пришлось бы отдельным состоянием «закрываюсь».
+   *
+   * Ленту при этом гасим синхронно тем же сроком: картинка садится на место в
+   * тот момент, когда чёрное окончательно уходит.
+   */
+  const RETURN_MS = 260;
+
+  function closeWithReturn() {
+    const target = originFor?.(index);
+    const node = trackRef.current?.querySelector<HTMLElement>(`[data-slide='${index}'] img`);
+
+    if (!target || !node || target.width === 0) return onClose();
+
+    const now = node.getBoundingClientRect();
+    // Масштаб по ширине, а не по обеим сторонам: в ленте картинка обрезана по
+    // рамке (object-cover), во весь экран — вписана целиком. Разное соотношение
+    // сторон, и растягивать по двум осям значило бы её плющить на лету.
+    const scale = target.width / now.width;
+
+    node.animate(
+      [
+        { transform: 'none', opacity: 1 },
+        {
+          transform:
+            `translate(${target.left + target.width / 2 - (now.left + now.width / 2)}px, ` +
+            `${target.top + target.height / 2 - (now.top + now.height / 2)}px) scale(${scale})`,
+          opacity: 0.6,
+        },
+      ],
+      { duration: RETURN_MS, easing: 'cubic-bezier(0.32, 0.72, 0, 1)', fill: 'forwards' }
+    );
+
+    const backdrop = node.closest<HTMLElement>('[data-viewer-root]');
+    backdrop?.animate([{ opacity: 1 }, { opacity: 0 }], {
+      duration: RETURN_MS,
+      easing: 'ease-out',
+      fill: 'forwards',
+    });
+
+    window.setTimeout(onClose, RETURN_MS);
+  }
+
   function onPointerUp() {
     if (!from.current) return;
     const { x, y } = offset.current;
@@ -118,7 +178,7 @@ export function ImageViewer({
     setDragging(false);
     setDrag({ x: 0, y: 0 });
 
-    if (y > 110) return onClose();
+    if (y > 110) return closeWithReturn();
     // Четверть ширины — столько нужно протащить, чтобы это было решением, а не
     // случайным смахиванием во время разглядывания.
     const threshold = window.innerWidth * 0.25;
@@ -134,6 +194,7 @@ export function ImageViewer({
 
   return createPortal(
     <div
+      data-viewer-root
       className="fixed inset-0 z-[95] flex items-center justify-center"
       style={{
         background: `rgba(0, 0, 0, ${0.94 - dismissProgress * 0.5})`,
@@ -154,12 +215,13 @@ export function ImageViewer({
       onClick={(event) => {
         // Нажатие мимо картинки закрывает. Проверяем цель, а не координаты:
         // картинка внутри и сама остановит событие.
-        if (event.target === event.currentTarget) onClose();
+        if (event.target === event.currentTarget) closeWithReturn();
       }}
     >
       {/* Лента картинок целиком, сдвигаемая на индекс. Так соседние уже
           загружены, и листание не начинается с пустого кадра. */}
       <div
+        ref={trackRef}
         className="flex h-full w-full items-center"
         style={{
           transform: `translate3d(calc(${-index * 100}% + ${drag.x}px), ${drag.y}px, 0) scale(${
@@ -173,6 +235,17 @@ export function ImageViewer({
         {images.map((src, position) => (
           <div
             key={`${src}-${position}`}
+            data-slide={position}
+            // Нажатие по полю вокруг картинки тоже закрывает.
+            //
+            // Проверка на подложке этого не ловила: лента кадров растянута на
+            // весь экран и лежит поверх неё, так что чёрные поля сверху и снизу
+            // от вертикального снимка принадлежат вот этому кадру, а не
+            // подложке. Нажатия по ним просто ничего не делали — а именно туда
+            // и метит палец, когда хочет выйти, не задев картинку.
+            onClick={(event) => {
+              if (event.target === event.currentTarget) closeWithReturn();
+            }}
             className="flex h-full w-full flex-none items-center justify-center p-4"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -189,9 +262,9 @@ export function ImageViewer({
       </div>
 
       <button
-        onClick={onClose}
+        onClick={closeWithReturn}
         aria-label="Закрыть"
-        className="absolute right-3 flex h-11 w-11 items-center justify-center rounded-full text-white/90 transition-transform active:scale-90"
+        className="absolute right-3 flex h-12 w-12 items-center justify-center rounded-full text-white transition-transform active:scale-90"
         style={{
           top: 'calc(12px + env(safe-area-inset-top))',
           background: 'rgba(255, 255, 255, 0.14)',

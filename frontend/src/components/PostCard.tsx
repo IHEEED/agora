@@ -233,6 +233,7 @@ export function PostCard({
             {images.map((src, position) => (
               <button
                 key={`${src}-${position}`}
+                data-strip-image={position}
                 type="button"
                 onClick={() => setViewing(position)}
                 className="block w-full flex-none snap-center transition-transform active:scale-[0.995]"
@@ -283,6 +284,15 @@ export function PostCard({
         images={images}
         index={viewing}
         onIndex={setViewing}
+        // Откуда картинка приехала — чтобы при закрытии она туда и села.
+        // Кадр берём в момент запроса, а не запоминаем при открытии: за время
+        // просмотра лента могла доехать (догрузились записи выше), и старый
+        // прямоугольник отправил бы снимок мимо собственного места.
+        originFor={(position) =>
+          stripRef.current
+            ?.querySelector<HTMLElement>(`[data-strip-image='${position}'] img`)
+            ?.getBoundingClientRect() ?? null
+        }
         onClose={() => {
           // Возвращаемся в ленту на том снимке, до которого долистали во весь
           // экран: закрыть просмотр и обнаружить первый кадр — потерять место.
@@ -314,7 +324,7 @@ export function PostCard({
               onClick={() => setCommentsOpen(true)}
               aria-label="Комментарии"
               aria-expanded={commentsOpen}
-              className="flex items-center gap-1.5 rounded-full px-2 py-2"
+              className="flex items-center gap-1.5 rounded-full px-2.5 py-2.5 transition-transform duration-100 active:scale-[0.86]"
               style={{ color: 'var(--control)' }}
             >
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
@@ -330,7 +340,7 @@ export function PostCard({
             onClick={handleRepost}
             aria-label="Репост"
             aria-pressed={reposted}
-            className="flex items-center gap-1.5 rounded-full px-2 py-2"
+            className="flex items-center gap-1.5 rounded-full px-2.5 py-2.5 transition-transform duration-100 active:scale-[0.86]"
             // Только цвет иконки, без заливки и обводки — как у стрелок.
             style={{ color: reposted ? 'var(--repost)' : 'var(--control)' }}
           >

@@ -104,8 +104,14 @@ export function VoteBlock({
 
   // Размер иконки одинаковый везде: рядом стоят комментарий, репост и
   // «поделиться», и разнокалиберные глифы читались случайным набором.
-  const hit = compact ? 'h-8 w-8' : 'h-10 w-10';
-  const arrow = 22;
+  //
+  // 40 → 44 и стрелка 22 → 24. Сорок четыре — минимальная цель нажатия по
+  // руководству Apple, и это не формальность: голоса — главное действие
+  // приложения, а промахнуться по ним было легче, чем по «поделиться», потому
+  // что стоят они парой и вплотную к счётчику между ними. Промах по «за»
+  // попадал в «против».
+  const hit = compact ? 'h-9 w-9' : 'h-11 w-11';
+  const arrow = compact ? 22 : 24;
 
   return (
     <div className="flex items-center">
@@ -113,7 +119,7 @@ export function VoteBlock({
         onClick={() => handleVote(1)}
         aria-label="Голосовать за"
         aria-pressed={vote.myVote === 1}
-        className={`vote-hit relative flex ${hit} items-center justify-center rounded-full`}
+        className={`vote-hit relative flex ${hit} items-center justify-center rounded-full transition-transform duration-100 active:scale-[0.86]`}
         style={{ color: upColor }}
       >
         <span className="arrow-clip">
@@ -150,7 +156,7 @@ export function VoteBlock({
         onClick={() => handleVote(-1)}
         aria-label="Голосовать против"
         aria-pressed={vote.myVote === -1}
-        className={`vote-hit flex ${hit} items-center justify-center rounded-full`}
+        className={`vote-hit flex ${hit} items-center justify-center rounded-full transition-transform duration-100 active:scale-[0.86]`}
         style={{ color: downColor }}
       >
         <span className="arrow-clip">
