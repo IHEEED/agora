@@ -117,7 +117,7 @@ export function PostCard({
             size={38}
           />
         ) : (
-          <DefaultAvatar name={post.author.username} size={38} />
+          <DefaultAvatar name={post.author.username} size={38} src={post.author.avatar_url} />
         )}
 
         {/* min-w-0 на контейнере и truncate на нике: без первого флекс не даёт

@@ -54,7 +54,7 @@ export default function CommunityPage() {
   const people = useMemo(() => {
     const seen = new Map<
       string,
-      { id: string; username: string; posts: number; isFollowing?: boolean }
+      { id: string; username: string; posts: number; isFollowing?: boolean; avatar_url?: string | null }
     >();
     for (const post of posts) {
       // Пост от имени сообщества автора не отдаёт — такие строки пропускаем,
@@ -270,7 +270,7 @@ export default function CommunityPage() {
                   onClick={() => setAboutOpen(false)}
                   className="flex min-w-0 flex-1 items-center gap-3"
                 >
-                  <DefaultAvatar name={person.username} size={40} />
+                  <DefaultAvatar name={person.username} size={40} src={person.avatar_url} />
                   <div className="flex min-w-0 flex-col">
                     <span className="truncate text-[15px] font-medium text-[var(--text)]">
                       {person.username}

@@ -980,7 +980,7 @@ export default function ChatPage() {
               // ту самую, от которой островки и уводят.
               className="chat-island mr-auto flex min-w-0 items-center gap-2.5 rounded-full py-1 pl-1 pr-3.5"
             >
-              <DefaultAvatar name={person?.username ?? '?'} size={34} />
+              <DefaultAvatar name={person?.username ?? '?'} size={34} src={person?.avatar_url} />
               <span className="min-w-0 truncate text-[15.5px] font-semibold text-[var(--text)]">
                 {person?.username ?? '…'}
               </span>
@@ -1644,7 +1644,7 @@ export default function ChatPage() {
               onClick={() => forwardTo(person.id)}
               className="flex items-center gap-3 py-3 text-left transition-colors active:bg-[var(--surface-2)]"
             >
-              <DefaultAvatar name={person.username} size={44} />
+              <DefaultAvatar name={person.username} size={44} src={person.avatar_url} />
               <span className="min-w-0 flex-1 truncate text-[15px] font-medium text-[var(--text)]">
                 {person.username}
               </span>

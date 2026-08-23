@@ -31,7 +31,7 @@ router.get('/suggestions', optionalAuth, async (req, res) => {
 
   const { data, error } = await supabase
     .from('users')
-    .select('id, username, karma')
+    .select('id, username, karma, avatar_url')
     .order('karma', { ascending: false })
     .limit(30);
 
@@ -148,7 +148,7 @@ router.delete('/:id/follow', requireAuth, async (req, res) => {
 router.get('/', optionalAuth, async (req, res) => {
   const query = String(req.query.q ?? '').trim();
 
-  let request = supabase.from('users').select('id, username, karma').order('karma', { ascending: false }).limit(30);
+  let request = supabase.from('users').select('id, username, karma, avatar_url').order('karma', { ascending: false }).limit(30);
 
   if (query) {
     request = request.ilike('username', `%${query}%`);
@@ -179,7 +179,7 @@ router.get('/:id', optionalAuth, async (req, res) => {
   const { id } = req.params;
 
   const [profile, followers, following, mine] = await Promise.all([
-    supabase.from('users').select('id, username, karma, created_at').eq('id', id).single(),
+    supabase.from('users').select('id, username, karma, created_at, avatar_url').eq('id', id).single(),
     supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', id),
     supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', id),
     req.user
@@ -228,7 +228,7 @@ async function followList(
 
   const { data: people, error: peopleError } = await supabase
     .from('users')
-    .select('id, username, karma')
+    .select('id, username, karma, avatar_url')
     .in('id', ids);
 
   if (peopleError) {

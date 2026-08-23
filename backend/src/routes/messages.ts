@@ -52,7 +52,7 @@ async function usersByIds(ids: string[]) {
   const people = new Map<string, { id: string; username: string }>();
   if (ids.length === 0) return people;
 
-  const { data } = await supabase.from('users').select('id, username').in('id', ids);
+  const { data } = await supabase.from('users').select('id, username, avatar_url').in('id', ids);
   data?.forEach((user) => people.set(user.id, user));
   return people;
 }

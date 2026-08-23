@@ -199,6 +199,12 @@ export function StoryViewer({
    * Без этого значения полоска после отпускания прыгала бы к началу кадра.
    */
   const [resumeFrom, setResumeFrom] = useState(0);
+  /** Открыт ли ввод ответа. Пока открыт — время кадра стоит. */
+  const [replying, setReplying] = useState(false);
+  const [replyText, setReplyText] = useState('');
+  const [replySent, setReplySent] = useState(false);
+  const [replyBusy, setReplyBusy] = useState(false);
+  const replyRef = useRef<HTMLInputElement>(null);
   /**
    * Голос, а не «нравится».
    *
@@ -210,6 +216,43 @@ export function StoryViewer({
   const [vote, setVote] = useState<1 | -1 | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const hidden = useAreStoriesHidden(story?.author.id);
+
+  /**
+   * Ответить автору, не покидая историю.
+   *
+   * Раньше кнопка уводила в переписку: история закрывалась, экран менялся,
+   * человек оказывался в списке чужих реплик — и ту мысль, ради которой он
+   * нажал, по дороге терял. Ответ на историю живёт минуту и относится к
+   * конкретному кадру; уводить за ним на другой экран — всё равно что просить
+   * выйти в коридор, чтобы сказать слово.
+   *
+   * Отправляем в личные, как и раньше: письмо приходит обычной репликой. Кадр
+   * при этом стоит на паузе, а после отправки строка на секунду говорит
+   * «отправлено» и уступает место обычной полосе.
+   */
+  async function sendReply() {
+    const text = replyText.trim();
+    if (!text || replyBusy || !story?.author.id) return;
+    setReplyBusy(true);
+    try {
+      await apiFetch('/messages', {
+        method: 'POST',
+        body: JSON.stringify({ recipient_id: story.author.id, body: text }),
+      });
+      setReplyText('');
+      setReplySent(true);
+      haptic();
+      window.setTimeout(() => {
+        setReplySent(false);
+        setReplying(false);
+      }, 1400);
+    } catch {
+      // Молча: сообщение об ошибке поверх чужой истории — не то место, где его
+      // будут читать. Текст остаётся в поле, отправку можно повторить.
+    } finally {
+      setReplyBusy(false);
+    }
+  }
 
   function castVote(postId: string, value: 1 | -1) {
     haptic();
@@ -268,7 +311,10 @@ export function StoryViewer({
   // эффект «progress дошёл — листаем» был бы вызовом setState прямо в теле
   // эффекта, то есть лишним каскадом отрисовок на каждый тик.
   useEffect(() => {
-    if (!open || held) return;
+    // Пока пишут ответ — время стоит. Иначе история улистывается из-под
+    // человека, который как раз набирает про неё реплику, и отправлено будет
+    // уже не о том кадре.
+    if (!open || held || replying) return;
     let value = resumeFrom;
     const timer = window.setInterval(() => {
       value += TICK_MS / FRAME_MS;
@@ -280,7 +326,7 @@ export function StoryViewer({
       setProgress(value);
     }, TICK_MS);
     return () => window.clearInterval(timer);
-  }, [open, held, frame, index, resumeFrom, next]);
+  }, [open, held, replying, frame, index, resumeFrom, next]);
 
   // Отмечаем кадр просмотренным. Кружок гаснет у того, кто посмотрел, и
   // остаётся ярким у остальных — ради этого в базе пара (история, зритель), а
@@ -449,7 +495,7 @@ export function StoryViewer({
           className="absolute inset-x-3 flex items-center gap-2.5"
           style={{ top: 'calc(22px + env(safe-area-inset-top))' }}
         >
-          <DefaultAvatar name={story.author.username} size={30} />
+          <DefaultAvatar name={story.author.username} size={30} src={story.author.avatar_url} />
           <span className="min-w-0 flex-1 truncate text-[14px] font-semibold text-white">
             {story.author.username}
           </span>
@@ -505,16 +551,11 @@ export function StoryViewer({
           onPointerUp={(event) => event.stopPropagation()}
         >
           {/* Ответ уходит в личные сообщения, а не в комментарии под записью:
-              на историю отвечают ей самой и её автору, а не залу. */}
+              на историю отвечают ей самой и её автору, а не залу. И пишется он
+              здесь же — история остаётся на экране, время её стоит. */}
           {story.author.id && (
-            <button
-              type="button"
-              onClick={(event) => {
-                event.stopPropagation();
-                closeSmoothly();
-                router.push(`/messages/${story.author.id}`);
-              }}
-              className="flex min-w-0 flex-1 items-center gap-2 rounded-full px-4 py-3 text-left text-[14px] text-white/70"
+            <div
+              className="flex min-w-0 flex-1 items-center gap-2 rounded-full px-4 py-3 text-left text-[14px]"
               style={{
                 // Обводка, а не заливка: сплошная плашка во всю ширину закрыла
                 // бы низ фотографии, а контур по дымке очерчивает поле ввода и
@@ -524,12 +565,66 @@ export function StoryViewer({
                 backdropFilter: 'blur(14px)',
                 WebkitBackdropFilter: 'blur(14px)',
               }}
+              onClick={(event) => event.stopPropagation()}
             >
-              <span className="min-w-0 flex-1 truncate">Ответить сообщением…</span>
-              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" className="flex-none opacity-80">
-                <path d="M11 5.5 4 12l7 6.5V15c4 0 7 1.2 9 4-.6-4.8-3.6-8.4-9-9Z" />
-              </svg>
-            </button>
+              {replySent ? (
+                <span className="flex min-w-0 flex-1 items-center gap-2 text-white">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" className="flex-none">
+                    <path d="M4 12.5 9 17.5 20 6.5" />
+                  </svg>
+                  Отправлено
+                </span>
+              ) : (
+                <>
+                  <input
+                    ref={replyRef}
+                    value={replyText}
+                    onChange={(event) => setReplyText(event.target.value)}
+                    onFocus={() => setReplying(true)}
+                    onBlur={() => {
+                      // Пустое поле — значит передумали: возвращаем ход
+                      // истории. С набранным текстом пауза держится, иначе
+                      // случайное касание мимо стоило бы человеку реплики.
+                      if (!replyText.trim()) setReplying(false);
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') {
+                        event.preventDefault();
+                        void sendReply();
+                      }
+                      // Побег из истории по Escape — но сперва из поля.
+                      if (event.key === 'Escape') {
+                        event.stopPropagation();
+                        setReplyText('');
+                        setReplying(false);
+                        replyRef.current?.blur();
+                      }
+                    }}
+                    enterKeyHint="send"
+                    placeholder="Ответить сообщением…"
+                    aria-label="Ответить сообщением"
+                    className="min-w-0 flex-1 bg-transparent text-white outline-none placeholder:text-white/60"
+                  />
+                  {/* Кнопка появляется только когда есть что отправлять:
+                      пустая стрелка рядом с пустым полем — обещание действия,
+                      которого не будет. */}
+                  {replyText.trim() && (
+                    <button
+                      type="button"
+                      onClick={() => void sendReply()}
+                      disabled={replyBusy}
+                      aria-label="Отправить"
+                      className="flex h-7 w-7 flex-none items-center justify-center rounded-full text-white transition-transform active:scale-90 disabled:opacity-50"
+                      style={{ background: 'var(--accent)' }}
+                    >
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M12 19V5M6 11l6-6 6 6" />
+                      </svg>
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
           )}
 
           {item.postId && (

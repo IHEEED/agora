@@ -13,13 +13,42 @@ export function DefaultAvatar({
   name,
   size = 48,
   kind = 'person',
+  src,
 }: {
   /** Только для подписи скринридеру: на вид аватарки имя больше не влияет. */
   name: string;
   size?: number;
   kind?: 'person' | 'community';
+  /** Настоящая аватарка. Есть — показываем её, нет — силуэт. */
+  src?: string | null;
 }) {
   const community = kind === 'community';
+
+  // Настоящее лицо вместо заглушки.
+  //
+  // Компонент по-прежнему называется DefaultAvatar, и это не оплошность: он
+  // отвечает за «кружок с человеком» целиком, а «по умолчанию» — про то, что
+  // внутри, когда фотографии нет. Разводить два компонента с одинаковой
+  // геометрией и разной начинкой значило бы дублировать размеры, скругления и
+  // правила отличия человека от клуба во втором месте.
+  if (src) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element -- адреса аватарок произвольные, next/image требует списка доменов
+      <img
+        src={src}
+        alt={`Аватар ${name}`}
+        className="flex-none object-cover"
+        style={{
+          width: size,
+          height: size,
+          borderRadius: community ? size * 0.28 : '9999px',
+          // Подложка того же цвета, что у заглушки: пока картинка едет, на её
+          // месте должен быть кружок, а не дыра в раскладке.
+          background: 'var(--avatar-bg)',
+        }}
+      />
+    );
+  }
 
   return (
     <span

@@ -132,7 +132,7 @@ export function CommentThread({
     >
       <div className="flex gap-2.5">
         <Link href={authorHref} className="flex-none">
-          <DefaultAvatar name={comment.author.username} size={30} />
+          <DefaultAvatar name={comment.author.username} size={30} src={comment.author.avatar_url} />
         </Link>
 
         <div className="flex min-w-0 flex-1 flex-col gap-1">

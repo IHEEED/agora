@@ -103,7 +103,7 @@ export default function MessagesPage() {
               // на касание, а выделением текста мышью.
               className="flex items-center gap-3 rounded-2xl px-2 py-3 transition-colors active:bg-[var(--surface-2)]"
             >
-              <DefaultAvatar name={thread.user.username} size={48} />
+              <DefaultAvatar name={thread.user.username} size={48} src={thread.user.avatar_url} />
               <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                 <div className="flex items-baseline gap-2">
                   <span className="min-w-0 flex-1 truncate text-[15px] font-semibold text-[var(--text)]">
@@ -160,7 +160,7 @@ export default function MessagesPage() {
               }}
               className="flex items-center gap-3 py-3"
             >
-              <DefaultAvatar name={person.username} size={44} />
+              <DefaultAvatar name={person.username} size={44} src={person.avatar_url} />
               <span className="min-w-0 flex-1 truncate text-[15px] font-medium text-[var(--text)]">
                 {person.username}
               </span>
