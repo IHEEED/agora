@@ -63,6 +63,10 @@ export interface Message {
 export interface MessageThread {
   user: { id: string; username: string; avatar_url?: string | null };
   unread: number;
+  /** Закреплён ли у меня. Настройка личная — собеседник о ней не знает. */
+  pinned?: boolean;
+  /** Приглушены ли уведомления по этой переписке. Тоже только у меня. */
+  muted?: boolean;
   lastMessage: { body: string; created_at: string; mine: boolean };
 }
 

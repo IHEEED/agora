@@ -2,6 +2,25 @@ import { Router } from 'express';
 import { supabase } from '../config/supabase';
 import { requireAuth, requirePhoneVerified, optionalAuth } from '../middleware/auth';
 import { cached, forget } from '../config/cache';
+import { userEmbed } from '../config/schema';
+
+/**
+ * Строка записи в выдаче.
+ *
+ * Нужна с тех пор, как список полей строится на ходу (см. config/schema):
+ * библиотека выводит тип из литерала, а литерала здесь больше нет — она видит
+ * шаблон и сдаётся. Форма ответа от этого не изменилась, поэтому называем её
+ * сами. Поля перечислены только те, что читает enrichPosts и сортировка;
+ * остальное приезжает звёздочкой и уходит в ответ как есть.
+ */
+type PostRow = {
+  id: string;
+  created_at: string;
+  score: number;
+  commentCount: number;
+  author?: { id?: string | null; username?: string } | null;
+  [key: string]: unknown;
+};
 
 const router = Router();
 
@@ -360,8 +379,8 @@ router.post('/', requireAuth, requirePhoneVerified, async (req, res) => {
       // неизвестной колонкой целиком, даже если значение в ней null.
       ...(continues_post_id ? { continues_post_id: String(continues_post_id) } : null),
     })
-    .select('*, author:users!posts_author_id_fkey(id, username, avatar_url), community:communities(id, name)')
-    .single();
+    .select(`*, ${userEmbed('author', 'posts_author_id_fkey')}, community:communities(id, name)`)
+    .single<PostRow>();
 
   if (error) {
     console.error('posts: request failed', error);
@@ -484,8 +503,9 @@ router.get('/reposts/:userId', optionalAuth, async (req, res) => {
 
   const { data } = await supabase
     .from('posts')
-    .select('*, author:users!posts_author_id_fkey(id, username, avatar_url), community:communities(id, name)')
-    .in('id', ids);
+    .select(`*, ${userEmbed('author', 'posts_author_id_fkey')}, community:communities(id, name)`)
+    .in('id', ids)
+    .returns<PostRow[]>();
 
   if (!data) return res.json([]);
 
@@ -535,9 +555,10 @@ router.get('/', optionalAuth, async (req, res) => {
     // сломалось на первом обращении к data.
     await supabase
       .from('posts')
-      .select('*, author:users!posts_author_id_fkey(id, username, avatar_url), community:communities(id, name)')
+      .select(`*, ${userEmbed('author', 'posts_author_id_fkey')}, community:communities(id, name)`)
       .order('created_at', { ascending: false })
       .limit(100)
+      .returns<PostRow[]>()
   );
 
   if (error) {
@@ -557,9 +578,10 @@ router.get('/community/:communityId', optionalAuth, async (req, res) => {
 
   const { data, error } = await supabase
     .from('posts')
-    .select('*, author:users!posts_author_id_fkey(id, username, avatar_url), community:communities(id, name)')
+    .select(`*, ${userEmbed('author', 'posts_author_id_fkey')}, community:communities(id, name)`)
     .eq('community_id', communityId)
-    .order('created_at', { ascending: false });
+    .order('created_at', { ascending: false })
+    .returns<PostRow[]>();
 
   if (error) {
     console.error('posts: request failed', error);
@@ -577,9 +599,10 @@ router.get('/user/:userId', optionalAuth, async (req, res) => {
 
   const { data, error } = await supabase
     .from('posts')
-    .select('*, author:users!posts_author_id_fkey(id, username, avatar_url), community:communities(id, name)')
+    .select(`*, ${userEmbed('author', 'posts_author_id_fkey')}, community:communities(id, name)`)
     .eq('author_id', userId)
-    .order('created_at', { ascending: false });
+    .order('created_at', { ascending: false })
+    .returns<PostRow[]>();
 
   if (error) {
     console.error('posts: request failed', error);
@@ -594,9 +617,9 @@ router.get('/:id', optionalAuth, async (req, res) => {
 
   const { data, error } = await supabase
     .from('posts')
-    .select('*, author:users!posts_author_id_fkey(id, username, avatar_url), community:communities(id, name)')
+    .select(`*, ${userEmbed('author', 'posts_author_id_fkey')}, community:communities(id, name)`)
     .eq('id', id)
-    .single();
+    .single<PostRow>();
 
   if (error) return res.status(404).json({ error: 'post not found' });
 

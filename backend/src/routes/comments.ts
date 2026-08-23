@@ -1,6 +1,24 @@
 import { Router } from 'express';
 import { supabase } from '../config/supabase';
 import { requireAuth, requirePhoneVerified, optionalAuth } from '../middleware/auth';
+import { userEmbed } from '../config/schema';
+
+/**
+ * Строка комментария в выдаче.
+ *
+ * Нужна с тех пор, как список полей строится на ходу (см. config/schema):
+ * библиотека выводит тип из литерала, а здесь шаблон. Перечислены только те
+ * поля, которые читает сборка дерева; остальное приезжает звёздочкой и уходит
+ * в ответ как есть.
+ */
+type CommentRow = {
+  id: string;
+  post_id: string;
+  parent_comment_id: string | null;
+  created_at: string;
+  author?: { id?: string | null; username?: string } | null;
+  [key: string]: unknown;
+};
 
 const router = Router();
 
@@ -40,9 +58,10 @@ router.get('/user/:userId', optionalAuth, async (req, res) => {
 
   const { data, error } = await supabase
     .from('comments')
-    .select('*, author:users(id, username, avatar_url), post:posts(id, title)')
+    .select(`*, ${userEmbed('author')}, post:posts(id, title)`)
     .eq('author_id', userId)
-    .order('created_at', { ascending: false });
+    .order('created_at', { ascending: false })
+    .returns<CommentRow[]>();
 
   if (error) {
     console.error('comments: request failed', error);
@@ -75,8 +94,8 @@ router.post('/', requireAuth, requirePhoneVerified, async (req, res) => {
   const { data, error } = await supabase
     .from('comments')
     .insert({ post_id, author_id, parent_comment_id: parent_comment_id ?? null, body })
-    .select('*, author:users(id, username, avatar_url)')
-    .single();
+    .select(`*, ${userEmbed('author')}`)
+    .single<CommentRow>();
 
   if (error) {
     console.error('comments: request failed', error);
@@ -91,9 +110,10 @@ router.get('/post/:postId', optionalAuth, async (req, res) => {
 
   const { data, error } = await supabase
     .from('comments')
-    .select('*, author:users(id, username, avatar_url)')
+    .select(`*, ${userEmbed('author')}`)
     .eq('post_id', postId)
-    .order('created_at', { ascending: true });
+    .order('created_at', { ascending: true })
+    .returns<CommentRow[]>();
 
   if (error) {
     console.error('comments: request failed', error);
@@ -105,7 +125,6 @@ router.get('/post/:postId', optionalAuth, async (req, res) => {
     req.user?.id
   );
 
-  type CommentRow = (typeof data)[number];
   type CommentNode = CommentRow & { score: number; myVote: 1 | -1 | null; replies: CommentNode[] };
 
   const byId = new Map<string, CommentNode>();

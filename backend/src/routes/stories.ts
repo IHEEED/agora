@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { supabase } from '../config/supabase';
 import { requireAuth, optionalAuth } from '../middleware/auth';
+import { userEmbed } from '../config/schema';
 
 const router = Router();
 
@@ -50,7 +51,7 @@ type StoryRow = {
 };
 
 const SELECT =
-  '*, author:users!stories_author_id_fkey(id, username, avatar_url), post:posts(id, title, body, image_url, image_urls)';
+  `*, ${userEmbed('author', 'stories_author_id_fkey')}, post:posts(id, title, body, image_url, image_urls)`;
 
 /**
  * Активные истории, сгруппированные по авторам.
