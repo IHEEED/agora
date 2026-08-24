@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { SegmentRing } from '@/components/SegmentRing';
 import { StoryViewer } from '@/components/StoryViewer';
 import { StoryComposer, StoryDraft } from '@/components/StoryComposer';
+import { NewStorySheet } from '@/components/NewStorySheet';
 import { StoryGroup } from '@/lib/types';
 import { haptic } from '@/lib/haptics';
 import { DefaultAvatar } from '@/components/DefaultAvatar';
@@ -51,6 +52,8 @@ export function StoriesBar({
   const [origin, setOrigin] = useState<DOMRect | null>(null);
   // Что сейчас в редакторе истории. null — редактор закрыт.
   const [draft, setDraft] = useState<StoryDraft | null>(null);
+  /** Открыт ли экран новой истории — того, что заводится с нуля. */
+  const [composing, setComposing] = useState(false);
   const trackRef = useRef<HTMLDivElement>(null);
   const drag = useRef({ active: false, startX: 0, startScroll: 0, lastX: 0, velocity: 0 });
   const inertia = useRef<number | null>(null);
@@ -126,7 +129,18 @@ export function StoriesBar({
       }}
     >
       {currentUserLetter && (
-        <div className="min-w-0 flex flex-col items-center gap-1.5" style={{ flex: `0 0 ${RING_SIZE}px` }}>
+        // Кнопка, а не div. Кружок с плюсом стоял здесь с самого начала и не
+        // делал ничего — обещание кнопки без кнопки, от которого человек
+        // считает сломанным себя.
+        <button
+          type="button"
+          onClick={() => {
+            haptic();
+            setComposing(true);
+          }}
+          className="min-w-0 flex flex-col items-center gap-1.5"
+          style={{ flex: `0 0 ${RING_SIZE}px` }}
+        >
           <div className="relative" style={{ width: RING_SIZE, height: RING_SIZE }}>
             {/* Пунктир вместо дуг: своей истории ещё нет, показывать нечего —
                 и кружок читается как «место под неё», а не как непросмотренное. */}
@@ -156,7 +170,7 @@ export function StoriesBar({
           <span className="w-full truncate text-center text-[10.5px] text-[var(--text-muted)]">
             {t('feed.yourStory')}
           </span>
-        </div>
+        </button>
       )}
 
       {stories.map((story, position) => (
@@ -214,6 +228,8 @@ export function StoriesBar({
     />
 
     <StoryComposer draft={draft} onClose={() => setDraft(null)} />
+
+    <NewStorySheet open={composing} onClose={() => setComposing(false)} />
     </>
   );
 }

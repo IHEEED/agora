@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
 import { haptic } from '@/lib/haptics';
+import { lockScroll } from '@/lib/scrollLock';
 
 /** Ниже этого сдвига отпускание закрывает шторку, выше — возвращает на место. */
 const DISMISS_AFTER_PX = 120;
@@ -63,11 +64,10 @@ export function BottomSheet({
 
   useEffect(() => {
     if (!open) return;
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.body.style.overflow = previous;
-    };
+    // Общий счётчик, а не своё запоминание: накладок на экране бывает
+    // несколько, и «вернуть как было» у каждой по отдельности оставляло
+    // страницу заблокированной навсегда (см. lib/scrollLock).
+    return lockScroll();
   }, [open]);
 
   useEffect(() => {

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
+import { lockScroll } from '@/lib/scrollLock';
 
 /**
  * Изображение во весь экран, с листанием.
@@ -87,11 +88,10 @@ export function ImageViewer({
   // Пока смотрят картинку, страница под ней не листается.
   useEffect(() => {
     if (!open) return;
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.body.style.overflow = previous;
-    };
+    // Общий счётчик, а не своё запоминание: накладок на экране бывает
+    // несколько, и «вернуть как было» у каждой по отдельности оставляло
+    // страницу заблокированной навсегда (см. lib/scrollLock).
+    return lockScroll();
   }, [open]);
 
   function onPointerDown(event: React.PointerEvent) {

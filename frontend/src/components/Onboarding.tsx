@@ -3,6 +3,7 @@
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
 import { Wordmark } from '@/components/Wordmark';
+import { lockScroll } from '@/lib/scrollLock';
 
 export const ONBOARDING_STORAGE_KEY = 'parafraz-onboarding-seen';
 
@@ -177,11 +178,10 @@ export function Onboarding() {
 
   useEffect(() => {
     if (!open) return;
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.body.style.overflow = previous;
-    };
+    // Общий счётчик, а не своё запоминание: накладок на экране бывает
+    // несколько, и «вернуть как было» у каждой по отдельности оставляло
+    // страницу заблокированной навсегда (см. lib/scrollLock).
+    return lockScroll();
   }, [open]);
 
   function finish() {

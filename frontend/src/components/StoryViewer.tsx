@@ -18,6 +18,7 @@ import { haptic } from '@/lib/haptics';
 import { setStoriesHidden, useAreStoriesHidden } from '@/lib/hiddenStories';
 import { BottomSheet } from '@/components/BottomSheet';
 import { useRouter } from 'next/navigation';
+import { lockScroll } from '@/lib/scrollLock';
 
 /**
  * Разворот из кружка и складывание обратно.
@@ -352,11 +353,8 @@ export function StoryViewer({
 
   useEffect(() => {
     if (!open) return;
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.body.style.overflow = previous;
-    };
+    // Общий счётчик, а не своё запоминание (см. lib/scrollLock).
+    return lockScroll();
   }, [open]);
 
   /**
@@ -492,9 +490,18 @@ export function StoryViewer({
           ))}
         </div>
 
+        {/* Шапка не листает кадр.
+            Родитель ловит указатель на всём экране и на отпускании листает:
+            правая часть вперёд, левая назад. Три точки и крестик стоят как раз
+            справа — то есть до клика по ним история успевала пролистнуться, и
+            меню либо не открывалось, либо открывалось уже на другом кадре.
+            stopPropagation на самом click не помогал: pointerup случается
+            раньше. Тот же щит стоит на нижнем ряду, где ровно та же беда. */}
         <div
           className="absolute inset-x-3 flex items-center gap-2.5"
           style={{ top: 'calc(22px + env(safe-area-inset-top))' }}
+          onPointerDown={(event) => event.stopPropagation()}
+          onPointerUp={(event) => event.stopPropagation()}
         >
           <DefaultAvatar name={story.author.username} size={30} src={story.author.avatar_url} />
           <span className="min-w-0 flex-1 truncate text-[14px] font-semibold text-white">

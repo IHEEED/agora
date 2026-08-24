@@ -7,6 +7,7 @@ import { CommentWithPost, Post, UserProfile } from '@/lib/types';
 import { PeopleSheet } from '@/components/PeopleSheet';
 import { PostCard } from '@/components/PostCard';
 import { ProfileAvatar } from '@/components/ProfileAvatar';
+import { ThoughtCloud } from '@/components/ThoughtCloud';
 import { InfluenceInfo } from '@/components/InfluenceInfo';
 import { SuggestedPeople } from '@/components/SuggestedPeople';
 import { SegmentedControl } from '@/components/SegmentedControl';
@@ -195,6 +196,26 @@ export default function ProfilePage() {
   // пришлось бы, вытянув оба списка целиком.
   const profileResult = useApiData<UserProfile>(userId ? `/users/${userId}` : null);
 
+  /**
+   * Своя мысль на сутки.
+   *
+   * Запрашивается тем же маршрутом, что и чужие в переписках: список авторов
+   * задаёт экран, и здесь он состоит из одного человека. Отдельного «дай мою»
+   * заводить не за чем — это был бы второй способ спросить то же самое.
+   */
+  const notesResult = useApiData<{ author_id: string; body: string }[]>(
+    userId ? `/notes?ids=${userId}` : null
+  );
+  const loadedNote = notesResult.data?.[0]?.body ?? null;
+  const [myNote, setMyNote] = useState<string | null>(loadedNote);
+  // Сравнение в отрисовке, а не эффект: иначе после загрузки был бы кадр с
+  // пустым облачком поверх уже приехавшей мысли.
+  const [lastLoadedNote, setLastLoadedNote] = useState(loadedNote);
+  if (lastLoadedNote !== loadedNote) {
+    setLastLoadedNote(loadedNote);
+    setMyNote(loadedNote);
+  }
+
   const posts = useMemo(() => postsResult.data ?? [], [postsResult.data]);
   const comments = useMemo(() => commentsResult.data ?? [], [commentsResult.data]);
   const reposts = useMemo(() => repostsResult.data ?? [], [repostsResult.data]);
@@ -306,6 +327,12 @@ export default function ProfilePage() {
                   photo={savedAvatar || null}
                   photoFit={savedAvatarFit}
                 />
+                {/* Облачко живёт здесь, у своего лица.
+                    В списке переписок оно было ещё и отдельной строкой сверху —
+                    ряд, существующий ради одного поля, которое трогают раз в
+                    день. Там теперь только чужие облачка, над теми, у кого они
+                    есть; своё пишут в профиле, где и всё остальное про себя. */}
+                <ThoughtCloud text={myNote} mine onChange={setMyNote} />
               </div>
             </div>
 

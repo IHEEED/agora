@@ -32,6 +32,7 @@ import { useVoiceRecorder } from '@/lib/useVoiceRecorder';
 import { VoiceBubble } from '@/components/VoiceBubble';
 import { supabase } from '@/lib/supabase';
 import { useT, translate } from '@/lib/i18n';
+import { useBlockedUsers } from '@/lib/blockedUsers';
 
 /** Как часто перечитываем переписку, пока она открыта.
     Раньше был 4000 — при плохой сети задержка на запросе могла совпасть
@@ -146,6 +147,19 @@ export default function ChatPage() {
   // Кому можно переслать. Запрос уходит только когда шторку открыли.
   const people = useApiData<UserSummary[]>(forwarding ? '/users' : null);
   const me = session?.user.id;
+  const blocked = useBlockedUsers();
+
+  /**
+   * Кому показывать в пересылке.
+   *
+   * Себя убираем: переслать сообщение самому себе — действие без смысла, а
+   * стоит оно в списке первым, потому что список отсортирован по influence.
+   * Заблокированных тоже: смысл блокировки в том, чтобы человек не попадался,
+   * а список пересылки — ровно то место, где промахнуться проще всего.
+   */
+  const forwardTargets = (people.data ?? []).filter(
+    (candidate) => candidate.id !== me && !blocked.includes(candidate.id)
+  );
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -1684,7 +1698,7 @@ export default function ChatPage() {
         }
       >
         <div className="flex flex-col divide-y divide-[var(--border)]">
-          {(people.data ?? []).map((person) => (
+          {forwardTargets.map((person) => (
             <button
               key={person.id}
               type="button"
@@ -1697,10 +1711,29 @@ export default function ChatPage() {
               </span>
             </button>
           ))}
+
           {people.loading && (
             <SkeletonList count={5}>
               <SkeletonRow />
             </SkeletonList>
+          )}
+
+          {/* Три разных исхода, и раньше все три выглядели одинаково — пустой
+              белой плашкой. Пока список едет, стоят заглушки; если не доехал —
+              сказано, что случилось; если ехать было не за кем — сказано и это.
+              Молчащая шторка хуже любого из трёх сообщений: человек не знает,
+              ждать ему или закрывать. */}
+          {people.error && (
+            <p className="py-10 text-center text-[14px] leading-relaxed" style={{ color: 'var(--down)' }}>
+              {people.error}
+            </p>
+          )}
+
+          {!people.loading && !people.error && forwardTargets.length === 0 && (
+            <p className="py-10 text-center text-[14px] leading-relaxed text-[var(--text-muted)]">
+              Переслать пока некому — здесь появятся люди, которых вы найдёте
+              в поиске или встретите в клубах.
+            </p>
           )}
         </div>
       </BottomSheet>

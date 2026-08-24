@@ -9,7 +9,6 @@ import { MessageThread, UserSummary } from '@/lib/types';
 import { DefaultAvatar } from '@/components/DefaultAvatar';
 import { BottomSheet } from '@/components/BottomSheet';
 import { ThreadRow } from '@/components/ThreadRow';
-import { ThoughtCloud } from '@/components/ThoughtCloud';
 import { CenterDialog } from '@/components/CenterDialog';
 import { SkeletonList, SkeletonRow } from '@/components/Skeleton';
 import { useBlockedUsers } from '@/lib/blockedUsers';
@@ -32,8 +31,6 @@ export default function MessagesPage() {
   const [menuFor, setMenuFor] = useState<MessageThread | null>(null);
   /** Переписка, удаление которой переспрашиваем. */
   const [confirmDelete, setConfirmDelete] = useState<MessageThread | null>(null);
-  /** Своя мысль на сутки. Правится прямо в облачке над своей аватаркой. */
-  const [myNote, setMyNote] = useState<string | null>(null);
   // Разворачивается из кнопки в шапке и складывается обратно в неё — так же,
   // как поиск. У мессенджера есть своя кнопка, и связь «нажал вот это — выросло
   // вот это» показать стоит: раздел открывается не из бара, и вернуться иначе
@@ -81,15 +78,6 @@ export default function MessagesPage() {
   );
   const notes = new Map((notesResult.data ?? []).map((note) => [note.author_id, note.body]));
 
-  // Своё облачко: пока его не трогали, показываем то, что приехало с сервера.
-  // Сравнение в отрисовке, а не эффект, — иначе после загрузки был бы кадр с
-  // пустым облачком поверх уже приехавшей мысли.
-  const loadedNote = me ? (notes.get(me) ?? null) : null;
-  const [lastLoadedNote, setLastLoadedNote] = useState(loadedNote);
-  if (lastLoadedNote !== loadedNote) {
-    setLastLoadedNote(loadedNote);
-    setMyNote(loadedNote);
-  }
 
   function patchThread(peerId: string, patch: { pinned?: boolean; muted?: boolean }) {
     threadsResult.mutate((prev) =>
@@ -161,20 +149,6 @@ export default function MessagesPage() {
             {threadsResult.error}
           </p>
         )}
-
-        {/* Своё облачко — над своим лицом, первой строкой.
-            Здесь же, где чужие, и по той же причине: мысль на сутки живёт в
-            списке переписок, а не в профиле. Отдельного экрана ей не надо —
-            всё, что с ней делают, это пишут одну строку и стирают. */}
-        <div className="mb-1 mt-6 flex justify-center">
-          <span className="relative">
-            <DefaultAvatar
-              name={(session?.user.email ?? '?').split('@')[0]}
-              size={44}
-            />
-            <ThoughtCloud text={myNote} mine onChange={setMyNote} />
-          </span>
-        </div>
 
         {/* Строки, а не карточки: список переписок читают сверху вниз одним
             движением глаз, и обойма вокруг каждой строки только сбивает ритм.
