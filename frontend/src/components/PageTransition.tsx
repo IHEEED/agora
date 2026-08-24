@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
+import { releaseBackdrop } from '@/lib/screenBackdrop';
 import { consumeGoingBack } from '@/lib/navDirection';
 
 /**
@@ -48,6 +49,28 @@ export function PageTransition({ children }: { children: React.ReactNode }) {
     setSilent(consumeGoingBack() || isOverlay(previous));
     setPrevious(pathname);
   }
+
+  /**
+   * Общая уборка замороженного снимка.
+   *
+   * holdBackdrop зовут из пяти мест, а снимали его только двое — «новая запись»
+   * и переписка. Всё остальное, что замораживало экран и уходило не туда,
+   * оставляло снимок висеть навсегда: он лежит поверх страницы и виден везде,
+   * где экран прозрачен. Отсюда и профиль, проступающий сквозь список
+   * переписок, — карточка с «Добавить фон профиля» поверх чужих реплик.
+   *
+   * Снимать по маршруту, а не по месту вызова. Тот, кто замораживает, не знает,
+   * куда человек в итоге придёт: из шторки можно уйти назад, вбок или закрыть
+   * её вовсе. А вот куда пришли — известно точно, и здесь.
+   *
+   * Исключение — экраны, которые держат снимок нарочно: «новая запись» рисует
+   * его за собой вместо пустоты, переписка даёт утащить его пальцем, чтобы
+   * увидеть, куда возвращаешься. Они снимают его сами, своим порядком.
+   */
+  useEffect(() => {
+    const keepsBackdrop = pathname === '/create' || /^\/messages\/.+/.test(pathname);
+    if (!keepsBackdrop) releaseBackdrop();
+  }, [pathname]);
 
   const isDetail =
     pathname.startsWith('/posts/') ||
