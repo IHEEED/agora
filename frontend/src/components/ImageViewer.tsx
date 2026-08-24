@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
+import { VelocityTracker, committed } from '@/lib/gestureVelocity';
 import { lockScroll } from '@/lib/scrollLock';
 
 /**
@@ -50,6 +51,8 @@ export function ImageViewer({
   const [dragging, setDragging] = useState(false);
   const from = useRef<{ x: number; y: number } | null>(null);
   const trackRef = useRef<HTMLDivElement>(null);
+  const speedX = useRef(new VelocityTracker());
+  const speedY = useRef(new VelocityTracker());
   /**
    * Текущий сдвиг — ещё и в ref, не только в состоянии.
    *
@@ -97,6 +100,8 @@ export function ImageViewer({
   function onPointerDown(event: React.PointerEvent) {
     from.current = { x: event.clientX, y: event.clientY };
     axis.current = null;
+    speedX.current.reset();
+    speedY.current.reset();
     // Без захвата указатель, ушедший за пределы окна или на элемент выше,
     // перестаёт слать события — картинка застревает на полпути.
     event.currentTarget.setPointerCapture?.(event.pointerId);
@@ -110,6 +115,11 @@ export function ImageViewer({
     if (!axis.current && Math.hypot(dx, dy) > 8) {
       axis.current = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
     }
+    // Две оси — два счётчика: скорость по диагонали, посчитанная как одно
+    // число, десинхронизируется, когда по X и Y движение разное (см. §3
+    // apple-design про разложение на независимые пружины).
+    speedX.current.add(event.clientX);
+    speedY.current.add(event.clientY);
     if (axis.current === 'x') offset.current = { x: dx, y: 0 };
     // Вверх не тянем: закрывать движением вверх некуда — там шапка.
     if (axis.current === 'y') offset.current = { x: 0, y: Math.max(0, dy) };
@@ -178,12 +188,14 @@ export function ImageViewer({
     setDragging(false);
     setDrag({ x: 0, y: 0 });
 
-    if (y > 110) return closeWithReturn();
+    // Далеко утащили или быстро бросили — см. lib/gestureVelocity.
+    if (committed(y, speedY.current.get(), 110)) return closeWithReturn();
     // Четверть ширины — столько нужно протащить, чтобы это было решением, а не
-    // случайным смахиванием во время разглядывания.
+    // случайным смахиванием во время разглядывания. Резкий флик засчитывается
+    // и раньше: он однозначен.
     const threshold = window.innerWidth * 0.25;
-    if (x < -threshold) return go(1);
-    if (x > threshold) return go(-1);
+    const vx = speedX.current.get();
+    if (committed(x, vx, threshold)) return go(x < 0 ? 1 : -1);
   }
 
   if (!mounted || !open) return null;

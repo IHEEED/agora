@@ -7,6 +7,7 @@ import { formatCompactAge } from '@/lib/formatDate';
 import { MessageThread } from '@/lib/types';
 import { holdBackdrop } from '@/lib/screenBackdrop';
 import { haptic } from '@/lib/haptics';
+import { VelocityTracker, committed } from '@/lib/gestureVelocity';
 import { ThoughtCloud } from '@/components/ThoughtCloud';
 import { useT } from '@/lib/i18n';
 
@@ -59,6 +60,7 @@ export function ThreadRow({
   const from = useRef<{ x: number; y: number } | null>(null);
   const own = useRef(false);
   const holdTimer = useRef<number | null>(null);
+  const speed = useRef(new VelocityTracker());
 
   function cancelHold() {
     if (holdTimer.current !== null) {
@@ -71,6 +73,7 @@ export function ThreadRow({
     if (event.pointerType === 'mouse') return;
     from.current = { x: event.clientX, y: event.clientY };
     own.current = false;
+    speed.current.reset();
 
     const target = event.currentTarget as HTMLElement;
     holdTimer.current = window.setTimeout(() => {
@@ -109,6 +112,7 @@ export function ThreadRow({
     }
 
     // Вязкость и упор: строка отдаёт всё меньше на каждый пиксель пальца.
+    speed.current.add(event.clientX);
     const pulled = Math.min(MAX, Math.sqrt(Math.abs(moved)) * 11);
     const next = moved > 0 ? pulled : -pulled;
     if (Math.abs(next) >= TRIGGER && Math.abs(dx) < TRIGGER) haptic();
@@ -123,7 +127,10 @@ export function ThreadRow({
     setDragging(false);
     setDx(0);
 
-    if (Math.abs(settled) < TRIGGER) return;
+    // Далеко утащили или быстро бросили — см. lib/gestureVelocity. Короткий
+    // резкий флик до порога не доезжает, хотя это самое решительное движение,
+    // на какое способен палец.
+    if (!committed(settled, speed.current.get(), TRIGGER)) return;
     // Одно действие на сторону, а не две кнопки под пальцем: выбирать между
     // ними пришлось бы глазами, а тогда свайп теряет единственное преимущество
     // перед меню — скорость.

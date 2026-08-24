@@ -33,6 +33,7 @@ import { VoiceBubble } from '@/components/VoiceBubble';
 import { supabase } from '@/lib/supabase';
 import { useT, translate } from '@/lib/i18n';
 import { useBlockedUsers } from '@/lib/blockedUsers';
+import { VelocityTracker, committed } from '@/lib/gestureVelocity';
 
 /** Как часто перечитываем переписку, пока она открыта.
     Раньше был 4000 — при плохой сети задержка на запросе могла совпасть
@@ -136,6 +137,7 @@ export default function ChatPage() {
   /** Какой из закреплённых показывать следующим: нажатия идут по кругу. */
   const pinCursor = useRef(0);
   const swipeFrom = useRef<{ x: number; y: number; id: string; own: boolean } | null>(null);
+  const swipeSpeed = useRef(new VelocityTracker());
   const timers = useRef<number[]>([]);
 
   useEffect(() => {
@@ -780,6 +782,7 @@ export default function ChatPage() {
     // протаскивание при выделении текста сработало бы ответом.
     if (event.pointerType === 'mouse' || selected) return;
     swipeFrom.current = { x: event.clientX, y: event.clientY, id: message.id, own: false };
+    swipeSpeed.current.reset();
   }
 
   function swipeMove(event: React.PointerEvent) {
@@ -804,6 +807,7 @@ export default function ChatPage() {
       (event.currentTarget as HTMLElement).setPointerCapture?.(event.pointerId);
     }
 
+    swipeSpeed.current.add(event.clientX);
     // Вязкость: корень от пройденного, а не сам путь.
     const pulled = Math.min(SWIPE_MAX, Math.sqrt(-dx) * 9);
     setSwipe({ id: from.id, dx: -pulled });
@@ -818,8 +822,10 @@ export default function ChatPage() {
     const from = swipeFrom.current;
     swipeFrom.current = null;
     const pulled = -(swipe?.dx ?? 0);
+    const velocity = swipeSpeed.current.get();
     setSwipe(null);
-    if (!from?.own || pulled < SWIPE_TRIGGER) return;
+    // Знаки сводим к одной оси: тянут влево, то есть путь отрицательный.
+    if (!from?.own || !committed(-pulled, velocity, SWIPE_TRIGGER)) return;
 
     const message = messages.find((m) => m.id === from.id);
     if (message) startReply(message);
