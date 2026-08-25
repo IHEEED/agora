@@ -11,6 +11,7 @@ import {
 import { createPortal } from 'react-dom';
 import { DefaultAvatar } from '@/components/DefaultAvatar';
 import { formatCompactAge } from '@/lib/formatDate';
+import { VelocityTracker, isFlick } from '@/lib/gesture';
 import { StoryGroup, StoryItem } from '@/lib/types';
 import { apiFetch } from '@/lib/api';
 import { useT } from '@/lib/i18n';
@@ -358,6 +359,7 @@ export function StoryViewer({
   // Свайп вниз закрывает — так же, как в просмотрщике картинок.
   const from = useRef<number | null>(null);
   const [dragY, setDragY] = useState(0);
+  const tracker = useRef(new VelocityTracker());
 
   if (!mounted || !story) return null;
 
@@ -373,7 +375,11 @@ export function StoryViewer({
         animation: 'image-viewer-in 180ms ease',
       }}
       onPointerDown={(event) => {
+        // Захват: мышью история закрывается так же, как пальцем, а курсор
+        // легко уходит за пределы элемента посреди протяжки.
+        event.currentTarget.setPointerCapture(event.pointerId);
         from.current = event.clientY;
+        tracker.current.reset(event.clientY);
         // Палец на экране — время стоит. Запоминаем, докуда дошли: таймер
         // снимается вместе с эффектом, и продолжать он будет с этого места.
         setResumeFrom(progress);
@@ -381,6 +387,7 @@ export function StoryViewer({
       }}
       onPointerMove={(event) => {
         if (from.current === null) return;
+        tracker.current.add(event.clientY);
         setDragY(Math.max(0, event.clientY - from.current));
       }}
       onPointerUp={(event) => {
@@ -390,7 +397,8 @@ export function StoryViewer({
         const moved = dragY;
         setDragY(0);
         if (start === null) return;
-        if (moved > 110) return closeSmoothly();
+        // Дотянул до порога или бросил вниз — довольно любого из двух.
+        if (moved > 110 || isFlick(tracker.current.velocity, 1)) return closeSmoothly();
         // Не потащили — значит нажали. Правая треть вперёд, левая назад:
         // палец чаще всего справа, поэтому вперёд отдана большая доля.
         if (moved < 8) {

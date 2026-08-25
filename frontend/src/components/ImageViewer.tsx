@@ -1,5 +1,7 @@
 'use client';
 
+import { VelocityTracker, isFlick } from '@/lib/gesture';
+
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
 
@@ -55,7 +57,9 @@ export function ImageViewer({
   const offset = useRef({ x: 0, y: 0 });
   // Какую ось человек выбрал первым движением. Без фиксации картинка ездила
   // по диагонали и не понимала, листают её или закрывают.
-  const axis = useRef<'x' | 'y' | null>(null);
+  const axisRef = useRef<'x' | 'y' | null>(null);
+  const trackerX = useRef(new VelocityTracker());
+  const trackerY = useRef(new VelocityTracker());
 
   const go = useCallback(
     (delta: number) => {
@@ -89,41 +93,55 @@ export function ImageViewer({
 
   function onPointerDown(event: React.PointerEvent) {
     from.current = { x: event.clientX, y: event.clientY };
-    axis.current = null;
+    axisRef.current = null;
     // Без захвата указатель, ушедший за пределы окна или на элемент выше,
     // перестаёт слать события — картинка застревает на полпути.
     event.currentTarget.setPointerCapture?.(event.pointerId);
+    // Две оси — два отдельных счётчика скорости. Одна скорость на расстояние
+    // по диагонали рассыпается, как только по X и Y движение разное, а здесь
+    // оси и решают разное: вбок — соседний снимок, вниз — закрыть.
+    trackerX.current.reset(event.clientX);
+    trackerY.current.reset(event.clientY);
     setDragging(true);
   }
 
   function onPointerMove(event: React.PointerEvent) {
     if (!from.current) return;
+    trackerX.current.add(event.clientX);
+    trackerY.current.add(event.clientY);
     const dx = event.clientX - from.current.x;
     const dy = event.clientY - from.current.y;
-    if (!axis.current && Math.hypot(dx, dy) > 8) {
-      axis.current = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
+    if (!axisRef.current && Math.hypot(dx, dy) > 8) {
+      axisRef.current = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
     }
-    if (axis.current === 'x') offset.current = { x: dx, y: 0 };
+    if (axisRef.current === 'x') offset.current = { x: dx, y: 0 };
     // Вверх не тянем: закрывать движением вверх некуда — там шапка.
-    if (axis.current === 'y') offset.current = { x: 0, y: Math.max(0, dy) };
+    if (axisRef.current === 'y') offset.current = { x: 0, y: Math.max(0, dy) };
     setDrag(offset.current);
   }
 
   function onPointerUp() {
     if (!from.current) return;
     const { x, y } = offset.current;
+    const axis = axisRef.current;
     from.current = null;
-    axis.current = null;
+    axisRef.current = null;
     offset.current = { x: 0, y: 0 };
     setDragging(false);
     setDrag({ x: 0, y: 0 });
 
-    if (y > 110) return onClose();
+    const vx = trackerX.current.velocity;
+    const vy = trackerY.current.velocity;
+
+    // Закрытие: дотянул вниз до порога или бросил вниз.
+    if (axis === 'y' && (y > 110 || isFlick(vy, 1))) return onClose();
+
     // Четверть ширины — столько нужно протащить, чтобы это было решением, а не
-    // случайным смахиванием во время разглядывания.
+    // случайным смахиванием во время разглядывания. Либо, опять же, бросок:
+    // листать снимки щелчками пальца привычнее, чем протаскивать каждый.
     const threshold = window.innerWidth * 0.25;
-    if (x < -threshold) return go(1);
-    if (x > threshold) return go(-1);
+    if (x < -threshold || (axis === 'x' && isFlick(vx, -1))) return go(1);
+    if (x > threshold || (axis === 'x' && isFlick(vx, 1))) return go(-1);
   }
 
   if (!mounted || !open) return null;
