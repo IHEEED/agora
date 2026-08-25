@@ -557,19 +557,25 @@ function CreatePost() {
             <div className="relative">
               {/* z-10: поле ниже стеклянное, его backdrop-filter размывает
                   всё, что нарисовано под ним, включая эту лупу. */}
-              <span className="pointer-events-none absolute left-4 top-1/2 z-10 -translate-y-1/2 text-[var(--text-muted)]">
+              <span className="pointer-events-none absolute left-4 top-1/2 z-10 flex -translate-y-1/2 items-center gap-1.5 text-[var(--text-muted)]">
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
                   <circle cx="11" cy="11" r="6.5" />
                   <path d="m20 20-4.3-4.3" />
                 </svg>
+                {/* Слово рядом с лупой, а не подсказкой внутри поля.
+                    Подсказка исчезает на первом же введённом знаке — и поле,
+                    оставшись с одной лупой, перестаёт объяснять, что оно делает.
+                    Особенно на середине набора, когда результатов ещё нет и
+                    смотреть не на что. Эта надпись стоит всегда. */}
+                <span className="text-[15px]">{t('common.searchLabel')}</span>
               </span>
               <input
                 type="search"
                 enterKeyHint="search"
-                placeholder={t('communities.search')}
+                placeholder=""
                 value={communityQuery}
                 onChange={(e) => setCommunityQuery(e.target.value)}
-                className="field-line w-full py-2.5 pl-9 pr-2 text-[15px] text-[var(--text)] outline-none transition-colors focus:border-[var(--accent)]"
+                className="field-line w-full py-2.5 pl-[84px] pr-2 text-[15px] text-[var(--text)] outline-none transition-colors focus:border-[var(--accent)]"
               />
             </div>
           )}
