@@ -534,6 +534,18 @@ export default function SettingsPage() {
                 Открыть
               </Link>
             </Row>
+            {/* Подтверждение — отдельной строкой, а не внутри разбора жалоб.
+                Это разная работа: жалобы приходят сами и требуют решения, а
+                галочку выдают по чьей-то просьбе, зная ник заранее. */}
+            <Row label="Подтверждение личности" hint="Галочки и заявки">
+              <Link
+                href="/moderation/verification"
+                className="flex-none rounded-full px-4 py-1.5 text-[13px] font-medium"
+                style={{ background: 'var(--surface-2)', color: 'var(--text)' }}
+              >
+                Открыть
+              </Link>
+            </Row>
           </Section>
           )}
 

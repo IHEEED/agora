@@ -79,7 +79,7 @@ export interface Message {
 
 /** Строка в списке переписок: собеседник и последнее письмо. */
 export interface MessageThread {
-  user: { id: string; username: string; avatar_url?: string | null };
+  user: { id: string; username: string; avatar_url?: string | null; verified_at?: string | null };
   unread: number;
   /** Закреплён ли у меня. Настройка личная — собеседник о ней не знает. */
   pinned?: boolean;

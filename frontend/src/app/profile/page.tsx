@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useSession } from '@/lib/useSession';
 import { invalidate, useApiData } from '@/lib/useApiData';
 import { apiFetch } from '@/lib/api';
@@ -9,6 +9,7 @@ import { CommentWithPost, Post, UserProfile } from '@/lib/types';
 import { PeopleSheet } from '@/components/PeopleSheet';
 import { PostCard } from '@/components/PostCard';
 import { ProfileAvatar } from '@/components/ProfileAvatar';
+import { VerifiedMark } from '@/components/VerifiedMark';
 import { ThoughtCloud } from '@/components/ThoughtCloud';
 import { InfluenceInfo } from '@/components/InfluenceInfo';
 import { SuggestedPeople } from '@/components/SuggestedPeople';
@@ -19,7 +20,6 @@ import { DEFAULT_FIT, Fit } from '@/components/ImageFitter';
 import { ImageAdjustDialog } from '@/components/ImageAdjustDialog';
 import Link from 'next/link';
 import {
-  PROFILE_CHANGED_EVENT,
   ProfileEditSheet,
 } from '@/components/ProfileEditSheet';
 import { usePhoneGate } from '@/components/PhoneGateContext';
@@ -29,10 +29,11 @@ import { TranslationKey, useT } from '@/lib/i18n';
 
 type Tab = 'posts' | 'comments' | 'reposts';
 
-// Ни отображаемого имени, ни описания в таблице users пока нет — держим их
-// здесь как образец, пока не появятся поля на бэкенде.
-const DISPLAY_NAME = 'Бодрин Фёдор';
-const BIO = 'иногда достаточно лишь пары фраз';
+// Имя и подпись переехали в базу (миграция 022). Здесь стояли образцы —
+// зашитое «Бодрин Фёдор» и подпись к нему, — и показывались они всем, у кого
+// имя ещё не заполнено. То есть человек видел в своём профиле чужое имя и
+// считал это ошибкой приложения; собственно, с этого и начался разговор про
+// рассинхрон профиля.
 
 const TABS: ReadonlyArray<readonly [Tab, TranslationKey]> = [
   ['posts', 'profile.posts'],
@@ -133,7 +134,9 @@ export default function ProfilePage() {
   const coverImage = cover ?? profile?.cover_url ?? null;
   // То же с кадрированием: пока не сохранили — своё, дальше серверное.
   const shownCoverFit: Fit = coverFit ?? { ...DEFAULT_FIT, ...(profile?.cover_fit ?? {}) };
-  const displayName = profile?.display_name || profile?.username || DISPLAY_NAME;
+  // Запасное значение — собственный ник, а не выдуманное имя. Ник у человека
+  // есть всегда, и он свой.
+  const displayName = profile?.display_name || profile?.username || '';
   const bio = profile?.bio || '';
   const savedAvatar = profile?.avatar_url ?? '';
   const savedAvatarFit = useMemo<Fit>(
@@ -287,7 +290,12 @@ export default function ProfilePage() {
                 потом цифры, потом кнопка — и каждая приходящая строка толкала
                 соседей вниз. Это и выглядело как прыгающая аватарка. */}
             <div className="flex flex-col gap-0.5">
-              <h1 className="text-[17px] font-semibold leading-tight text-[var(--text)]">{displayName}</h1>
+              <h1 className="flex items-center gap-1.5 text-[17px] font-semibold leading-tight text-[var(--text)]">
+                {displayName}
+                {/* Своя галочка тоже видна. Не показывать её у себя — значит
+                    оставить человека гадать, выдали ему её или нет. */}
+                <VerifiedMark verified={profile?.verified_at} size={16} />
+              </h1>
               <span className="text-[13px] font-medium" style={{ color: 'var(--accent)' }}>
                 @{handle}
               </span>
