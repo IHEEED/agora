@@ -3,7 +3,9 @@
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { useApiData } from '@/lib/useApiData';
+import { invalidate, useApiData } from '@/lib/useApiData';
+import { apiFetch } from '@/lib/api';
+import { haptic } from '@/lib/haptics';
 import { useSession } from '@/lib/useSession';
 import { CommentWithPost, Post, UserProfile } from '@/lib/types';
 import { SegmentedControl } from '@/components/SegmentedControl';
@@ -14,6 +16,8 @@ import { ProfileAvatar } from '@/components/ProfileAvatar';
 import { FollowButton } from '@/components/FollowButton';
 import { PeopleSheet } from '@/components/PeopleSheet';
 import { PersonMenuSheet } from '@/components/PersonMenuSheet';
+import { VerifiedMark } from '@/components/VerifiedMark';
+import { useMe } from '@/lib/useMe';
 import { setBlocked, useIsBlocked } from '@/lib/blockedUsers';
 import { useScreenLeave } from '@/lib/useScreenLeave';
 import { useStickyTab } from '@/lib/useStickyTab';
@@ -81,6 +85,38 @@ export default function UserProfilePage() {
   const username = person?.username ?? posts[0]?.author.username ?? '';
   const isMe = session?.user.id === userId;
   const influence = useMemo(() => posts.reduce((sum, post) => sum + post.score, 0), [posts]);
+
+  /**
+   * Выдача галочки — со страницы человека, а не только из очереди жалоб.
+   *
+   * Сначала кнопка стояла только на карточке жалобы, и это была ошибка: пока
+   * жалоб нет, подтвердить нельзя никого. А подтверждают чаще как раз без
+   * повода — просто знаешь человека и ставишь.
+   */
+  const { me } = useMe();
+  const [verifiedLocal, setVerifiedLocal] = useState<string | null | undefined>(undefined);
+  const verified = verifiedLocal !== undefined ? verifiedLocal : (person?.verified_at ?? null);
+  const [verifying, setVerifying] = useState(false);
+
+  async function toggleVerified() {
+    if (verifying) return;
+    haptic();
+    const next = verified ? null : new Date().toISOString();
+    setVerifiedLocal(next);
+    setVerifying(true);
+
+    try {
+      await apiFetch('/moderation/verify', {
+        method: 'POST',
+        body: JSON.stringify({ userId, verified: Boolean(next) }),
+      });
+      invalidate('/users');
+    } catch {
+      setVerifiedLocal(verified);
+    } finally {
+      setVerifying(false);
+    }
+  }
 
   return (
     <div className="flex flex-1 flex-col items-center" style={leaveStyle} {...swipeHandlers}>
@@ -154,13 +190,28 @@ export default function UserProfilePage() {
             </div>
 
             <div className="flex flex-col gap-0.5">
-              <h1 className="text-[17px] font-semibold leading-tight text-[var(--text)]">
+              <h1 className="flex items-center gap-1.5 text-[17px] font-semibold leading-tight text-[var(--text)]">
                 {username || '—'}
+                <VerifiedMark verified={verified} size={16} />
               </h1>
               <span className="text-[13px] font-medium" style={{ color: 'var(--accent)' }}>
                 @{username}
               </span>
             </div>
+
+            {/* Кнопка видна только модератору. Настоящая проверка на сервере:
+                /moderation отвечает 404 всем остальным. */}
+            {me?.isModerator && (
+              <button
+                type="button"
+                onClick={toggleVerified}
+                disabled={verifying}
+                className="rounded-full py-2 text-[13.5px] font-medium disabled:opacity-50"
+                style={{ background: 'var(--surface-2)', color: 'var(--accent)' }}
+              >
+                {verified ? 'Снять галочку' : 'Подтвердить подлинность'}
+              </button>
+            )}
 
             {/* Люди отдельно, цифры про профиль — отдельно, как в своём. */}
             <div className="flex items-center gap-4">
