@@ -33,7 +33,7 @@ import { useVoiceRecorder } from '@/lib/useVoiceRecorder';
 import { VoiceBubble } from '@/components/VoiceBubble';
 import { supabase } from '@/lib/supabase';
 import { useT, translate } from '@/lib/i18n';
-import { useBlockedUsers } from '@/lib/blockedUsers';
+import { setBlocked, useBlockedUsers } from '@/lib/blockedUsers';
 import { VelocityTracker, committed } from '@/lib/gestureVelocity';
 
 /** Как часто перечитываем переписку, пока она открыта.
@@ -156,6 +156,8 @@ export default function ChatPage() {
   const people = useApiData<UserSummary[]>(forwarding ? '/users' : null);
   const me = session?.user.id;
   const blocked = useBlockedUsers();
+  /** Заблокирован ли собеседник — от этого зависит, что стоит внизу экрана. */
+  const peerBlocked = blocked.includes(userId);
 
   /**
    * Кому показывать в пересылке.
@@ -1273,8 +1275,11 @@ export default function ChatPage() {
                         ` padding ${REMOVE_MS}ms var(--exit-ease),` +
                         ` margin ${REMOVE_MS}ms var(--exit-ease)`
                       : swipe?.id === message.id
-                        ? 'none'
-                        : 'transform 260ms var(--enter-ease)',
+                        ? // Обводку всё равно ведём переходом: жест забирает
+                          // себе только сдвиг, а подсветка закрепа может
+                          // прийти и посреди протяжки.
+                          'box-shadow 260ms ease'
+                        : 'transform 260ms var(--enter-ease), box-shadow 260ms ease',
                     // Горизонталь достаётся жесту, вертикаль остаётся прокрутке
                     // переписки: без этого браузер забирает себе оба движения и
                     // тянуть пузырь не даёт вовсе.
@@ -1282,11 +1287,16 @@ export default function ChatPage() {
                     pointerEvents: going ? 'none' : undefined,
                     // Отмеченное обводится акцентом снаружи, а не заливается:
                     // заливка спорила бы с собственным цветом пузыря.
-                    boxShadow: selected?.includes(message.id)
-                      ? '0 0 0 2px var(--bg), 0 0 0 4px var(--accent)'
-                      : spotlight === message.id
+                    //
+                    // Прозрачная обводка вместо undefined в покое — обязательна.
+                    // Переход между «нет тени» и «есть тень» браузер не
+                    // анимирует: ему нечего интерполировать, и рамка вспыхивала
+                    // и гасла рывком. Между двумя тенями одной формы, где
+                    // меняется только цвет, — ведёт спокойно.
+                    boxShadow:
+                      selected?.includes(message.id) || spotlight === message.id
                         ? '0 0 0 2px var(--bg), 0 0 0 4px var(--accent)'
-                        : undefined,
+                        : '0 0 0 2px transparent, 0 0 0 4px transparent',
                     // Прижатая сторона внутри цепочки — единственное место, где
                     // овал размыкается: у идущих подряд реплик одного человека
                     // соседние углы притуплены, и столбик читается как одна
@@ -1452,6 +1462,33 @@ export default function ChatPage() {
           transition: dragging ? 'none' : 'transform var(--enter-ms) var(--enter-ease)',
         }}
       >
+        {/* Заблокированному собеседнику не пишут.
+            Строка ввода на этом экране обещала бы обратное: человек набрал бы
+            реплику, нажал отправить и получил отказ от сервера — при том, что
+            блокировку он поставил сам и десять минут назад. Вместо обещания —
+            прямой выход из положения. */}
+        {peerBlocked ? (
+          <div
+            className="flex w-full max-w-2xl flex-col items-center gap-2 rounded-2xl px-4 py-3.5"
+            style={{ background: 'var(--surface-2)' }}
+          >
+            <span className="text-[13.5px] text-[var(--text-muted)]">
+              Вы заблокировали этого человека
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                haptic();
+                void setBlocked(userId, false).catch(() => {});
+              }}
+              className="rounded-full px-5 py-2 text-[14px] font-medium"
+              style={{ background: 'var(--accent)', color: 'var(--accent-contrast)' }}
+            >
+              Разблокировать
+            </button>
+          </div>
+        ) : (
+        <>
         {/* Полоска над строкой ввода — одна на правку и на ответ: и то и другое
             отвечает на вопрос «что сейчас происходит с этим полем», и две
             полосы подряд означали бы, что можно править и отвечать разом. */}
@@ -1645,6 +1682,8 @@ export default function ChatPage() {
           <p className="pt-1 text-[12.5px]" style={{ color: 'var(--down)' }}>
             {voice.error}
           </p>
+        )}
+        </>
         )}
       </form>,
 

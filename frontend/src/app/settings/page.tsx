@@ -65,6 +65,27 @@ type SectionId = (typeof SECTIONS)[number][0];
  * Пустое место между группами и есть разделитель: линия внутри списка ещё
  * одна деталь на экране, а промежуток не рисует ничего и читается сразу.
  */
+/**
+ * Цвет значка у раздела.
+ *
+ * В списке из шести одинаковых строк глаз ищет нужную по первому слову, то
+ * есть читает все шесть. Цвет опознаётся раньше слова: «синий сверху» находят
+ * не читая, и со второго захода человек уже не читает вовсе.
+ *
+ * Значения — из палитры темы, а не зашитые числа. В «Хронике» и «Полночи»
+ * палитры разные, и жёстко заданный синий выпал бы из обеих; здесь же цвета
+ * поедут вместе с оформлением.
+ */
+const SECTION_TINT: Record<SectionId, string> = {
+  appearance: 'var(--accent)',
+  account: 'var(--up)',
+  moderation: 'var(--down)',
+  notifications: 'var(--repost, var(--accent))',
+  privacy: 'var(--text-muted)',
+  content: 'var(--accent)',
+  about: 'var(--text-muted)',
+};
+
 const GROUPS: ReadonlyArray<ReadonlyArray<SectionId>> = [
   ['appearance', 'account', 'moderation'],
   ['notifications', 'privacy', 'content'],
@@ -361,10 +382,13 @@ export default function SettingsPage() {
                 className="ios-row flex w-full items-center gap-3 text-left transition-colors active:bg-[var(--surface-2)]"
               >
                 <span
-                  className="flex h-7 w-7 flex-none items-center justify-center rounded-lg"
-                  style={{ background: 'var(--accent-soft)', color: 'var(--accent)' }}
+                  // Заливка цветом и белый знак поверх — как в Telegram. Бледная
+                  // подложка одного акцента на все шесть строк не различала их
+                  // вовсе: цвет был, а толку от него не было.
+                  className="flex h-[29px] w-[29px] flex-none items-center justify-center rounded-[8px]"
+                  style={{ background: SECTION_TINT[id], color: '#fff' }}
                 >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     {path.split(' M').map((piece, index) => (
                       <path key={index} d={index === 0 ? piece : `M${piece}`} />
                     ))}

@@ -611,7 +611,22 @@ router.get('/', optionalAuth, async (req, res) => {
     ? data.filter((post) => !hidden.has(post.author_id as string))
     : data;
 
-  res.json(foldChains(sortPosts(await enrichPosts(visible, req.user?.id), sort)));
+  /**
+   * Закреплённая запись всегда первая, какой бы ни была сортировка.
+   *
+   * Это объявление от тех, кто делает приложение, и его смысл в том, что его
+   * видят все. Попади оно в общий порядок — в «популярных» оно бы утонуло за
+   * день, а в «свежих» уехало вниз через час.
+   *
+   * Сортируем остальное как обычно и ставим закреплённое сверху, а не
+   * подмешиваем в сортировку: любая формула, в которой закреплённое участвует
+   * наравне, однажды поставит его вторым.
+   */
+  const enriched = foldChains(sortPosts(await enrichPosts(visible, req.user?.id), sort));
+  const pinned = enriched.filter((post) => (post as { pinned_global?: boolean }).pinned_global);
+  const rest = enriched.filter((post) => !(post as { pinned_global?: boolean }).pinned_global);
+
+  res.json([...pinned, ...rest]);
 });
 
 router.get('/community/:communityId', optionalAuth, async (req, res) => {

@@ -19,6 +19,10 @@ export interface Community {
   created_by: string;
   created_at: string;
   creator: Author;
+  /** Сколько подписчиков. Появляется миграцией 023. */
+  members?: number;
+  /** Подписан ли я. Подставляет сервер по текущей сессии. */
+  isMember?: boolean;
 }
 
 export interface PollOption {
@@ -91,6 +95,8 @@ export interface UserProfile extends UserSummary {
 
 export interface Post {
   id: string;
+  /** Показывать первой в общей ленте у всех. Появляется миграцией 023. */
+  pinned_global?: boolean;
   /** Какую запись эта продолжает. Появляется миграцией 010. */
   continues_post_id?: string | null;
   /**

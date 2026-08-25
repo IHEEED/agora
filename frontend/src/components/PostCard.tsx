@@ -119,6 +119,19 @@ export function PostCard({
     // Ни рамки, ни фона: пост отделяется от соседа полоской, которую рисует
     // список. Горизонтальных полей тоже нет — текст идёт во всю ширину колонки.
     <article className="flex flex-col gap-2 py-4">
+      {/* Метка закрепа — строкой над записью, а не значком в углу.
+          Она объясняет, почему эта запись стоит первой, хотя не самая свежая и
+          не самая обсуждаемая. Без объяснения лента выглядит сломанной. */}
+      {post.pinned_global && (
+        <div className="flex items-center gap-1.5 text-[12.5px]" style={{ color: 'var(--accent)' }}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 17v5" />
+            <path d="M9 3h6l-1 6 3 3v2H7v-2l3-3z" />
+          </svg>
+          <span className="font-medium">Закреплено</span>
+        </div>
+      )}
+
       <div className="relative flex items-center gap-2.5 text-[14px]">
         {/* Подписка значком на аватарке, а не отдельной кнопкой у правого края.
             Там она стояла между ником и тремя точками и на длинных никах
