@@ -65,7 +65,20 @@ export function InvitesPanel() {
   return (
     <div className="flex flex-col gap-3">
       <div className="ios-row justify-between">
-        <div className="flex min-w-0 flex-col">
+        {/* Тот же цветной квадратик, что у строк настроек: панель живёт среди
+            них островком и не должна выглядеть вставкой из другого экрана. */}
+        <span
+          aria-hidden
+          className="flex h-[29px] w-[29px] flex-none items-center justify-center rounded-[8px]"
+          style={{ background: 'var(--accent)', color: '#fff' }}
+        >
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="9" cy="9" r="3.5" />
+            <path d="M3.5 19c0-3 2.5-4.5 5.5-4.5s5.5 1.5 5.5 4.5" />
+            <path d="M18 8v6M15 11h6" />
+          </svg>
+        </span>
+        <div className="flex min-w-0 flex-1 flex-col">
           <span className="text-[15px] text-[var(--text)]">Приглашения</span>
           <span className="text-[12.5px] leading-snug text-[var(--text-muted)]">
             {left > 0 ? `Осталось ${left}` : 'Запас закончился'}

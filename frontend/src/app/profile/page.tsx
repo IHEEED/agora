@@ -419,13 +419,13 @@ export default function ProfilePage() {
               ))}
               {posts.length === 0 &&
                 (phoneVerified ? (
-                  <p className="py-10 text-center text-[var(--text-muted)]">
+                  <p className="empty-fill text-center text-[var(--text-muted)]">
                     {t('profile.emptyPosts')}
                   </p>
                 ) : (
                   // Пока телефон не подтверждён, писать всё равно нельзя —
                   // поэтому на месте пустого состояния зовём это сделать.
-                  <div className="flex flex-col items-center gap-3 px-4 py-10 text-center">
+                  <div className="empty-fill flex flex-col items-center gap-3 px-4 text-center">
                     <p className="text-[14.5px] leading-relaxed text-[var(--text-muted)]">
                       {t('profile.verifyPrompt')}
                     </p>
@@ -494,7 +494,7 @@ export default function ProfilePage() {
                 </article>
               ))}
               {comments.length === 0 && (
-                <p className="py-10 text-center text-[var(--text-muted)]">
+                <p className="empty-fill text-center text-[var(--text-muted)]">
                   {t('profile.emptyComments')}
                 </p>
               )}
@@ -507,7 +507,7 @@ export default function ProfilePage() {
                 <PostCard key={post.id} post={post} />
               ))}
               {reposts.length === 0 && (
-                <p className="py-10 text-center text-[var(--text-muted)]">
+                <p className="empty-fill text-center text-[var(--text-muted)]">
                   {t('profile.emptyReposts')}
                 </p>
               )}

@@ -79,18 +79,143 @@ function Section({ title, children }: { title?: string; children: React.ReactNod
   );
 }
 
+/**
+ * Значок строки — цветной квадратик слева.
+ *
+ * Не украшение: в списке из восьми одинаковых строк глаз ищет нужную по
+ * первому слову, то есть читает все восемь. Цвет и форма опознаются раньше
+ * слова, и «где тут уведомления» становится вопросом к цвету, а не к чтению.
+ *
+ * Цвет берётся из переменных темы, а не задаётся числом: в «Хронике» и
+ * «Полночи» палитра разная, и зашитый синий выпал бы из обеих.
+ */
+function RowIcon({ tint, children }: { tint: string; children: React.ReactNode }) {
+  return (
+    <span
+      aria-hidden
+      className="flex h-[29px] w-[29px] flex-none items-center justify-center rounded-[8px]"
+      style={{ background: tint, color: '#fff' }}
+    >
+      <svg
+        width="17"
+        height="17"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        {children}
+      </svg>
+    </span>
+  );
+}
+
+/** Значки строк. Разложены отдельно, чтобы разметка не тонула в путях SVG. */
+const ICON = {
+  mail: (
+    <>
+      <rect x="3" y="5" width="18" height="14" rx="2.5" />
+      <path d="m3.5 7 8.5 6 8.5-6" />
+    </>
+  ),
+  phone: (
+    <>
+      <rect x="6" y="2.5" width="12" height="19" rx="2.5" />
+      <path d="M11 18.5h2" />
+    </>
+  ),
+  invite: (
+    <>
+      <circle cx="9" cy="9" r="3.5" />
+      <path d="M3.5 19c0-3 2.5-4.5 5.5-4.5s5.5 1.5 5.5 4.5" />
+      <path d="M18 8v6M15 11h6" />
+    </>
+  ),
+  shield: (
+    <>
+      <path d="M12 3l7 3v5.5c0 4-3 7.5-7 9-4-1.5-7-5-7-9V6z" />
+      <path d="m9 12 2 2 4-4" />
+    </>
+  ),
+  bell: (
+    <>
+      <path d="M18 8.5a6 6 0 1 0-12 0c0 6-2 7.5-2 7.5h16s-2-1.5-2-7.5" />
+      <path d="M13.7 20a2 2 0 0 1-3.4 0" />
+    </>
+  ),
+  at: (
+    <>
+      <circle cx="12" cy="12" r="3.5" />
+      <path d="M15.5 12v1.5a2.5 2.5 0 0 0 5 0V12a8.5 8.5 0 1 0-3.5 6.9" />
+    </>
+  ),
+  arrowUp: (
+    <>
+      <path d="M12 19V5" />
+      <path d="m6 11 6-6 6 6" />
+    </>
+  ),
+  lock: (
+    <>
+      <rect x="4.5" y="10" width="15" height="10.5" rx="2.5" />
+      <path d="M8 10V7a4 4 0 0 1 8 0v3" />
+    </>
+  ),
+  eye: (
+    <>
+      <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12" />
+      <circle cx="12" cy="12" r="3" />
+    </>
+  ),
+  warn: (
+    <>
+      <path d="M12 4.5 21 19.5H3z" />
+      <path d="M12 10v4M12 17h.01" />
+    </>
+  ),
+  play: <path d="M8 5.5v13l11-6.5z" />,
+  info: (
+    <>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M12 11v5.5M12 7.8h.01" />
+    </>
+  ),
+  book: (
+    <>
+      <path d="M5 4.5h9a3 3 0 0 1 3 3v12a2.5 2.5 0 0 0-2.5-2.5H5z" />
+      <path d="M17 7.5h2v12h-3.5" />
+    </>
+  ),
+  help: (
+    <>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M9.7 9.5a2.4 2.4 0 1 1 3.3 2.2c-.7.3-1 .8-1 1.6" />
+      <path d="M12 16.5h.01" />
+    </>
+  ),
+} as const;
+
 function Row({
   label,
   hint,
+  icon,
+  tint,
   children,
 }: {
   label: string;
   hint?: string;
+  /** Путь значка из ICON. Без него строка рисуется как раньше, без квадратика. */
+  icon?: React.ReactNode;
+  /** Цвет подложки значка — переменная темы. */
+  tint?: string;
   children?: React.ReactNode;
 }) {
   return (
     <div className="ios-row justify-between">
-      <div className="flex min-w-0 flex-col">
+      {icon && <RowIcon tint={tint ?? 'var(--accent)'}>{icon}</RowIcon>}
+      <div className="flex min-w-0 flex-1 flex-col">
         <span className="text-[15px] text-[var(--text)]">{label}</span>
         {hint && <span className="text-[12.5px] leading-snug text-[var(--text-muted)]">{hint}</span>}
       </div>
@@ -420,9 +545,16 @@ export default function SettingsPage() {
         )}
 
         {tab === 'account' && (
+        <>
+        {/* Три островка вместо одного свитка: связанное лежит вместе, а не
+            подряд. Почта с телефоном — про то, чем человек входит; приглашения
+            — про то, кого он приводит; модерация — чужая работа, оказавшаяся у
+            него в руках. В одном списке они читались одним перечнем настроек,
+            и глаз не находил границы между тремя разными разговорами. */}
         <Section>
-          <Row label={t('settings.email')} hint={session?.user.email ?? ''} />
+          <Row label={t('settings.email')} hint={session?.user.email ?? ''} icon={ICON.mail} tint="var(--accent)" />
           <Row
+            icon={ICON.phone} tint="var(--up)"
             label={t('settings.phone')}
             hint={phoneVerified ? t('settings.phoneVerified') : t('settings.phoneNeeded')}
           >
@@ -439,33 +571,40 @@ export default function SettingsPage() {
               </button>
             )}
           </Row>
-          <InvitesPanel />
-          {me?.isModerator && (
-            /* Единственный вход в раздел модерации: в общей навигации его нет,
-               потому что модераторов единицы, а вкладку видели бы все. */
-            <Row label="Модерация" hint="Очередь жалоб">
-              <Link
-                href="/moderation"
-                className="flex-none rounded-full px-4 py-1.5 text-[13px] font-medium"
-                style={{ background: 'var(--surface-2)', color: 'var(--text)' }}
-              >
-                Открыть
-              </Link>
-            </Row>
-          )}
         </Section>
+
+        <Section>
+          <InvitesPanel />
+        </Section>
+
+        {/* Единственный вход в раздел модерации: в общей навигации его нет,
+            потому что модераторов единицы, а вкладку видели бы все. */}
+        {me?.isModerator && (
+        <Section>
+          <Row label="Разбор жалоб" hint="Очередь и баны" icon={ICON.shield} tint="var(--down)">
+            <Link
+              href="/moderation"
+              className="flex-none rounded-full px-4 py-1.5 text-[13px] font-medium"
+              style={{ background: 'var(--surface-2)', color: 'var(--text)' }}
+            >
+              Открыть
+            </Link>
+          </Row>
+        </Section>
+        )}
+        </>
 
         )}
 
         {tab === 'notifications' && (
         <Section>
-          <Row label={t('settings.notifyReplies')} hint={t('settings.notifyRepliesHint')}>
+          <Row label={t('settings.notifyReplies')} hint={t('settings.notifyRepliesHint')} icon={ICON.bell} tint="var(--accent)">
             <LocalToggle storageKey="parafraz-notify-replies" defaultOn />
           </Row>
-          <Row label={t('settings.notifyMentions')} hint={t('settings.notifyMentionsHint')}>
+          <Row label={t('settings.notifyMentions')} hint={t('settings.notifyMentionsHint')} icon={ICON.at} tint="var(--up)">
             <LocalToggle storageKey="parafraz-notify-mentions" defaultOn />
           </Row>
-          <Row label={t('settings.notifyVotes')} hint={t('settings.notifyVotesHint')}>
+          <Row label={t('settings.notifyVotes')} hint={t('settings.notifyVotesHint')} icon={ICON.arrowUp} tint="var(--accent)">
             <LocalToggle storageKey="parafraz-notify-votes" />
           </Row>
         </Section>
@@ -474,10 +613,10 @@ export default function SettingsPage() {
 
         {tab === 'privacy' && (
         <Section>
-          <Row label={t('settings.privateProfile')} hint={t('settings.privateProfileHint')}>
+          <Row label={t('settings.privateProfile')} hint={t('settings.privateProfileHint')} icon={ICON.lock} tint="var(--down)">
             <LocalToggle storageKey="parafraz-private-profile" />
           </Row>
-          <Row label={t('settings.showInfluence')} hint={t('settings.showInfluenceHint')}>
+          <Row label={t('settings.showInfluence')} hint={t('settings.showInfluenceHint')} icon={ICON.eye} tint="var(--accent)">
             <LocalToggle storageKey="parafraz-show-influence" defaultOn />
           </Row>
         </Section>
@@ -486,10 +625,10 @@ export default function SettingsPage() {
 
         {tab === 'content' && (
         <Section>
-          <Row label={t('settings.nsfw')} hint={t('settings.nsfwHint')}>
+          <Row label={t('settings.nsfw')} hint={t('settings.nsfwHint')} icon={ICON.warn} tint="var(--down)">
             <LocalToggle storageKey="parafraz-nsfw" />
           </Row>
-          <Row label={t('settings.autoplay')} hint={t('settings.autoplayHint')}>
+          <Row label={t('settings.autoplay')} hint={t('settings.autoplayHint')} icon={ICON.play} tint="var(--accent)">
             <LocalToggle storageKey="parafraz-autoplay" defaultOn />
           </Row>
         </Section>
@@ -498,9 +637,9 @@ export default function SettingsPage() {
 
         {tab === 'about' && (
         <Section>
-          <Row label={t('settings.version')} hint={t('settings.versionHint')} />
-          <Row label={t('settings.rules')} hint={t('common.soon')} />
-          <Row label={t('settings.support')} hint={t('common.soon')} />
+          <Row label={t('settings.version')} hint={t('settings.versionHint')} icon={ICON.info} tint="var(--text-muted)" />
+          <Row label={t('settings.rules')} hint={t('common.soon')} icon={ICON.book} tint="var(--accent)" />
+          <Row label={t('settings.support')} hint={t('common.soon')} icon={ICON.help} tint="var(--up)" />
         </Section>
         )}
 
