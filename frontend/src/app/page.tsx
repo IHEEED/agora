@@ -1,10 +1,11 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useApiData } from '@/lib/useApiData';
 import { useSession } from '@/lib/useSession';
-import { Post, StoryGroup } from '@/lib/types';
+import { Post, PostSort, StoryGroup } from '@/lib/types';
+import { SegmentedControl } from '@/components/SegmentedControl';
 import { PostCard } from '@/components/PostCard';
 import { StoriesBar } from '@/components/StoriesBar';
 
@@ -16,12 +17,33 @@ import { SkeletonList, SkeletonPost } from '@/components/Skeleton';
 import { OverlayLink } from '@/components/OverlayLink';
 import { useT } from '@/lib/i18n';
 
+/**
+ * Чем лента отсортирована.
+ *
+ * Три способа вместо одного «горячего». Горячее — это формула с затуханием по
+ * времени, и понять по ней, почему запись стоит именно здесь, нельзя даже
+ * автору. Три оставшихся объяснимы одним словом каждый, и человек выбирает
+ * сам, что ему сейчас нужно: разговор, охват или новизна.
+ *
+ * «Свежие» первыми и по умолчанию: в сети такого размера остальные две
+ * сортировки становятся осмысленными только на объёме, а порядок «что нового»
+ * работает с первого дня.
+ */
+const SORTS = [
+  ['new', 'Свежие'],
+  ['commented', 'Обсуждаемые'],
+  ['viewed', 'Популярные'],
+] as const satisfies ReadonlyArray<readonly [PostSort, string]>;
+
 export default function FeedPage() {
   const { session } = useSession();
   const { t } = useT();
+  const [sort, setSort] = useState<PostSort>('new');
   // Данные берём из кеша: возврат в ленту рисует её мгновенно, а свежий
   // запрос уходит фоном. Раньше каждый заход начинался с пустого экрана.
-  const { data, error, loading } = useApiData<Post[]>('/posts?sort=hot');
+  // Ключ кеша включает сортировку: три порядка — три разных списка, и общий
+  // ключ показывал бы прежний, пока не приедет новый ответ.
+  const { data, error, loading } = useApiData<Post[]>(`/posts?sort=${sort}`);
   // Через useMemo, а не через ?? прямо в теле: иначе каждый рендер создаёт
   // новый пустой массив и пересчитывает список историй ниже без причины.
   const posts = useMemo(() => data ?? [], [data]);
@@ -72,6 +94,16 @@ export default function FeedPage() {
           <DefaultAvatar name={(session?.user.email ?? '?').split('@')[0]} size={32} />
           <span className="text-[15px] text-[var(--text-muted)]">{t('feed.whatsNew')}</span>
         </OverlayLink>
+
+        {/* Переключатель под строкой ввода, а не над историями: истории —
+            отдельный жанр, они не сортируются вместе с лентой, и полоса выбора
+            над ними читалась бы как выбор для них. */}
+        <SegmentedControl
+          value={sort}
+          options={SORTS}
+          onChange={setSort}
+          className="mt-1"
+        />
 
         {/* Заглушки по геометрии настоящих карточек: подмена не двигает
             раскладку, и анимация появления не проигрывается на прыгающем

@@ -19,6 +19,22 @@ import { StoryComposer, StoryDraft } from '@/components/StoryComposer';
 import { haptic } from '@/lib/haptics';
 import { useSession } from '@/lib/useSession';
 
+/**
+ * Просмотры коротко: 1200 → «1,2К».
+ *
+ * Четырёхзначное число в строке действий спорит по весу с голосами и
+ * комментариями, хотя значит меньше их обоих. Точность здесь не нужна —
+ * разница между 1234 и 1240 не меняет ничего для читающего.
+ */
+function compactViews(value: number): string {
+  if (value < 1000) return String(value);
+  if (value < 1_000_000) {
+    const thousands = value / 1000;
+    return `${thousands < 10 ? thousands.toFixed(1).replace('.', ',').replace(',0', '') : Math.round(thousands)}К`;
+  }
+  return `${(value / 1_000_000).toFixed(1).replace('.', ',').replace(',0', '')}М`;
+}
+
 export function PostCard({
   post,
   linkToDetail = true,
@@ -337,6 +353,26 @@ export function PostCard({
         </div>
 
         <div className="-mr-1 flex items-center">
+          {/* Просмотры — не кнопка, а показание прибора: нажимать не на что,
+              и выглядеть оно должно иначе, чем соседние действия. Отсюда
+              приглушённый цвет и отсутствие отклика на нажатие.
+
+              Ноль не рисуем вовсе. У свежей записи просмотров нет по
+              определению, и «0 просмотров» под ней читается как приговор
+              вместо показания. */}
+          {post.views > 0 && (
+            <span
+              className="mr-1 flex items-center gap-1.5 px-2.5 py-2.5 text-[var(--text-muted)]"
+              title={`${post.views} просмотров`}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12" />
+                <circle cx="12" cy="12" r="3" />
+              </svg>
+              <span className="font-num text-[15px]">{compactViews(post.views)}</span>
+            </span>
+          )}
+
           <button
             onClick={handleRepost}
             aria-label="Репост"

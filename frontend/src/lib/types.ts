@@ -117,7 +117,7 @@ export interface Post {
   myRepost?: boolean;
 }
 
-export type PostSort = 'hot' | 'new' | 'top' | 'commented';
+export type PostSort = 'hot' | 'new' | 'top' | 'commented' | 'viewed';
 export type CommentSort = 'best' | 'new';
 
 export interface Comment {
