@@ -179,9 +179,17 @@ export function SuggestedPeople({
               {/* Карточка ужалась до лица, имени и счёта: кнопка подписки
                   переехала значком на саму аватарку и больше не занимает
                   строку наравне с именем. */}
+              {/* Плоская плитка, а не стекло.
+                  У .glass есть тень, рассчитанная на панель размером с экран.
+                  На квадратике 120 на 150 она собирается в углах в грязные
+                  тёмные скобки — на тёмной теме особенно, там тень темнее
+                  фона и от неё некуда деться. Панель на такой плитке ничего
+                  не поднимает над страницей, а вот углы пачкает.
+                  Поверхность вместо тени: плитка отличается от фона тоном, и
+                  этого хватает, чтобы её увидеть. */}
               <div
-                className="glass relative flex flex-col items-center gap-2 rounded-2xl p-3 text-center"
-                style={{ width: CARD_WIDTH }}
+                className="relative flex flex-col items-center gap-2 rounded-2xl p-3 text-center"
+                style={{ width: CARD_WIDTH, background: 'var(--surface-2)' }}
               >
                 <button
                   type="button"

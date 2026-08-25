@@ -91,7 +91,33 @@ export function BottomSheet({
     return () => window.removeEventListener('keydown', onKey);
   }, [open, onClose]);
 
+  /**
+   * Жест начинается где угодно, а не только на полоске-ухватке.
+   *
+   * Ухватка шириной в палец и высотой в спичку — единственное место, откуда
+   * шторка закрывалась. Попасть в неё с первого раза не выходит, и человек
+   * тянул вниз по содержимому, ничего не добивался и шёл искать крестик.
+   *
+   * Но у содержимого своя прокрутка, и отнимать её нельзя. Правило простое и
+   * то же, что во всех приложениях с такими шторками: тянуть шторку можно,
+   * пока список внутри стоит на самом верху. Прокрутил вниз хоть на пиксель —
+   * жест принадлежит списку, пока не вернёшься наверх.
+   */
+  function canDragFrom(target: EventTarget | null): boolean {
+    const scroller = (target as Element | null)?.closest?.('.sheet-scroll');
+    return !scroller || scroller.scrollTop <= 0;
+  }
+
   function onPointerDown(e: React.PointerEvent) {
+    // Мышью тянуть за текст незачем: там выделение, и оно важнее. На касании
+    // выделения нет, а есть жест.
+    if (e.pointerType === 'mouse' && !(e.currentTarget as HTMLElement).dataset.sheetHandle) {
+      const handle = (e.target as Element | null)?.closest?.('[data-sheet-handle]');
+      if (!handle) return;
+    }
+
+    if (!canDragFrom(e.target)) return;
+
     // Захват указателя. Для касаний браузер делает это сам, а для мыши — нет:
     // без захвата курсор, соскользнувший с узкой полоски-ухватки, обрывал и
     // движение, и отпускание, и шторка застревала в перетащенном виде.
@@ -181,6 +207,11 @@ export function BottomSheet({
         // оформления должно быть право менять его вместе с остальным, а зашитая
         // здесь цифра это право отбирала.
         className="bottom-sheet fixed inset-x-0 bottom-0 mx-auto flex max-w-2xl flex-col"
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerUp}
+        onLostPointerCapture={onLostCapture}
         style={{
           zIndex: 61 + layer * 10,
           height,
@@ -203,11 +234,7 @@ export function BottomSheet({
         }}
       >
         <div
-          onPointerDown={onPointerDown}
-          onPointerMove={onPointerMove}
-          onPointerUp={onPointerUp}
-          onPointerCancel={onPointerUp}
-          onLostPointerCapture={onLostCapture}
+          data-sheet-handle
           className="flex flex-none cursor-grab touch-none flex-col items-center gap-3 pb-2 pt-2.5"
         >
           <span className="h-1 w-9 rounded-full" style={{ background: 'var(--control-border)' }} />

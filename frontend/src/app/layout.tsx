@@ -163,7 +163,7 @@ export default function RootLayout({
                   на устройствах с монобровью отдаёт её высоту, на остальных — ноль,
                   поэтому одна и та же строчка работает и там, и там. */}
               <div
-                className="app-header-inner relative flex items-center justify-between px-4 pb-4"
+                className="app-header-inner relative z-10 flex items-center justify-between px-4 pb-4"
                 style={{ paddingTop: 'calc(14px + env(safe-area-inset-top))' }}
               >
                 <NotificationsButton />

@@ -28,6 +28,7 @@ import { createPortal } from 'react-dom';
 import { peelScreen } from '@/lib/peelScreen';
 import { releaseBackdrop } from '@/lib/screenBackdrop';
 import { haptic } from '@/lib/haptics';
+import { ARROW_REACTIONS, ArrowReaction, UP_REACTION, isArrowReaction } from '@/components/ArrowReaction';
 import { useVoiceRecorder } from '@/lib/useVoiceRecorder';
 import { VoiceBubble } from '@/components/VoiceBubble';
 import { supabase } from '@/lib/supabase';
@@ -60,6 +61,8 @@ const SPOTLIGHT_MS = 1500;
  * имеющегося, и реакция перестаёт что-либо значить.
  */
 const QUICK_REACTIONS = [
+  // Первыми и своей парой: согласие и несогласие — не чувство, а ответ.
+  ...ARROW_REACTIONS,
   '❤️', '👍', '🔥', '😂', '😮', '😢',
   '🙏', '👏', '🎉', '😍', '🤔', '😭',
   '👎', '💯', '🤣', '🥰', '😅', '🤯',
@@ -104,15 +107,6 @@ function timeLabel(iso: string): string {
  * приложении нет, а сокет ради одной страницы тянет за собой инфраструктуру,
  * которой больше нигде не пользуются.
  */
-/**
- * Стрелка как реакция.
- *
- * В базе реакции лежат строкой, и обычно это сам смайлик. Здесь вместо него
- * метка: рисуется она нашим знаком, а не системным шрифтом, и хранить в базе
- * картинку ради этого не нужно.
- */
-const UP_REACTION = 'up';
-
 /** Сколько ждём второго нажатия. Триста миллисекунд — привычный порог. */
 const DOUBLE_TAP_MS = 300;
 
@@ -744,6 +738,10 @@ export default function ChatPage() {
 
   async function react(message: Message, emoji: string) {
     setMenuFor(null);
+    // Толчок на саму реакцию, а не только на открытие меню: это законченное
+    // действие, и подтверждать его должно то же, что подтверждает голос под
+    // записью.
+    haptic();
     // Показываем сразу, не дожидаясь сети: действие безобидное, а ждать
     // полсекунды ради смайлика незачем.
     const mine = message.reactions?.find((r) => r.userId === me);
@@ -1402,18 +1400,8 @@ export default function ChatPage() {
                     }}
                   >
                     {reactions.map((reaction) =>
-                      reaction.emoji === UP_REACTION ? (
-                        <span
-                          key={reaction.userId}
-                          className="flex items-center"
-                          style={{ color: 'var(--up)' }}
-                          aria-label="Поддержал"
-                        >
-                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M12 19V6" />
-                            <path d="m5.5 12.5 6.5-7 6.5 7" />
-                          </svg>
-                        </span>
+                      isArrowReaction(reaction.emoji) ? (
+                        <ArrowReaction key={reaction.userId} kind={reaction.emoji} size={13} />
                       ) : (
                         <span key={reaction.userId} className="emoji text-[13px]">
                           {reaction.emoji}

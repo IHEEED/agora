@@ -3,6 +3,7 @@
 import { useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
 import { haptic } from '@/lib/haptics';
+import { ArrowReaction, isArrowReaction } from '@/components/ArrowReaction';
 import { useT } from '@/lib/i18n';
 
 /**
@@ -200,10 +201,14 @@ export function MessageActions({
                   key={emoji}
                   type="button"
                   onClick={() => onReact(emoji)}
-                  className="emoji flex h-9 w-9 items-center justify-center rounded-full text-[21px] transition-transform active:scale-90"
+                  className={`flex h-9 w-9 items-center justify-center rounded-full transition-transform active:scale-90 ${
+                    isArrowReaction(emoji) ? '' : 'emoji text-[21px]'
+                  }`}
                   style={{ background: activeReaction === emoji ? 'var(--accent-soft)' : 'transparent' }}
                 >
-                  {emoji}
+                  {/* Стрелки рисуем сами: системный шрифт даёт им случайный
+                      вид, разный на каждой платформе, а это наш знак. */}
+                  {isArrowReaction(emoji) ? <ArrowReaction kind={emoji} size={19} /> : emoji}
                 </button>
               ))}
               <button

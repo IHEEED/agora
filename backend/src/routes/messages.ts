@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { supabase } from '../config/supabase';
 import { hiddenUserIds, isBlockedBetween } from '../lib/blocks';
-import { requireAuth } from '../middleware/auth';
+import { requireAuth, requirePhoneVerified } from '../middleware/auth';
 import { userColumns } from '../config/schema';
 
 const router = Router();
@@ -248,7 +248,15 @@ router.delete('/thread/:peerId', requireAuth, async (req, res) => {
   res.json({ ok: true });
 });
 
-router.post('/', requireAuth, async (req, res) => {
+/**
+ * Отправка требует подтверждённого телефона — как запись и комментарий.
+ *
+ * Раньше переписка была единственным местом, где писать можно было без него.
+ * Для сети по приглашениям это дыра ровно того размера, ради которой телефон и
+ * спрашивают: заблокированный заводит новый аккаунт по чужому коду и пишет
+ * тому же человеку, а стоило это ему одной почты.
+ */
+router.post('/', requireAuth, requirePhoneVerified, async (req, res) => {
   const me = req.user!.id;
   const recipientId = String(req.body?.recipient_id ?? '');
   const body = String(req.body?.body ?? '').trim();
