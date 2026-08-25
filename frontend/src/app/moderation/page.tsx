@@ -25,6 +25,13 @@ type Target =
   | { kind: 'user'; id: string; username: string }
   | { kind: 'gone' };
 
+type Author = {
+  id: string;
+  username?: string;
+  banned_until?: string | null;
+  verified_at?: string | null;
+};
+
 type Report = {
   id: string;
   reason: string;
@@ -34,7 +41,7 @@ type Report = {
   resolution: string | null;
   reporter: { id: string; username: string } | null;
   target: Target;
-  author: { id: string; username?: string; banned_until?: string | null } | null;
+  author: Author | null;
 };
 
 const REASON_LABEL: Record<string, string> = {
@@ -150,6 +157,7 @@ function ReportCard({ report, onDone }: { report: Report; onDone: () => void }) 
           <Link href={`/u/${report.author.id}`} className="text-[var(--accent)]">
             {authorName}
           </Link>
+          {report.author.verified_at && ' · подтверждён'}
           {report.author.banned_until && ' · уже забанен'}
         </p>
       )}
@@ -225,6 +233,33 @@ function ReportCard({ report, onDone }: { report: Report; onDone: () => void }) 
               style={{ background: 'var(--surface-2)', color: 'var(--text)' }}
             >
               Удалить
+            </button>
+          )}
+
+          {/* Галочка — здесь же, где бан.
+              Разбирая жалобу, модератор чаще всего впервые смотрит на этого
+              человека внимательно, и это ровно тот момент, когда решается «он
+              вообще тот, за кого себя выдаёт». Отдельный экран поиска людей
+              ради одной кнопки означал бы, что подтверждать никто не будет. */}
+          {report.author?.id && (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() =>
+                act(() =>
+                  apiFetch('/moderation/verify', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                      userId: report.author?.id,
+                      verified: !report.author?.verified_at,
+                    }),
+                  })
+                )
+              }
+              className="rounded-full px-3.5 py-2 text-[13px] font-medium transition-opacity hover:opacity-90 disabled:opacity-50"
+              style={{ background: 'var(--surface-2)', color: 'var(--accent)' }}
+            >
+              {report.author.verified_at ? 'Снять галочку' : 'Подтвердить'}
             </button>
           )}
 

@@ -17,6 +17,7 @@ import { PostMenuSheet } from '@/components/PostMenuSheet';
 import { ImageViewer } from '@/components/ImageViewer';
 import { StoryComposer, StoryDraft } from '@/components/StoryComposer';
 import { haptic } from '@/lib/haptics';
+import { VerifiedMark } from '@/components/VerifiedMark';
 import { useSession } from '@/lib/useSession';
 
 /**
@@ -161,6 +162,7 @@ export function PostCard({
           >
             {post.author.username}
           </Link>
+          <VerifiedMark verified={post.author.verified_at} />
 
           {/* Возраст сразу за ником, а не у правого края: там он читался
               отдельной колонкой и отрывался от того, к чему относится. */}

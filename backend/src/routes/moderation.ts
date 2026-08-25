@@ -361,6 +361,44 @@ router.post('/reports/:id/delete-target', async (req, res) => {
   res.json({ ok: true });
 });
 
+/**
+ * Галочка: подтвердить, что человек — тот, за кого себя выдаёт.
+ *
+ * Не про важность и не про число подписчиков: в сети, где ник берут почти
+ * любой, единственная защита от подделки — чья-то проверка. Поэтому раздаёт
+ * её модератор, а не формула.
+ */
+router.post('/verify', async (req, res) => {
+  const moderator = req.user!.id;
+  const targetId = String(req.body?.userId ?? '');
+  const on = req.body?.verified !== false;
+
+  if (!targetId) return res.status(400).json({ error: 'Нужен пользователь' });
+
+  const { error } = await supabase
+    .from('users')
+    .update(
+      on
+        ? { verified_at: new Date().toISOString(), verified_by: moderator }
+        : { verified_at: null, verified_by: null }
+    )
+    .eq('id', targetId);
+
+  if (error) {
+    console.error('moderation: verify failed', error);
+    return res.status(500).json({ error: 'Не удалось изменить статус' });
+  }
+
+  await log({
+    moderator_id: moderator,
+    target_user_id: targetId,
+    action: on ? 'verify' : 'unverify',
+    reason: String(req.body?.reason ?? '').trim().slice(0, 200) || null,
+  });
+
+  res.json({ ok: true, verified: on });
+});
+
 /** История по человеку: за что его уже наказывали. */
 router.get('/users/:id/history', async (req, res) => {
   const { data, error } = await supabase

@@ -21,6 +21,7 @@ import { supabase } from './supabase';
 
 let hasAvatarColumn: boolean | null = null;
 let hasProfileColumns: boolean | null = null;
+let hasVerified: boolean | null = null;
 
 /**
  * Есть ли users.avatar_url (миграция 015).
@@ -49,6 +50,15 @@ export async function probeSchema(): Promise<void> {
       'users.display_name не найдена — имя и подпись остаются на устройстве. Выполните миграцию 022 и перезапустите.'
     );
   }
+
+  // Галочка (024). Отдельно от профиля: миграции разные, и одна может быть
+  // выполнена без другой.
+  const verified = await supabase.from('users').select('verified_at').limit(0);
+  hasVerified = !verified.error;
+
+  if (!hasVerified) {
+    console.warn('users.verified_at не найдена — галочки отключены. Выполните миграцию 024.');
+  }
 }
 
 /** Есть ли колонки профиля из 022. Нужно роуту сохранения, а не только выдаче. */
@@ -71,7 +81,10 @@ export function userColumns(extra?: string): string {
   // Имя показывается везде, где показан ник: в ленте, в переписках, в
   // уведомлениях. Просить его отдельным запросом на каждом экране значило бы
   // удвоить обращения ради одной строки.
-  return hasProfileColumns ? `${withAvatar}, display_name` : withAvatar;
+  const withProfile = hasProfileColumns ? `${withAvatar}, display_name` : withAvatar;
+  // Галочка идёт рядом с ником всюду, где ник показан, — значит и просить её
+  // надо там же, а не отдельным запросом на каждый экран.
+  return hasVerified ? `${withProfile}, verified_at` : withProfile;
 }
 
 /**

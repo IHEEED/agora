@@ -2462,3 +2462,54 @@ summary {
     border-color: rgba(255, 255, 255, 0.9);
   }
 }
+
+/* ─── Моргание знака при обновлении ленты ───────────────────────────────────
+   `:P` — лицо, и у лица есть свой способ показать, что оно занято. Двоеточие
+   сжимается в тире и распрямляется, язык подаётся вниз следом — как будто знак
+   моргнул и облизнулся.
+
+   Глаза и язык живут по разным дорожкам с задержкой в сотую долю: одновременное
+   движение читается как дрожь всего знака, а разнесённое — как одно живое
+   действие. Тот же приём, что у настоящего моргания: веки и брови не совпадают.
+
+   Анимация на transform и opacity — их браузер считает на видеокарте и не
+   пересобирает раскладку шапки на каждом кадре. */
+@keyframes wordmark-eyes-blink {
+  0%, 62%, 100% { transform: scaleY(1); }
+  70% { transform: scaleY(0.14); }
+  78% { transform: scaleY(1); }
+}
+
+@keyframes wordmark-tongue-blink {
+  0%, 66%, 100% { transform: translateY(0) rotate(0deg); }
+  74% { transform: translateY(0.06em) rotate(-4deg); }
+  84% { transform: translateY(0) rotate(0deg); }
+}
+
+.wordmark-blink .wordmark-eyes {
+  display: inline-block;
+  transform-origin: center 55%;
+  animation: wordmark-eyes-blink 1.6s ease-in-out infinite;
+}
+
+.wordmark-blink .wordmark-tongue {
+  display: inline-block;
+  transform-origin: center top;
+  animation: wordmark-tongue-blink 1.6s ease-in-out infinite;
+}
+
+/* Уменьшенное движение: знак не моргает, а мягко приглушается и возвращается.
+   Само сообщение «идёт обновление» остаётся, а вестибулярной нагрузки нет. */
+@media (prefers-reduced-motion: reduce) {
+  .wordmark-blink .wordmark-eyes,
+  .wordmark-blink .wordmark-tongue {
+    animation: none;
+  }
+  .wordmark-blink {
+    animation: wordmark-fade 1.6s ease-in-out infinite;
+  }
+  @keyframes wordmark-fade {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.55; }
+  }
+}

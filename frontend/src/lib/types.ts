@@ -8,6 +8,8 @@ export interface Author {
   avatar_fit?: { zoom: number; x: number; y: number } | null;
   /** Показываемое имя. Пусто — показываем username. */
   display_name?: string | null;
+  /** Когда модератор подтвердил подлинность. Пусто — галочки нет (024). */
+  verified_at?: string | null;
   /** Подставляет бэкенд по текущей сессии — чтобы кнопка не мигала плюсом. */
   isFollowing?: boolean;
 }
@@ -42,6 +44,8 @@ export interface UserSummary {
   avatar_fit?: { zoom: number; x: number; y: number } | null;
   /** Показываемое имя. Пусто — показываем username. */
   display_name?: string | null;
+  /** Когда модератор подтвердил подлинность. Пусто — галочки нет (024). */
+  verified_at?: string | null;
   /** Подставляет бэкенд по текущей сессии; без неё всегда false. */
   isFollowing?: boolean;
 }

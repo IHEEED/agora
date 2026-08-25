@@ -9,6 +9,7 @@ import Link from 'next/link';
 import { isPhoneNotVerifiedError, usePhoneGate } from '@/components/PhoneGateContext';
 import { VoteBlock } from '@/components/VoteBlock';
 import { DefaultAvatar } from '@/components/DefaultAvatar';
+import { VerifiedMark } from '@/components/VerifiedMark';
 import { Comment } from '@/lib/types';
 import { useT } from '@/lib/i18n';
 
@@ -143,6 +144,7 @@ export function CommentThread({
             >
               {comment.author.username}
             </Link>
+            <VerifiedMark verified={comment.author.verified_at} size={13} />
             <span className="text-[var(--text-muted)]">{formatCompactAge(comment.created_at)}</span>
           </div>
 

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { apiFetch } from '@/lib/api';
+import { VerifiedMark } from '@/components/VerifiedMark';
 import { UserSummary } from '@/lib/types';
 import { AvatarFollow } from '@/components/AvatarFollow';
 import { OverlayLink } from '@/components/OverlayLink';
@@ -118,6 +119,7 @@ export function SuggestedPeople({
               <div className="flex min-w-0 flex-1 flex-col">
                 <span className="truncate text-[15px] font-medium text-[var(--text)]">
                   {person.username}
+                  <VerifiedMark verified={person.verified_at} size={12} />
                 </span>
                 <span className="text-[12.5px] text-[var(--text-muted)]">
                   <span className="font-num">{person.karma}</span> influence
@@ -221,6 +223,7 @@ export function SuggestedPeople({
                   className="w-full truncate text-[13.5px] font-medium text-[var(--text)]"
                 >
                   {person.username}
+                  <VerifiedMark verified={person.verified_at} size={12} />
                 </OverlayLink>
                 <span className="text-[11.5px] text-[var(--text-muted)]">
                   <span className="font-num">{person.karma}</span> {t('profile.stat.influence')}
