@@ -74,10 +74,28 @@ export function ProfileIcon({ active, size }: IconProps) {
 
 // labelKey нужен подписям под иконками в баре — они переводятся вместе со
 // всем остальным. label остаётся для aria-label и боковой панели.
+/** Два пузыря внахлёст: одиночный с полосками — знак комментариев под записью. */
+export function MessagesIcon({ active, size }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+      <path
+        d="M14 9a2 2 0 0 1-2 2H6l-4 3.5V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2Z"
+        fill={active ? 'currentColor' : 'none'}
+      />
+      <path d="M18 9h2a2 2 0 0 1 2 2v10.5L18 18h-6a2 2 0 0 1-2-2v-1" />
+    </svg>
+  );
+}
+
 export const TABS = [
   { href: '/', label: 'Главная', labelKey: 'nav.home', Icon: HomeIcon },
   { href: '/communities', label: 'Клубы', labelKey: 'nav.communities', Icon: CommunitiesIcon },
-  { href: '/notifications', label: 'Уведомления', labelKey: 'nav.notifications', Icon: BellIcon },
+  // Мессенджер в баре, уведомления в шапке — а не наоборот.
+  //
+  // Переписки открывают в разы чаще, чем колокол: это разговор, к которому
+  // возвращаются весь день, а уведомления смотрят, когда загорелась точка.
+  // Частому место под большим пальцем, редкому — в шапке.
+  { href: '/messages', label: 'Мессенджер', labelKey: 'messenger.title', Icon: MessagesIcon },
   { href: '/profile', label: 'Профиль', labelKey: 'nav.profile', Icon: ProfileIcon },
 ] as const;
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import { SuggestedPeople } from '@/components/SuggestedPeople';
 import { ScreenTitle } from '@/components/ScreenTitle';
@@ -73,7 +73,9 @@ function when(iso: string): string {
 export default function NotificationsPage() {
   const { t } = useT();
   const { data, loading } = useApiData<{ notifications: Notification[] }>('/notifications');
-  const items = data?.notifications ?? [];
+  // Через useMemo, а не через ?? прямо в теле: пустой массив, созданный
+  // заново на каждый рендер, гоняет эффект ниже вхолостую.
+  const items = useMemo(() => data?.notifications ?? [], [data]);
 
   /**
    * Пометка прочитанным — один раз за открытие экрана.

@@ -16,14 +16,14 @@ import { apiFetch } from './api';
  */
 const POLL_MS = 30_000;
 
-export function useUnreadNotifications(): number {
+function useUnreadCount(path: string): number {
   const [unread, setUnread] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
 
     function check() {
-      apiFetch<{ count: number }>('/notifications/unread-count')
+      apiFetch<{ count: number }>(path)
         .then(({ count }) => {
           if (!cancelled) setUnread(count);
         })
@@ -49,7 +49,22 @@ export function useUnreadNotifications(): number {
       clearInterval(timer);
       document.removeEventListener('visibilitychange', onVisible);
     };
-  }, []);
+  }, [path]);
 
   return unread;
+}
+
+/** Непрочитанные уведомления — точка на колоколе в шапке. */
+export function useUnreadNotifications(): number {
+  return useUnreadCount('/notifications/unread-count');
+}
+
+/**
+ * Непрочитанные сообщения — точка на вкладке мессенджера.
+ *
+ * Отдельной механики не заводим: вопрос тот же, ответ той же формы, и два
+ * разных опроса рядом означали бы два места, где чинить один и тот же сбой.
+ */
+export function useUnreadMessages(): number {
+  return useUnreadCount('/messages/unread-count');
 }

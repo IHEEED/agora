@@ -104,6 +104,18 @@ function timeLabel(iso: string): string {
  * приложении нет, а сокет ради одной страницы тянет за собой инфраструктуру,
  * которой больше нигде не пользуются.
  */
+/**
+ * Стрелка как реакция.
+ *
+ * В базе реакции лежат строкой, и обычно это сам смайлик. Здесь вместо него
+ * метка: рисуется она нашим знаком, а не системным шрифтом, и хранить в базе
+ * картинку ради этого не нужно.
+ */
+const UP_REACTION = 'up';
+
+/** Сколько ждём второго нажатия. Триста миллисекунд — привычный порог. */
+const DOUBLE_TAP_MS = 300;
+
 export default function ChatPage() {
   const { t } = useT();
   const { userId } = useParams<{ userId: string }>();
@@ -686,6 +698,50 @@ export default function ChatPage() {
     }
   }
 
+  /**
+   * Двойное нажатие ставит стрелку — то же движение, что двойной тап в
+   * Telegram, только вместо сердца наш знак одобрения. Он же стоит под каждой
+   * записью в ленте, и «поддержать» в приложении выглядит одинаково везде.
+   *
+   * Обычно двойное нажатие приходится оплачивать задержкой одиночного: нельзя
+   * сказать, одиночное оно, пока не прошло время ожидания второго. Здесь платы
+   * нет — одиночное нажатие по пузырю не делает ничего (вне режима выбора),
+   * так что и откладывать нечего.
+   */
+  const lastTap = useRef<{ id: string; at: number } | null>(null);
+  const tapFrom = useRef<{ x: number; y: number } | null>(null);
+
+  function tapDown(event: React.PointerEvent) {
+    tapFrom.current = { x: event.clientX, y: event.clientY };
+  }
+
+  function tapUp(event: React.PointerEvent, message: Message) {
+    const from = tapFrom.current;
+    tapFrom.current = null;
+    if (!from || selected) return;
+
+    // Протяжка — это ответ свайпом, а не нажатие. Десять точек хватает, чтобы
+    // отличить намеренное движение от дрожи пальца.
+    if (Math.hypot(event.clientX - from.x, event.clientY - from.y) > 10) {
+      lastTap.current = null;
+      return;
+    }
+
+    // Время берём из самого события, а не спрашиваем часы. Так короче на один
+    // вызов и, что важнее, честнее: timeStamp — это момент, когда палец
+    // оторвался, а не когда до обработчика дошла очередь.
+    const now = event.timeStamp;
+    const previous = lastTap.current;
+    lastTap.current = { id: message.id, at: now };
+
+    if (previous && previous.id === message.id && now - previous.at < DOUBLE_TAP_MS) {
+      // Третье нажатие подряд не должно читаться как ещё одно двойное.
+      lastTap.current = null;
+      haptic('unlock');
+      void react(message, UP_REACTION);
+    }
+  }
+
   async function react(message: Message, emoji: string) {
     setMenuFor(null);
     // Показываем сразу, не дожидаясь сети: действие безобидное, а ждать
@@ -1137,10 +1193,12 @@ export default function ChatPage() {
                     // одним и тем же.
                     if (!selected) holdStart(event, message);
                     swipeStart(event, message);
+                    tapDown(event);
                   }}
-                  onPointerUp={() => {
+                  onPointerUp={(event) => {
                     holdCancel();
                     swipeEnd();
+                    tapUp(event, message);
                   }}
                   onPointerCancel={() => {
                     holdCancel();
@@ -1343,11 +1401,25 @@ export default function ChatPage() {
                       ['--reaction-origin' as string]: mine ? 'right' : 'left',
                     }}
                   >
-                    {reactions.map((reaction) => (
-                      <span key={reaction.userId} className="emoji text-[13px]">
-                        {reaction.emoji}
-                      </span>
-                    ))}
+                    {reactions.map((reaction) =>
+                      reaction.emoji === UP_REACTION ? (
+                        <span
+                          key={reaction.userId}
+                          className="flex items-center"
+                          style={{ color: 'var(--up)' }}
+                          aria-label="Поддержал"
+                        >
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M12 19V6" />
+                            <path d="m5.5 12.5 6.5-7 6.5 7" />
+                          </svg>
+                        </span>
+                      ) : (
+                        <span key={reaction.userId} className="emoji text-[13px]">
+                          {reaction.emoji}
+                        </span>
+                      )
+                    )}
                   </span>
                 )}
 

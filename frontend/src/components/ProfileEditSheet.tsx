@@ -277,6 +277,28 @@ export function ProfileEditSheet({
               {t('profile.adjustTitle')}
             </button>
           )}
+
+          {/* Убрать лицо.
+              Раньше выхода не было вовсе: поставив картинку однажды, сменить её
+              можно было только на другую. Это распространённая недоделка и
+              распространённая же обида — человек не обязан объяснять, почему
+              передумал.
+              Красным и отдельной строкой, но без подтверждения: аватарка
+              восстанавливается в два нажатия, и спрашивать «точно?» ради этого
+              значит приучать нажимать «да» не глядя. */}
+          {avatarPreview && (
+            <button
+              type="button"
+              onClick={() => {
+                setAvatarPreview(null);
+                setAvatarFit(DEFAULT_FIT);
+              }}
+              className="text-[12.5px] underline-offset-2 hover:underline"
+              style={{ color: 'var(--down)' }}
+            >
+              {t('profile.removeAvatar')}
+            </button>
+          )}
         </div>
 
         <label className="flex flex-col gap-1.5">

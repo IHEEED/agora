@@ -6,7 +6,7 @@ import { BottomNav } from "@/components/BottomNav";
 import { DesktopSidebar } from "@/components/DesktopSidebar";
 import { PageTransition } from "@/components/PageTransition";
 import { HeaderAction } from "@/components/HeaderAction";
-import { MessagesButton } from "@/components/MessagesButton";
+import { NotificationsButton } from "@/components/NotificationsButton";
 import { AppGate } from "@/components/AppGate";
 import { Wallpaper } from "@/components/Wallpaper";
 import { Wordmark } from "@/components/Wordmark";
@@ -166,7 +166,7 @@ export default function RootLayout({
                 className="app-header-inner relative flex items-center justify-between px-4 pb-4"
                 style={{ paddingTop: 'calc(14px + env(safe-area-inset-top))' }}
               >
-                <MessagesButton />
+                <NotificationsButton />
                 {/* Разрядка обязательна: у антиквы в капители буквы иначе
                     слипаются в слово, а знак должен читаться по буквам. */}
                 <Link

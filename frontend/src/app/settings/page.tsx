@@ -43,6 +43,10 @@ import { LOCALES, Locale, TranslationKey, applyLocale, useT } from '@/lib/i18n';
 const SECTIONS = [
   ['appearance', 'settings.appearance', 'M12 3a9 9 0 1 0 0 18c.83 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1a1.5 1.5 0 0 1 1.11-2.5H16a5 5 0 0 0 5-5c0-4.42-4.03-8-9-8Z M7.5 10.5h.01 M10.5 7.5h.01 M14.5 7.5h.01 M17 10.5h.01'],
   ['account', 'settings.account', 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z M4 21a8 8 0 0 1 16 0'],
+  // Модерация стоит рядом с аккаунтом, а не внутри него: это не настройка
+  // своей учётной записи, а отдельная работа над чужими. Строку видят только
+  // модераторы — см. GROUPS ниже и проверку по isModerator при отрисовке.
+  ['moderation', 'settings.moderation', 'M12 3 4 6v6c0 5 3.4 8.4 8 9.5 4.6-1.1 8-4.5 8-9.5V6l-8-3Z M9 12l2 2 4-4'],
   ['notifications', 'settings.notifications', 'M18 8a6 6 0 1 0-12 0c0 7-3 8-3 8h18s-3-1-3-8 M13.7 21a2 2 0 0 1-3.4 0'],
   ['privacy', 'settings.privacy', 'M12 3 4 6v6c0 5 3.4 8.4 8 9.5 4.6-1.1 8-4.5 8-9.5V6l-8-3Z'],
   ['content', 'settings.content', 'M4 6h16 M4 12h16 M4 18h10'],
@@ -50,6 +54,22 @@ const SECTIONS = [
 ] as const satisfies ReadonlyArray<readonly [string, TranslationKey, string]>;
 
 type SectionId = (typeof SECTIONS)[number][0];
+
+/**
+ * Островки в списке разделов.
+ *
+ * Одним свитком шесть строк читаются перечнем без начала и конца. Разбитые на
+ * группы, они начинают отвечать на разные вопросы: первая — «кто я здесь»,
+ * вторая — «как приложение себя ведёт», третья — про само приложение.
+ *
+ * Пустое место между группами и есть разделитель: линия внутри списка ещё
+ * одна деталь на экране, а промежуток не рисует ничего и читается сразу.
+ */
+const GROUPS: ReadonlyArray<ReadonlyArray<SectionId>> = [
+  ['appearance', 'account', 'moderation'],
+  ['notifications', 'privacy', 'content'],
+  ['about'],
+];
 
 const THEMES: ReadonlyArray<readonly [ThemePreference, TranslationKey]> = [
   ['light', 'settings.theme.light'],
@@ -319,8 +339,14 @@ export default function SettingsPage() {
             только ведёт не к значению, а вглубь. Галочка справа говорит об этом
             без слов. */}
         {!section && (
-          <div className="settings-slide-back ios-group">
-            {SECTIONS.map(([id, labelKey, path]) => (
+          <div className="settings-slide-back flex flex-col gap-5">
+            {GROUPS.map((group, groupIndex) => (
+            <div key={groupIndex} className="ios-group">
+            {SECTIONS.filter(([id]) => group.includes(id)).map(([id, labelKey, path]) => {
+              // Модерация — не всем. Проверка настоящая на сервере, здесь
+              // только «не показывать того, чего человек всё равно не откроет».
+              if (id === 'moderation' && !me?.isModerator) return null;
+              return (
               <button
                 key={id}
                 type="button"
@@ -349,6 +375,9 @@ export default function SettingsPage() {
                   <path d="M9 5l7 7-7 7" />
                 </svg>
               </button>
+              );
+            })}
+            </div>
             ))}
           </div>
         )}
@@ -463,21 +492,25 @@ export default function SettingsPage() {
               )}
             </Row>
             <InvitesPanel />
-            {me?.isModerator && (
-              /* Единственный вход в раздел модерации: в общей навигации его нет,
-                 потому что модераторов единицы, а вкладку видели бы все. */
-              <Row label="Модерация" hint="Очередь жалоб">
-                <Link
-                  href="/moderation"
-                  className="flex-none rounded-full px-4 py-1.5 text-[13px] font-medium"
-                  style={{ background: 'var(--surface-2)', color: 'var(--text)' }}
-                >
-                  Открыть
-                </Link>
-              </Row>
-            )}
           </Section>
 
+          )}
+
+          {section === 'moderation' && me?.isModerator && (
+          <Section>
+            {/* Сам разбор живёт на отдельном экране, а не здесь: это рабочее
+                место с очередью и решениями, а настройки — место, где двигают
+                переключатели. Здесь только дверь. */}
+            <Row label="Разбор жалоб" hint="Очередь и баны">
+              <Link
+                href="/moderation"
+                className="flex-none rounded-full px-4 py-1.5 text-[13px] font-medium"
+                style={{ background: 'var(--surface-2)', color: 'var(--text)' }}
+              >
+                Открыть
+              </Link>
+            </Row>
+          </Section>
           )}
 
           {section === 'notifications' && (

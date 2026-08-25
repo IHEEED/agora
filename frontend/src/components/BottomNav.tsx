@@ -7,7 +7,7 @@ import { CREATE_HREF, CreateIcon, MOBILE_SLOTS } from '@/components/navTabs';
 import { OverlayLink } from '@/components/OverlayLink';
 import { useNavHiddenRequest } from '@/lib/navVisibility';
 import { useT } from '@/lib/i18n';
-import { useUnreadNotifications } from '@/lib/useUnreadNotifications';
+import { useUnreadMessages } from '@/lib/useUnreadNotifications';
 
 /**
  * Нижняя навигация по образцу таб-бара iOS.
@@ -23,7 +23,7 @@ import { useUnreadNotifications } from '@/lib/useUnreadNotifications';
  */
 export function BottomNav() {
   const pathname = usePathname();
-  const unread = useUnreadNotifications();
+  const unread = useUnreadMessages();
   const { t } = useT();
   const hiddenByPage = useNavHiddenRequest();
   const [hiddenByScroll, setHiddenByScroll] = useState(false);
@@ -170,6 +170,10 @@ export function BottomNav() {
               href={slot.href}
               aria-label={slot.label}
               aria-current={active ? 'page' : undefined}
+              // Метка для складывания экрана обратно в кнопку: мессенджер
+              // уходит в ту же точку, из которой открылся (см. useScreenLeave).
+              // Раньше ею была кнопка в шапке, теперь — эта вкладка.
+              {...(slot.href === '/messages' ? { 'data-messages-button': '' } : null)}
               ref={(node) => {
                 slotRefs.current[index] = node;
               }}
@@ -179,10 +183,10 @@ export function BottomNav() {
               }}
             >
               <slot.Icon active={active} size={26} />
-              {/* Точка непрочитанных — только на колоколе и только числом
-                  больше нуля. Без числа внутри: на вкладке важно «есть или
-                  нет», а сколько именно — видно на самом экране. */}
-              {slot.href === '/notifications' && unread > 0 && (
+              {/* Точка непрочитанных — на мессенджере. Без числа внутри:
+                  на вкладке важно «есть или нет», а сколько именно и от кого —
+                  видно на самом экране. */}
+              {slot.href === '/messages' && unread > 0 && (
                 <span
                   aria-hidden
                   className="absolute h-[9px] w-[9px] rounded-full"
