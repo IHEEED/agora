@@ -6,6 +6,7 @@ import { CREATE_HREF, CreateIcon, SIDEBAR_TABS } from '@/components/navTabs';
 import { MessagesButton } from '@/components/MessagesButton';
 import { OverlayLink } from '@/components/OverlayLink';
 import { useT } from '@/lib/i18n';
+import { useUnreadNotifications } from '@/lib/useUnreadNotifications';
 import type { TranslationKey } from '@/lib/i18n';
 
 /**
@@ -24,6 +25,7 @@ import type { TranslationKey } from '@/lib/i18n';
  */
 export function DesktopSidebar() {
   const pathname = usePathname();
+  const unread = useUnreadNotifications();
   const { t } = useT();
 
   return (
@@ -57,7 +59,18 @@ export function DesktopSidebar() {
                 background: active ? 'var(--accent-soft)' : 'transparent',
               }}
             >
-              <tab.Icon active={active} size={24} />
+              <span className="relative flex items-center justify-center">
+                <tab.Icon active={active} size={24} />
+                {/* Та же точка, что в нижнем баре: одно и то же состояние
+                    обязано выглядеть одинаково на обоих экранах. */}
+                {tab.href === '/notifications' && unread > 0 && (
+                  <span
+                    aria-hidden
+                    className="absolute -right-1 -top-0.5 h-[9px] w-[9px] rounded-full"
+                    style={{ background: 'var(--accent)' }}
+                  />
+                )}
+              </span>
               {/* Подпись переводится вместе со всем остальным: label в TABS —
                   для aria и служебных мест, на экран идёт ключ. */}
               {/* Без truncate: обрезать подпись, ради которой панель и

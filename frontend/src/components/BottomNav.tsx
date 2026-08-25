@@ -7,6 +7,7 @@ import { CREATE_HREF, CreateIcon, MOBILE_SLOTS } from '@/components/navTabs';
 import { OverlayLink } from '@/components/OverlayLink';
 import { useNavHiddenRequest } from '@/lib/navVisibility';
 import { useT } from '@/lib/i18n';
+import { useUnreadNotifications } from '@/lib/useUnreadNotifications';
 
 /**
  * Нижняя навигация по образцу таб-бара iOS.
@@ -22,6 +23,7 @@ import { useT } from '@/lib/i18n';
  */
 export function BottomNav() {
   const pathname = usePathname();
+  const unread = useUnreadNotifications();
   const { t } = useT();
   const hiddenByPage = useNavHiddenRequest();
   const [hiddenByScroll, setHiddenByScroll] = useState(false);
@@ -177,6 +179,24 @@ export function BottomNav() {
               }}
             >
               <slot.Icon active={active} size={26} />
+              {/* Точка непрочитанных — только на колоколе и только числом
+                  больше нуля. Без числа внутри: на вкладке важно «есть или
+                  нет», а сколько именно — видно на самом экране. */}
+              {slot.href === '/notifications' && unread > 0 && (
+                <span
+                  aria-hidden
+                  className="absolute h-[9px] w-[9px] rounded-full"
+                  style={{
+                    // Привязка к самой иконке, а не к краю слота: слоты
+                    // растягиваются по ширине бара, и точка уезжала бы от
+                    // колокола тем дальше, чем шире экран.
+                    top: 'calc(50% - 13px)',
+                    left: 'calc(50% + 5px)',
+                    background: 'var(--accent)',
+                    boxShadow: '0 0 0 2px var(--tabbar-bg, var(--surface))',
+                  }}
+                />
+              )}
             </Link>
           );
         })}
