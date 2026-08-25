@@ -77,18 +77,29 @@ type SectionId = (typeof SECTIONS)[number][0];
  * поедут вместе с оформлением.
  */
 const SECTION_TINT: Record<SectionId, string> = {
-  appearance: 'var(--accent)',
   account: 'var(--up)',
+  privacy: 'var(--accent)',
   moderation: 'var(--down)',
   notifications: 'var(--repost, var(--accent))',
-  privacy: 'var(--text-muted)',
-  content: 'var(--accent)',
+  content: 'var(--up)',
+  appearance: 'var(--accent)',
   about: 'var(--text-muted)',
 };
 
+/**
+ * Островки в списке разделов.
+ *
+ * Первая группа — про человека и его границы: чем он входит, кого пускает,
+ * и (если он модератор) чужие границы тоже. Вторая — про поведение приложения:
+ * когда оно шумит, что показывает, как выглядит. Третья — про само приложение.
+ *
+ * Порядок внутри группы задаётся здесь, а не порядком в SECTIONS: это два
+ * разных вопроса, и связывать их значило бы менять раскладку экрана каждый
+ * раз, когда в список добавляют раздел.
+ */
 const GROUPS: ReadonlyArray<ReadonlyArray<SectionId>> = [
-  ['appearance', 'account', 'moderation'],
-  ['notifications', 'privacy', 'content'],
+  ['account', 'privacy', 'moderation'],
+  ['notifications', 'content', 'appearance'],
   ['about'],
 ];
 
@@ -363,7 +374,10 @@ export default function SettingsPage() {
           <div className="settings-slide-back flex flex-col gap-5">
             {GROUPS.map((group, groupIndex) => (
             <div key={groupIndex} className="ios-group">
-            {SECTIONS.filter(([id]) => group.includes(id)).map(([id, labelKey, path]) => {
+            {group
+              .map((wanted) => SECTIONS.find(([id]) => id === wanted))
+              .filter((entry) => entry !== undefined)
+              .map(([id, labelKey, path]) => {
               // Модерация — не всем. Проверка настоящая на сервере, здесь
               // только «не показывать того, чего человек всё равно не откроет».
               if (id === 'moderation' && !me?.isModerator) return null;
