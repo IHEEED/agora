@@ -11,7 +11,7 @@ import {
 import { createPortal } from 'react-dom';
 import { DefaultAvatar } from '@/components/DefaultAvatar';
 import { formatCompactAge } from '@/lib/formatDate';
-import { VelocityTracker, isFlick } from '@/lib/gesture';
+import { VelocityTracker, committed } from '@/lib/gestureVelocity';
 import { StoryGroup, StoryItem } from '@/lib/types';
 import { apiFetch } from '@/lib/api';
 import { useT } from '@/lib/i18n';
@@ -19,6 +19,7 @@ import { haptic } from '@/lib/haptics';
 import { setStoriesHidden, useAreStoriesHidden } from '@/lib/hiddenStories';
 import { BottomSheet } from '@/components/BottomSheet';
 import { useRouter } from 'next/navigation';
+import { lockScroll } from '@/lib/scrollLock';
 
 /**
  * Разворот из кружка и складывание обратно.
@@ -129,6 +130,7 @@ export function StoryViewer({
   /** Открыть редактор истории с этим кадром. Без него репост не предлагаем. */
   onCompose?: (item: StoryItem) => void;
 }) {
+  const { t } = useT();
   const router = useRouter();
   const mounted = useSyncExternalStore(
     () => () => {},
@@ -200,6 +202,12 @@ export function StoryViewer({
    * Без этого значения полоска после отпускания прыгала бы к началу кадра.
    */
   const [resumeFrom, setResumeFrom] = useState(0);
+  /** Открыт ли ввод ответа. Пока открыт — время кадра стоит. */
+  const [replying, setReplying] = useState(false);
+  const [replyText, setReplyText] = useState('');
+  const [replySent, setReplySent] = useState(false);
+  const [replyBusy, setReplyBusy] = useState(false);
+  const replyRef = useRef<HTMLInputElement>(null);
   /**
    * Голос, а не «нравится».
    *
@@ -211,6 +219,43 @@ export function StoryViewer({
   const [vote, setVote] = useState<1 | -1 | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const hidden = useAreStoriesHidden(story?.author.id);
+
+  /**
+   * Ответить автору, не покидая историю.
+   *
+   * Раньше кнопка уводила в переписку: история закрывалась, экран менялся,
+   * человек оказывался в списке чужих реплик — и ту мысль, ради которой он
+   * нажал, по дороге терял. Ответ на историю живёт минуту и относится к
+   * конкретному кадру; уводить за ним на другой экран — всё равно что просить
+   * выйти в коридор, чтобы сказать слово.
+   *
+   * Отправляем в личные, как и раньше: письмо приходит обычной репликой. Кадр
+   * при этом стоит на паузе, а после отправки строка на секунду говорит
+   * «отправлено» и уступает место обычной полосе.
+   */
+  async function sendReply() {
+    const text = replyText.trim();
+    if (!text || replyBusy || !story?.author.id) return;
+    setReplyBusy(true);
+    try {
+      await apiFetch('/messages', {
+        method: 'POST',
+        body: JSON.stringify({ recipient_id: story.author.id, body: text }),
+      });
+      setReplyText('');
+      setReplySent(true);
+      haptic();
+      window.setTimeout(() => {
+        setReplySent(false);
+        setReplying(false);
+      }, 1400);
+    } catch {
+      // Молча: сообщение об ошибке поверх чужой истории — не то место, где его
+      // будут читать. Текст остаётся в поле, отправку можно повторить.
+    } finally {
+      setReplyBusy(false);
+    }
+  }
 
   function castVote(postId: string, value: 1 | -1) {
     haptic();
@@ -269,7 +314,10 @@ export function StoryViewer({
   // эффект «progress дошёл — листаем» был бы вызовом setState прямо в теле
   // эффекта, то есть лишним каскадом отрисовок на каждый тик.
   useEffect(() => {
-    if (!open || held) return;
+    // Пока пишут ответ — время стоит. Иначе история улистывается из-под
+    // человека, который как раз набирает про неё реплику, и отправлено будет
+    // уже не о том кадре.
+    if (!open || held || replying) return;
     let value = resumeFrom;
     const timer = window.setInterval(() => {
       value += TICK_MS / FRAME_MS;
@@ -281,7 +329,7 @@ export function StoryViewer({
       setProgress(value);
     }, TICK_MS);
     return () => window.clearInterval(timer);
-  }, [open, held, frame, index, resumeFrom, next]);
+  }, [open, held, replying, frame, index, resumeFrom, next]);
 
   // Отмечаем кадр просмотренным. Кружок гаснет у того, кто посмотрел, и
   // остаётся ярким у остальных — ради этого в базе пара (история, зритель), а
@@ -306,11 +354,8 @@ export function StoryViewer({
 
   useEffect(() => {
     if (!open) return;
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.body.style.overflow = previous;
-    };
+    // Общий счётчик, а не своё запоминание (см. lib/scrollLock).
+    return lockScroll();
   }, [open]);
 
   /**
@@ -379,7 +424,7 @@ export function StoryViewer({
         // легко уходит за пределы элемента посреди протяжки.
         event.currentTarget.setPointerCapture(event.pointerId);
         from.current = event.clientY;
-        tracker.current.reset(event.clientY);
+        tracker.current.reset();
         // Палец на экране — время стоит. Запоминаем, докуда дошли: таймер
         // снимается вместе с эффектом, и продолжать он будет с этого места.
         setResumeFrom(progress);
@@ -398,7 +443,7 @@ export function StoryViewer({
         setDragY(0);
         if (start === null) return;
         // Дотянул до порога или бросил вниз — довольно любого из двух.
-        if (moved > 110 || isFlick(tracker.current.velocity, 1)) return closeSmoothly();
+        if (committed(moved, tracker.current.get(), 110)) return closeSmoothly();
         // Не потащили — значит нажали. Правая треть вперёд, левая назад:
         // палец чаще всего справа, поэтому вперёд отдана большая доля.
         if (moved < 8) {
@@ -453,11 +498,20 @@ export function StoryViewer({
           ))}
         </div>
 
+        {/* Шапка не листает кадр.
+            Родитель ловит указатель на всём экране и на отпускании листает:
+            правая часть вперёд, левая назад. Три точки и крестик стоят как раз
+            справа — то есть до клика по ним история успевала пролистнуться, и
+            меню либо не открывалось, либо открывалось уже на другом кадре.
+            stopPropagation на самом click не помогал: pointerup случается
+            раньше. Тот же щит стоит на нижнем ряду, где ровно та же беда. */}
         <div
           className="absolute inset-x-3 flex items-center gap-2.5"
           style={{ top: 'calc(22px + env(safe-area-inset-top))' }}
+          onPointerDown={(event) => event.stopPropagation()}
+          onPointerUp={(event) => event.stopPropagation()}
         >
-          <DefaultAvatar name={story.author.username} size={30} />
+          <DefaultAvatar name={story.author.username} size={30} src={story.author.avatar_url} />
           <span className="min-w-0 flex-1 truncate text-[14px] font-semibold text-white">
             {story.author.username}
           </span>
@@ -513,31 +567,74 @@ export function StoryViewer({
           onPointerUp={(event) => event.stopPropagation()}
         >
           {/* Ответ уходит в личные сообщения, а не в комментарии под записью:
-              на историю отвечают ей самой и её автору, а не залу. */}
+              на историю отвечают ей самой и её автору, а не залу. И пишется он
+              здесь же — история остаётся на экране, время её стоит. */}
           {story.author.id && (
-            <button
-              type="button"
-              onClick={(event) => {
-                event.stopPropagation();
-                closeSmoothly();
-                router.push(`/messages/${story.author.id}`);
-              }}
-              className="flex min-w-0 flex-1 items-center gap-2 rounded-full px-4 py-3 text-left text-[14px] text-white/70"
-              style={{
-                // Обводка, а не заливка: сплошная плашка во всю ширину закрыла
-                // бы низ фотографии, а контур по дымке очерчивает поле ввода и
-                // оставляет кадр видимым.
-                border: '1px solid rgba(255,255,255,0.4)',
-                background: 'rgba(255,255,255,0.10)',
-                backdropFilter: 'blur(14px)',
-                WebkitBackdropFilter: 'blur(14px)',
-              }}
+            <div
+              // Обводка, а не заливка: сплошная плашка во всю ширину закрыла бы
+              // низ фотографии, а контур по дымке очерчивает поле ввода и
+              // оставляет кадр видимым. Материал общий — см. .material-media.
+              className="material-media flex min-w-0 flex-1 items-center gap-2 rounded-full px-4 py-3 text-left text-[14px]"
+              onClick={(event) => event.stopPropagation()}
             >
-              <span className="min-w-0 flex-1 truncate">Ответить сообщением…</span>
-              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" className="flex-none opacity-80">
-                <path d="M11 5.5 4 12l7 6.5V15c4 0 7 1.2 9 4-.6-4.8-3.6-8.4-9-9Z" />
-              </svg>
-            </button>
+              {replySent ? (
+                <span className="flex min-w-0 flex-1 items-center gap-2 text-white">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" className="flex-none">
+                    <path d="M4 12.5 9 17.5 20 6.5" />
+                  </svg>
+                  {t('common.sent')}
+                </span>
+              ) : (
+                <>
+                  <input
+                    ref={replyRef}
+                    value={replyText}
+                    onChange={(event) => setReplyText(event.target.value)}
+                    onFocus={() => setReplying(true)}
+                    onBlur={() => {
+                      // Пустое поле — значит передумали: возвращаем ход
+                      // истории. С набранным текстом пауза держится, иначе
+                      // случайное касание мимо стоило бы человеку реплики.
+                      if (!replyText.trim()) setReplying(false);
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') {
+                        event.preventDefault();
+                        void sendReply();
+                      }
+                      // Побег из истории по Escape — но сперва из поля.
+                      if (event.key === 'Escape') {
+                        event.stopPropagation();
+                        setReplyText('');
+                        setReplying(false);
+                        replyRef.current?.blur();
+                      }
+                    }}
+                    enterKeyHint="send"
+                    placeholder={t('story.replyPlaceholder')}
+                    aria-label={t('story.replyPlaceholder')}
+                    className="min-w-0 flex-1 bg-transparent text-white outline-none placeholder:text-white/60"
+                  />
+                  {/* Кнопка появляется только когда есть что отправлять:
+                      пустая стрелка рядом с пустым полем — обещание действия,
+                      которого не будет. */}
+                  {replyText.trim() && (
+                    <button
+                      type="button"
+                      onClick={() => void sendReply()}
+                      disabled={replyBusy}
+                      aria-label="Отправить"
+                      className="flex h-7 w-7 flex-none items-center justify-center rounded-full text-white transition-transform active:scale-90 disabled:opacity-50"
+                      style={{ background: 'var(--accent)' }}
+                    >
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M12 19V5M6 11l6-6 6 6" />
+                      </svg>
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
           )}
 
           {item.postId && (
@@ -625,11 +722,12 @@ function StoryAction({
       }}
       aria-label={label}
       aria-pressed={active}
-      className="flex h-10 w-10 flex-none items-center justify-center rounded-full transition-transform active:scale-90"
+      className="material-media flex h-11 w-11 flex-none items-center justify-center rounded-full transition-transform active:scale-90"
       style={{
-        background: active ? 'rgba(255,255,255,0.34)' : 'rgba(255,255,255,0.16)',
-        backdropFilter: 'blur(14px)',
-        WebkitBackdropFilter: 'blur(14px)',
+        // Отданный голос плотнее — но краску кладём поверх материала, а не
+        // вместо него: иначе нажатая кнопка теряла бы стекло и выглядела
+        // плашкой из другого интерфейса.
+        background: active ? 'rgba(255,255,255,0.34)' : undefined,
         color: tint ?? '#ffffff',
       }}
     >

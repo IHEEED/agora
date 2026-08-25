@@ -1,13 +1,16 @@
 'use client';
 
 import { useState } from 'react';
+import { apiFetch } from '@/lib/api';
 import Link from 'next/link';
 import { useApiData } from '@/lib/useApiData';
+import { useSession } from '@/lib/useSession';
 import { MessageThread, UserSummary } from '@/lib/types';
 import { DefaultAvatar } from '@/components/DefaultAvatar';
 import { BottomSheet } from '@/components/BottomSheet';
+import { ThreadRow } from '@/components/ThreadRow';
+import { CenterDialog } from '@/components/CenterDialog';
 import { SkeletonList, SkeletonRow } from '@/components/Skeleton';
-import { formatCompactAge } from '@/lib/formatDate';
 import { useBlockedUsers } from '@/lib/blockedUsers';
 import { useScreenLeave } from '@/lib/useScreenLeave';
 import { holdBackdrop } from '@/lib/screenBackdrop';
@@ -22,7 +25,12 @@ import { useT } from '@/lib/i18n';
  */
 export default function MessagesPage() {
   const { t } = useT();
+  const { session } = useSession();
   const [picking, setPicking] = useState(false);
+  /** Переписка, по которой открыто меню действий. */
+  const [menuFor, setMenuFor] = useState<MessageThread | null>(null);
+  /** Переписка, удаление которой переспрашиваем. */
+  const [confirmDelete, setConfirmDelete] = useState<MessageThread | null>(null);
   // Разворачивается из кнопки в шапке и складывается обратно в неё — так же,
   // как поиск. У мессенджера есть своя кнопка, и связь «нажал вот это — выросло
   // вот это» показать стоит: раздел открывается не из бара, и вернуться иначе
@@ -37,6 +45,63 @@ export default function MessagesPage() {
   const threads = (threadsResult.data ?? []).filter(
     (thread) => !blocked.includes(thread.user.id)
   );
+
+  /**
+   * Настройки переписок правим у себя, а не ждём сервер.
+   *
+   * Закрепление — это перестановка строки в списке, и увидеть её человек должен
+   * в тот момент, когда отпустил палец. Ждать ответа значило бы держать список
+   * неподвижным полсекунды после жеста, который выглядел завершённым.
+   *
+   * Ошибку не откатываем и не показываем: настройка личная и ни на что, кроме
+   * порядка строк, не влияет. Следующая загрузка списка приведёт его в согласие
+   * с сервером — а до тех пор пусть будет так, как человек попросил.
+   */
+  /**
+   * Мысли собеседников — одним запросом на весь список.
+   *
+   * Адрес собирается из идентификаторов, поэтому кеш useApiData сам различает
+   * разные наборы людей: сменился состав переписок — сменился ключ, приедут
+   * свежие облачка. Запрашивать их по одному на строку значило бы двадцать
+   * запросов на открытие экрана.
+   */
+  const me = session?.user.id;
+  // Себя добавляем в тот же запрос: своё облачко надо показать при открытии,
+  // а не только после того, как его напишут. Отдельный запрос ради одной
+  // строки был бы вторым обращением к тому же маршруту.
+  const noteIds = [...threads.map((thread) => thread.user.id), me]
+    .filter(Boolean)
+    .sort()
+    .join(',');
+  const notesResult = useApiData<{ author_id: string; body: string }[]>(
+    noteIds ? `/notes?ids=${noteIds}` : null
+  );
+  const notes = new Map((notesResult.data ?? []).map((note) => [note.author_id, note.body]));
+
+
+  function patchThread(peerId: string, patch: { pinned?: boolean; muted?: boolean }) {
+    threadsResult.mutate((prev) =>
+      (prev ?? []).map((thread) =>
+        thread.user.id === peerId ? { ...thread, ...patch } : thread
+      )
+    );
+    apiFetch(`/messages/prefs/${peerId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(patch),
+    }).catch(() => undefined);
+  }
+
+  async function removeThread(peerId: string) {
+    threadsResult.mutate((prev) => (prev ?? []).filter((thread) => thread.user.id !== peerId));
+    setConfirmDelete(null);
+    setMenuFor(null);
+    try {
+      await apiFetch(`/messages/thread/${peerId}`, { method: 'DELETE' });
+    } catch {
+      // Не получилось — вернём при следующей загрузке. Показывать ошибку по
+      // строке, которая уже уехала с экрана, некуда.
+    }
+  }
 
   // Кому писать: свои подписки — те, с кем связь уже есть. Список тянем
   // только когда шторку открыли.
@@ -91,51 +156,14 @@ export default function MessagesPage() {
             так же, как в любом мессенджере. */}
         <section className="message-list flex flex-col">
           {threads.map((thread) => (
-            <Link
+            <ThreadRow
               key={thread.user.id}
-              href={`/messages/${thread.user.id}`}
-              // Замораживаем список: чат тянется пальцем вправо, и за ним должен
-              // быть виден он, а не пустой фон (см. screenBackdrop).
-              onClick={() => holdBackdrop()}
-              // Подсветка нажатия скруглена и вписана в строку. Прежде она
-              // заливала прямоугольник во всю ширину экрана до самых углов —
-              // среди сплошь скруглённого интерфейса это читалось не откликом
-              // на касание, а выделением текста мышью.
-              className="flex items-center gap-3 rounded-2xl px-2 py-3 transition-colors active:bg-[var(--surface-2)]"
-            >
-              <DefaultAvatar name={thread.user.username} size={48} />
-              <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                <div className="flex items-baseline gap-2">
-                  <span className="min-w-0 flex-1 truncate text-[15px] font-semibold text-[var(--text)]">
-                    {thread.user.username}
-                  </span>
-                  <span className="flex-none text-[12px] text-[var(--text-muted)]">
-                    {formatCompactAge(thread.lastMessage.created_at)}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <p
-                    className="min-w-0 flex-1 truncate text-[13.5px]"
-                    style={{
-                      color: thread.unread > 0 ? 'var(--text)' : 'var(--text-muted)',
-                    }}
-                  >
-                    {/* Своё письмо помечаем, иначе непонятно, чья это реплика
-                        и ждут ли ответа от тебя. */}
-                    {thread.lastMessage.mine && 'Вы: '}
-                    {thread.lastMessage.body}
-                  </p>
-                  {thread.unread > 0 && (
-                    <span
-                      className="font-num flex h-5 min-w-5 flex-none items-center justify-center rounded-full px-1.5 text-[11px] font-semibold"
-                      style={{ background: 'var(--accent)', color: 'var(--accent-contrast)' }}
-                    >
-                      {thread.unread}
-                    </span>
-                  )}
-                </div>
-              </div>
-            </Link>
+              thread={thread}
+              onPin={() => patchThread(thread.user.id, { pinned: !thread.pinned })}
+              onMute={() => patchThread(thread.user.id, { muted: !thread.muted })}
+              note={notes.get(thread.user.id)}
+              onMenu={() => setMenuFor(thread)}
+            />
           ))}
 
           {!threadsResult.loading && threads.length === 0 && (
@@ -160,7 +188,7 @@ export default function MessagesPage() {
               }}
               className="flex items-center gap-3 py-3"
             >
-              <DefaultAvatar name={person.username} size={44} />
+              <DefaultAvatar name={person.username} size={44} src={person.avatar_url} />
               <span className="min-w-0 flex-1 truncate text-[15px] font-medium text-[var(--text)]">
                 {person.username}
               </span>
@@ -173,6 +201,112 @@ export default function MessagesPage() {
           )}
         </div>
       </BottomSheet>
+
+      {/* Меню действий по переписке — то, что открывается удержанием.
+          Шторкой, а не плавающим меню у строки: действий четыре, они разной
+          цены, и разложенные в столбик они читаются списком решений, а не
+          россыпью значков. У сообщения меню плавающее по другой причине — там
+          важно видеть само сообщение, а здесь строка ничего не добавляет. */}
+      <BottomSheet
+        open={menuFor !== null}
+        onClose={() => setMenuFor(null)}
+        title={menuFor?.user.username ?? ''}
+        height="auto"
+      >
+        <div
+          className="flex flex-col py-1"
+          style={{ paddingBottom: 'calc(18px + env(safe-area-inset-bottom))' }}
+        >
+          {menuFor &&
+            [
+              {
+                key: 'pin',
+                label: t(menuFor.pinned ? 'thread.unpin' : 'thread.pin'),
+                run: () => patchThread(menuFor.user.id, { pinned: !menuFor.pinned }),
+              },
+              {
+                key: 'read',
+                label: t('thread.markRead'),
+                // Нечего отмечать — нечего и предлагать: пункт, который ничего
+                // не делает, читается сломанным.
+                hidden: menuFor.unread === 0,
+                run: () => {
+                  threadsResult.mutate((prev) =>
+                    (prev ?? []).map((thread) =>
+                      thread.user.id === menuFor.user.id ? { ...thread, unread: 0 } : thread
+                    )
+                  );
+                  apiFetch(`/messages/${menuFor.user.id}/read`, { method: 'POST' }).catch(
+                    () => undefined
+                  );
+                },
+              },
+              {
+                key: 'mute',
+                label: t(menuFor.muted ? 'thread.unmute' : 'thread.mute'),
+                run: () => patchThread(menuFor.user.id, { muted: !menuFor.muted }),
+              },
+              {
+                key: 'delete',
+                label: t('thread.delete'),
+                danger: true,
+                // Не выполняем, а переспрашиваем: письма уходят у обоих, и
+                // отменить это нечем.
+                run: () => setConfirmDelete(menuFor),
+              },
+            ]
+              .filter((row) => !row.hidden)
+              .map((row) => (
+                <button
+                  key={row.key}
+                  type="button"
+                  onClick={() => {
+                    row.run();
+                    if (row.key !== 'delete') setMenuFor(null);
+                  }}
+                  className="rounded-xl px-1 py-3.5 text-left text-[15px] transition-colors hover:bg-[var(--surface-2)]"
+                  style={{ color: row.danger ? 'var(--down)' : 'var(--text)' }}
+                >
+                  {row.label}
+                </button>
+              ))}
+        </div>
+      </BottomSheet>
+
+      {/* Удаление переспрашивает, и в вопросе сказано главное: письма уходят у
+          обоих. Своей копии переписки в схеме нет — письмо одно на двоих, — и
+          умолчать об этом значило бы дать человеку удалить чужое, думая, что
+          он прибирается у себя. */}
+      <CenterDialog
+        open={confirmDelete !== null}
+        onClose={() => setConfirmDelete(null)}
+        title={t('thread.deleteAsk')}
+      >
+        <p className="mb-5 text-[14px] leading-relaxed text-[var(--text-muted)]">
+          {t('thread.deleteWarn')}
+        </p>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => setConfirmDelete(null)}
+            className="flex-1 rounded-full py-3 text-[15px] font-semibold transition-transform active:scale-[0.98]"
+            style={{ background: 'var(--surface-2)', color: 'var(--text)' }}
+          >
+            {t('common.cancel')}
+          </button>
+          <button
+            type="button"
+            onClick={() => confirmDelete && void removeThread(confirmDelete.user.id)}
+            className="flex-1 rounded-full py-3 text-[15px] font-semibold transition-transform active:scale-[0.98]"
+            style={{
+              background: 'color-mix(in srgb, var(--down) 14%, transparent)',
+              color: 'var(--down)',
+            }}
+          >
+            {t('common.delete')}
+          </button>
+        </div>
+      </CenterDialog>
     </div>
   );
 }

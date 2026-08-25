@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
+import { lockScroll } from '@/lib/scrollLock';
 
 /**
  * Окно по центру экрана с размытым фоном.
@@ -41,11 +42,10 @@ export function CenterDialog({
 
   useEffect(() => {
     if (!open) return;
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.body.style.overflow = previous;
-    };
+    // Общий счётчик, а не своё запоминание: накладок на экране бывает
+    // несколько, и «вернуть как было» у каждой по отдельности оставляло
+    // страницу заблокированной навсегда (см. lib/scrollLock).
+    return lockScroll();
   }, [open]);
 
   useEffect(() => {

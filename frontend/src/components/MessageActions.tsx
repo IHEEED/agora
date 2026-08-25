@@ -3,6 +3,7 @@
 import { useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
 import { haptic } from '@/lib/haptics';
+import { useT } from '@/lib/i18n';
 
 /**
  * Плавающее меню действий над сообщением — то, что открывается удержанием.
@@ -42,7 +43,11 @@ export function MessageActions({
   onReact: (emoji: string) => void;
   onClose: () => void;
 }) {
+  const { t } = useT();
   const panelRef = useRef<HTMLDivElement>(null);
+  /** Открыт ли ввод произвольного эмодзи вместо сетки. */
+  const [freeform, setFreeform] = useState(false);
+  const freeRef = useRef<HTMLInputElement>(null);
   // document.body на сервере нет — портал ставим только на клиенте. Снимок,
   // а не setState в эффекте: у сервера и браузера они разные по построению.
   const mounted = useSyncExternalStore(
@@ -100,6 +105,9 @@ export function MessageActions({
   if (wasOpen !== open) {
     setWasOpen(open);
     if (open) haptic('open');
+    // Закрыли — вернуть сетку реакций на место поля ввода, иначе следующее
+    // открытие встретит человека клавиатурой вместо эмодзи.
+    if (!open && freeform) setFreeform(false);
   }
 
   if (!mounted) return null;
@@ -140,24 +148,80 @@ export function MessageActions({
         {/* Реакций два десятка, и в один ряд они не встают. Сетка по шесть в
             строку с прокруткой по высоте: первая строка — самые ходовые, они
             видны сразу, остальные догоняются пролистыванием, не занимая
-            полэкрана. */}
+            полэкрана.
+
+            Последняя плитка — «+», и за ней не ещё одна сетка, а системная
+            клавиатура. Держать в приложении полный список Unicode значило бы
+            везти с собой полторы тысячи плиток, которые всё равно отстанут от
+            телефона: новые эмодзи приезжают с обновлением системы, а оттенки
+            кожи и флаги собираются из нескольких символов. Клавиатура человека
+            знает про его эмодзи всё — надо просто дать ей слово. */}
         <div
           className="glass no-scrollbar overflow-y-auto rounded-3xl px-1.5 py-1.5"
           style={{ boxShadow: 'var(--glass-shadow)', maxHeight: 132 }}
         >
-          <div className="grid grid-cols-6 gap-0.5">
-            {reactions.map((emoji) => (
+          {freeform ? (
+            <div className="flex items-center gap-2 px-1.5 py-1">
+              <input
+                ref={freeRef}
+                autoFocus
+                // Не type="text": inputMode подсказывает клавиатуре, что ждут
+                // не слово. Открыть сразу вкладку эмодзи ни один браузер не
+                // позволяет — это решение системы, — но подпись рядом снимает
+                // вопрос, куда нажимать.
+                inputMode="text"
+                enterKeyHint="done"
+                aria-label={t('msg.ownReaction')}
+                className="w-14 flex-none rounded-xl px-2 py-1.5 text-center text-[21px]"
+                style={{ background: 'var(--surface-2)', color: 'var(--text)' }}
+                onChange={(event) => {
+                  const value = event.target.value;
+                  if (!value) return;
+                  // Берём первый графемный кластер, а не первый символ.
+                  // «👍🏽» и «🇷🇺» — это по нескольку кодовых точек, и срез по
+                  // символу разломал бы их на половинки, которые рисуются
+                  // квадратиками. Intl.Segmenter собирает их обратно; там, где
+                  // его нет, перебор по строке хотя бы не рвёт суррогатные пары.
+                  const first =
+                    typeof Intl !== 'undefined' && 'Segmenter' in Intl
+                      ? [...new Intl.Segmenter().segment(value)][0]?.segment
+                      : [...value][0];
+                  if (first) onReact(first);
+                }}
+              />
+              <span className="text-[12.5px] leading-snug text-[var(--text-muted)]">
+                {t('msg.reactionHint')}
+              </span>
+            </div>
+          ) : (
+            <div className="grid grid-cols-6 gap-0.5">
+              {reactions.map((emoji) => (
+                <button
+                  key={emoji}
+                  type="button"
+                  onClick={() => onReact(emoji)}
+                  className="emoji flex h-9 w-9 items-center justify-center rounded-full text-[21px] transition-transform active:scale-90"
+                  style={{ background: activeReaction === emoji ? 'var(--accent-soft)' : 'transparent' }}
+                >
+                  {emoji}
+                </button>
+              ))}
               <button
-                key={emoji}
                 type="button"
-                onClick={() => onReact(emoji)}
-                className="emoji flex h-9 w-9 items-center justify-center rounded-full text-[21px] transition-transform active:scale-90"
-                style={{ background: activeReaction === emoji ? 'var(--accent-soft)' : 'transparent' }}
+                onClick={() => {
+                  haptic();
+                  setFreeform(true);
+                }}
+                aria-label={t('msg.ownReaction')}
+                className="flex h-9 w-9 items-center justify-center rounded-full text-[var(--text-muted)] transition-transform active:scale-90"
+                style={{ background: 'var(--surface-2)' }}
               >
-                {emoji}
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+                  <path d="M12 5v14M5 12h14" />
+                </svg>
               </button>
-            ))}
-          </div>
+            </div>
+          )}
         </div>
 
         <div

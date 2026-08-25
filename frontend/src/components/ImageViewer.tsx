@@ -1,9 +1,9 @@
 'use client';
 
-import { VelocityTracker, isFlick } from '@/lib/gesture';
-
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
+import { VelocityTracker, committed } from '@/lib/gestureVelocity';
+import { lockScroll } from '@/lib/scrollLock';
 
 /**
  * Изображение во весь экран, с листанием.
@@ -25,12 +25,18 @@ export function ImageViewer({
   index,
   onClose,
   onIndex,
+  originFor,
 }: {
   images: string[];
   /** Какая картинка открыта. Хранится снаружи: её задаёт нажатие в ленте. */
   index: number;
   onClose: () => void;
   onIndex: (next: number) => void;
+  /**
+   * Где эта картинка лежит в ленте. Нужна для возврата на место при закрытии.
+   * Необязательна: если origin неизвестен, просмотр просто гаснет.
+   */
+  originFor?: (index: number) => DOMRect | null;
 }) {
   const mounted = useSyncExternalStore(
     () => () => {},
@@ -44,6 +50,9 @@ export function ImageViewer({
   const [drag, setDrag] = useState({ x: 0, y: 0 });
   const [dragging, setDragging] = useState(false);
   const from = useRef<{ x: number; y: number } | null>(null);
+  const trackRef = useRef<HTMLDivElement>(null);
+  const speedX = useRef(new VelocityTracker());
+  const speedY = useRef(new VelocityTracker());
   /**
    * Текущий сдвиг — ещё и в ref, не только в состоянии.
    *
@@ -57,9 +66,7 @@ export function ImageViewer({
   const offset = useRef({ x: 0, y: 0 });
   // Какую ось человек выбрал первым движением. Без фиксации картинка ездила
   // по диагонали и не понимала, листают её или закрывают.
-  const axisRef = useRef<'x' | 'y' | null>(null);
-  const trackerX = useRef(new VelocityTracker());
-  const trackerY = useRef(new VelocityTracker());
+  const axis = useRef<'x' | 'y' | null>(null);
 
   const go = useCallback(
     (delta: number) => {
@@ -84,64 +91,111 @@ export function ImageViewer({
   // Пока смотрят картинку, страница под ней не листается.
   useEffect(() => {
     if (!open) return;
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.body.style.overflow = previous;
-    };
+    // Общий счётчик, а не своё запоминание: накладок на экране бывает
+    // несколько, и «вернуть как было» у каждой по отдельности оставляло
+    // страницу заблокированной навсегда (см. lib/scrollLock).
+    return lockScroll();
   }, [open]);
 
   function onPointerDown(event: React.PointerEvent) {
     from.current = { x: event.clientX, y: event.clientY };
-    axisRef.current = null;
+    axis.current = null;
+    speedX.current.reset();
+    speedY.current.reset();
     // Без захвата указатель, ушедший за пределы окна или на элемент выше,
     // перестаёт слать события — картинка застревает на полпути.
     event.currentTarget.setPointerCapture?.(event.pointerId);
-    // Две оси — два отдельных счётчика скорости. Одна скорость на расстояние
-    // по диагонали рассыпается, как только по X и Y движение разное, а здесь
-    // оси и решают разное: вбок — соседний снимок, вниз — закрыть.
-    trackerX.current.reset(event.clientX);
-    trackerY.current.reset(event.clientY);
     setDragging(true);
   }
 
   function onPointerMove(event: React.PointerEvent) {
     if (!from.current) return;
-    trackerX.current.add(event.clientX);
-    trackerY.current.add(event.clientY);
     const dx = event.clientX - from.current.x;
     const dy = event.clientY - from.current.y;
-    if (!axisRef.current && Math.hypot(dx, dy) > 8) {
-      axisRef.current = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
+    if (!axis.current && Math.hypot(dx, dy) > 8) {
+      axis.current = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
     }
-    if (axisRef.current === 'x') offset.current = { x: dx, y: 0 };
+    // Две оси — два счётчика: скорость по диагонали, посчитанная как одно
+    // число, десинхронизируется, когда по X и Y движение разное (см. §3
+    // apple-design про разложение на независимые пружины).
+    speedX.current.add(event.clientX);
+    speedY.current.add(event.clientY);
+    if (axis.current === 'x') offset.current = { x: dx, y: 0 };
     // Вверх не тянем: закрывать движением вверх некуда — там шапка.
-    if (axisRef.current === 'y') offset.current = { x: 0, y: Math.max(0, dy) };
+    if (axis.current === 'y') offset.current = { x: 0, y: Math.max(0, dy) };
     setDrag(offset.current);
+  }
+
+  /**
+   * Закрыть, вернув картинку туда, откуда её взяли.
+   *
+   * Открывается просмотр ростом из ленты — а закрывался простым угасанием, и
+   * связь терялась ровно там, где она нужнее: человек только что разглядывал
+   * снимок и должен понимать, в какое место ленты он возвращается. Особенно
+   * после листания вбок, когда открывали второй кадр, а долистали до пятого.
+   *
+   * Считаем два прямоугольника — где картинка сейчас и где её место в ленте, —
+   * и едем из первого во второй. Через Web Animations, а не через переход
+   * состояния: узел через мгновение исчезнет вместе с порталом, и дожидаться
+   * его анимации в React пришлось бы отдельным состоянием «закрываюсь».
+   *
+   * Ленту при этом гасим синхронно тем же сроком: картинка садится на место в
+   * тот момент, когда чёрное окончательно уходит.
+   */
+  const RETURN_MS = 260;
+
+  function closeWithReturn() {
+    const target = originFor?.(index);
+    const node = trackRef.current?.querySelector<HTMLElement>(`[data-slide='${index}'] img`);
+
+    if (!target || !node || target.width === 0) return onClose();
+
+    const now = node.getBoundingClientRect();
+    // Масштаб по ширине, а не по обеим сторонам: в ленте картинка обрезана по
+    // рамке (object-cover), во весь экран — вписана целиком. Разное соотношение
+    // сторон, и растягивать по двум осям значило бы её плющить на лету.
+    const scale = target.width / now.width;
+
+    node.animate(
+      [
+        { transform: 'none', opacity: 1 },
+        {
+          transform:
+            `translate(${target.left + target.width / 2 - (now.left + now.width / 2)}px, ` +
+            `${target.top + target.height / 2 - (now.top + now.height / 2)}px) scale(${scale})`,
+          opacity: 0.6,
+        },
+      ],
+      { duration: RETURN_MS, easing: 'cubic-bezier(0.32, 0.72, 0, 1)', fill: 'forwards' }
+    );
+
+    const backdrop = node.closest<HTMLElement>('[data-viewer-root]');
+    backdrop?.animate([{ opacity: 1 }, { opacity: 0 }], {
+      duration: RETURN_MS,
+      easing: 'ease-out',
+      fill: 'forwards',
+    });
+
+    window.setTimeout(onClose, RETURN_MS);
   }
 
   function onPointerUp() {
     if (!from.current) return;
     const { x, y } = offset.current;
-    const axis = axisRef.current;
     from.current = null;
-    axisRef.current = null;
+    axis.current = null;
     offset.current = { x: 0, y: 0 };
     setDragging(false);
     setDrag({ x: 0, y: 0 });
 
-    const vx = trackerX.current.velocity;
-    const vy = trackerY.current.velocity;
-
-    // Закрытие: дотянул вниз до порога или бросил вниз.
-    if (axis === 'y' && (y > 110 || isFlick(vy, 1))) return onClose();
-
+    // Далеко утащили или быстро бросили — см. lib/gestureVelocity.
+    if (committed(y, speedY.current.get(), 110)) return closeWithReturn();
     // Четверть ширины — столько нужно протащить, чтобы это было решением, а не
-    // случайным смахиванием во время разглядывания. Либо, опять же, бросок:
-    // листать снимки щелчками пальца привычнее, чем протаскивать каждый.
+    // случайным смахиванием во время разглядывания. Резкий флик засчитывается
+    // и раньше: он однозначен.
     const threshold = window.innerWidth * 0.25;
-    if (x < -threshold || (axis === 'x' && isFlick(vx, -1))) return go(1);
-    if (x > threshold || (axis === 'x' && isFlick(vx, 1))) return go(-1);
+    const vx = speedX.current.get();
+    if (committed(x, vx, threshold)) return go(x < 0 ? 1 : -1);
   }
 
   if (!mounted || !open) return null;
@@ -152,6 +206,7 @@ export function ImageViewer({
 
   return createPortal(
     <div
+      data-viewer-root
       className="fixed inset-0 z-[95] flex items-center justify-center"
       style={{
         background: `rgba(0, 0, 0, ${0.94 - dismissProgress * 0.5})`,
@@ -172,12 +227,13 @@ export function ImageViewer({
       onClick={(event) => {
         // Нажатие мимо картинки закрывает. Проверяем цель, а не координаты:
         // картинка внутри и сама остановит событие.
-        if (event.target === event.currentTarget) onClose();
+        if (event.target === event.currentTarget) closeWithReturn();
       }}
     >
       {/* Лента картинок целиком, сдвигаемая на индекс. Так соседние уже
           загружены, и листание не начинается с пустого кадра. */}
       <div
+        ref={trackRef}
         className="flex h-full w-full items-center"
         style={{
           transform: `translate3d(calc(${-index * 100}% + ${drag.x}px), ${drag.y}px, 0) scale(${
@@ -191,6 +247,17 @@ export function ImageViewer({
         {images.map((src, position) => (
           <div
             key={`${src}-${position}`}
+            data-slide={position}
+            // Нажатие по полю вокруг картинки тоже закрывает.
+            //
+            // Проверка на подложке этого не ловила: лента кадров растянута на
+            // весь экран и лежит поверх неё, так что чёрные поля сверху и снизу
+            // от вертикального снимка принадлежат вот этому кадру, а не
+            // подложке. Нажатия по ним просто ничего не делали — а именно туда
+            // и метит палец, когда хочет выйти, не задев картинку.
+            onClick={(event) => {
+              if (event.target === event.currentTarget) closeWithReturn();
+            }}
             className="flex h-full w-full flex-none items-center justify-center p-4"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -207,15 +274,10 @@ export function ImageViewer({
       </div>
 
       <button
-        onClick={onClose}
+        onClick={closeWithReturn}
         aria-label="Закрыть"
-        className="absolute right-3 flex h-11 w-11 items-center justify-center rounded-full text-white/90 transition-transform active:scale-90"
-        style={{
-          top: 'calc(12px + env(safe-area-inset-top))',
-          background: 'rgba(255, 255, 255, 0.14)',
-          backdropFilter: 'blur(12px)',
-          WebkitBackdropFilter: 'blur(12px)',
-        }}
+        className="material-media absolute right-3 flex h-12 w-12 items-center justify-center rounded-full transition-transform active:scale-90"
+        style={{ top: 'calc(12px + env(safe-area-inset-top))' }}
       >
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
           <path d="M6 6l12 12M18 6 6 18" />
@@ -225,12 +287,9 @@ export function ImageViewer({
       {images.length > 1 && (
         <>
           <span
-            className="font-num absolute left-1/2 -translate-x-1/2 rounded-full px-3 py-1 text-[13px] font-medium text-white/90"
+            className="material-media font-num absolute left-1/2 -translate-x-1/2 rounded-full px-3 py-1 text-[13px] font-medium"
             style={{
               top: 'calc(18px + env(safe-area-inset-top))',
-              background: 'rgba(255, 255, 255, 0.14)',
-              backdropFilter: 'blur(12px)',
-              WebkitBackdropFilter: 'blur(12px)',
             }}
           >
             {index + 1} / {images.length}

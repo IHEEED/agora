@@ -2,6 +2,16 @@ import { Response, Router } from 'express';
 import { supabase } from '../config/supabase';
 import { hiddenUserIds } from '../lib/blocks';
 import { isBanned, optionalAuth, requireAuth } from '../middleware/auth';
+import { userColumns } from '../config/schema';
+
+/** Человек в выдаче. Аватарки может не быть — см. config/schema. */
+type UserRow = {
+  id: string;
+  username: string;
+  karma: number;
+  created_at?: string;
+  avatar_url?: string | null;
+};
 
 const router = Router();
 
@@ -32,9 +42,10 @@ router.get('/suggestions', optionalAuth, async (req, res) => {
 
   const { data, error } = await supabase
     .from('users')
-    .select('id, username, karma')
+    .select(userColumns('karma'))
     .order('karma', { ascending: false })
-    .limit(30);
+    .limit(30)
+    .returns<UserRow[]>();
 
   if (error) {
     console.error('users: suggestions failed', error);
@@ -186,13 +197,22 @@ router.delete('/:id/follow', requireAuth, async (req, res) => {
 router.get('/', optionalAuth, async (req, res) => {
   const query = String(req.query.q ?? '').trim();
 
-  let request = supabase.from('users').select('id, username, karma').order('karma', { ascending: false }).limit(30);
+  let request = supabase
+    .from('users')
+    .select(userColumns('karma'))
+    .order('karma', { ascending: false })
+    .limit(30);
 
   if (query) {
     request = request.ilike('username', `%${query}%`);
   }
 
-  const { data, error } = await request;
+  // Список полей теперь строится на ходу (см. config/schema), и вывести тип
+  // строки из него библиотека уже не может: она читает литерал, а здесь его
+  // нет. Форма ответа не изменилась, поэтому называем её сами — и делаем это в
+  // момент выполнения, а не в середине цепочки: .returns() закрывает построение
+  // запроса, и после него не осталось бы куда добавить .ilike.
+  const { data, error } = await request.returns<UserRow[]>();
 
   if (error) {
     console.error('users: request failed', error);
@@ -217,7 +237,11 @@ router.get('/:id', optionalAuth, async (req, res) => {
   const { id } = req.params;
 
   const [profile, followers, following, mine] = await Promise.all([
-    supabase.from('users').select('id, username, karma, created_at').eq('id', id).single(),
+    supabase
+      .from('users')
+      .select(userColumns('karma, created_at'))
+      .eq('id', id)
+      .single<UserRow>(),
     supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', id),
     supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', id),
     req.user
@@ -266,8 +290,9 @@ async function followList(
 
   const { data: people, error: peopleError } = await supabase
     .from('users')
-    .select('id, username, karma')
-    .in('id', ids);
+    .select(userColumns('karma'))
+    .in('id', ids)
+    .returns<UserRow[]>();
 
   if (peopleError) {
     console.error(`users: ${direction} profiles failed`, peopleError);

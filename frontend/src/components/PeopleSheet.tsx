@@ -85,6 +85,7 @@ export function PeopleSheet({
             <AvatarFollow
               userId={person.id}
               username={person.username}
+              avatar={person.avatar_url}
               initiallyFollowing={person.isFollowing}
               size={46}
             />

@@ -20,15 +20,18 @@ export function AvatarFollow({
   username,
   initiallyFollowing = false,
   size = 48,
+  avatar,
 }: {
   userId: string;
   username: string;
+  /** Лицо человека. Нет — показываем силуэт. */
+  avatar?: string | null;
   initiallyFollowing?: boolean;
   size?: number;
 }) {
   return (
     <span className="relative flex-none" style={{ width: size, height: size }}>
-      <DefaultAvatar name={username} size={size} />
+      <DefaultAvatar name={username} size={size} src={avatar} />
       <FollowButton
         userId={userId}
         initiallyFollowing={initiallyFollowing}

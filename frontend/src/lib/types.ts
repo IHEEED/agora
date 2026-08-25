@@ -2,6 +2,8 @@ export interface Author {
   /** Нужен, чтобы в ленте показать кнопку «Подписаться» на автора. */
   id?: string;
   username: string;
+  /** Адрес аватарки. Пусто — показываем силуэт по умолчанию. */
+  avatar_url?: string | null;
   /** Подставляет бэкенд по текущей сессии — чтобы кнопка не мигала плюсом. */
   isFollowing?: boolean;
 }
@@ -26,6 +28,8 @@ export interface UserSummary {
   id: string;
   username: string;
   karma: number;
+  /** Адрес аватарки. Пусто — показываем силуэт по умолчанию. */
+  avatar_url?: string | null;
   /** Подставляет бэкенд по текущей сессии; без неё всегда false. */
   isFollowing?: boolean;
 }
@@ -57,8 +61,12 @@ export interface Message {
 
 /** Строка в списке переписок: собеседник и последнее письмо. */
 export interface MessageThread {
-  user: { id: string; username: string };
+  user: { id: string; username: string; avatar_url?: string | null };
   unread: number;
+  /** Закреплён ли у меня. Настройка личная — собеседник о ней не знает. */
+  pinned?: boolean;
+  /** Приглушены ли уведомления по этой переписке. Тоже только у меня. */
+  muted?: boolean;
   lastMessage: { body: string; created_at: string; mine: boolean };
 }
 

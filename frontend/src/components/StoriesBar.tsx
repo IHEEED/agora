@@ -4,8 +4,9 @@ import { useEffect, useRef, useState } from 'react';
 import { SegmentRing } from '@/components/SegmentRing';
 import { StoryViewer } from '@/components/StoryViewer';
 import { StoryComposer, StoryDraft } from '@/components/StoryComposer';
+import { NewStorySheet } from '@/components/NewStorySheet';
 import { StoryGroup } from '@/lib/types';
-import { VelocityTracker, decay } from '@/lib/gesture';
+import { VelocityTracker, decay } from '@/lib/gestureVelocity';
 import { haptic } from '@/lib/haptics';
 import { DefaultAvatar } from '@/components/DefaultAvatar';
 import { useT } from '@/lib/i18n';
@@ -19,16 +20,19 @@ function StoryRing({
   name,
   segments,
   viewed = false,
+  avatar,
 }: {
   name: string;
   segments: number;
   viewed?: boolean;
+  /** Лицо автора. Нет — показываем силуэт. */
+  avatar?: string | null;
 }) {
   return (
     <div className="relative" style={{ width: RING_SIZE, height: RING_SIZE }}>
       <SegmentRing size={RING_SIZE} segments={segments} viewed={viewed} strokeWidth={2.8} gap={5.5} />
       <div className="absolute inset-[5px] overflow-hidden rounded-full">
-        <DefaultAvatar name={name} size={RING_SIZE - 10} />
+        <DefaultAvatar name={name} size={RING_SIZE - 10} src={avatar} />
       </div>
     </div>
   );
@@ -49,6 +53,8 @@ export function StoriesBar({
   const [origin, setOrigin] = useState<DOMRect | null>(null);
   // Что сейчас в редакторе истории. null — редактор закрыт.
   const [draft, setDraft] = useState<StoryDraft | null>(null);
+  /** Открыт ли экран новой истории — того, что заводится с нуля. */
+  const [composing, setComposing] = useState(false);
   const trackRef = useRef<HTMLDivElement>(null);
   const drag = useRef({ active: false, startX: 0, startScroll: 0 });
   const tracker = useRef(new VelocityTracker());
@@ -65,7 +71,7 @@ export function StoriesBar({
     if (e.pointerType !== 'mouse' || !trackRef.current) return;
     if (inertia.current) cancelAnimationFrame(inertia.current);
     drag.current = { active: true, startX: e.clientX, startScroll: trackRef.current.scrollLeft };
-    tracker.current.reset(e.clientX);
+    tracker.current.reset();
   }
 
   function onPointerMove(e: React.PointerEvent) {
@@ -89,7 +95,7 @@ export function StoriesBar({
      */
     // Потолок на скорость. Резкий рывок мышью даёт выброс в несколько тысяч
     // точек в секунду, и лента улетала в конец одним движением.
-    let velocity = Math.max(-2200, Math.min(2200, tracker.current.velocity));
+    let velocity = Math.max(-2200, Math.min(2200, tracker.current.get()));
     let previous = performance.now();
 
     const step = (now: number) => {
@@ -137,7 +143,18 @@ export function StoriesBar({
       }}
     >
       {currentUserLetter && (
-        <div className="min-w-0 flex flex-col items-center gap-1.5" style={{ flex: `0 0 ${RING_SIZE}px` }}>
+        // Кнопка, а не div. Кружок с плюсом стоял здесь с самого начала и не
+        // делал ничего — обещание кнопки без кнопки, от которого человек
+        // считает сломанным себя.
+        <button
+          type="button"
+          onClick={() => {
+            haptic();
+            setComposing(true);
+          }}
+          className="min-w-0 flex flex-col items-center gap-1.5"
+          style={{ flex: `0 0 ${RING_SIZE}px` }}
+        >
           <div className="relative" style={{ width: RING_SIZE, height: RING_SIZE }}>
             {/* Пунктир вместо дуг: своей истории ещё нет, показывать нечего —
                 и кружок читается как «место под неё», а не как непросмотренное. */}
@@ -167,7 +184,7 @@ export function StoriesBar({
           <span className="w-full truncate text-center text-[10.5px] text-[var(--text-muted)]">
             {t('feed.yourStory')}
           </span>
-        </div>
+        </button>
       )}
 
       {stories.map((story, position) => (
@@ -190,6 +207,7 @@ export function StoriesBar({
               истории, внутри оказывалась одна. */}
           <StoryRing
             name={story.author.username}
+            avatar={story.author.avatar_url}
             segments={story.items.length}
             // Кольцо гаснет, когда всё просмотрено: непросмотренное — это
             // единственная причина сюда смотреть, и отличать одно от другого
@@ -224,6 +242,8 @@ export function StoriesBar({
     />
 
     <StoryComposer draft={draft} onClose={() => setDraft(null)} />
+
+    <NewStorySheet open={composing} onClose={() => setComposing(false)} />
     </>
   );
 }

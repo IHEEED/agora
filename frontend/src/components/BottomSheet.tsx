@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
 import { haptic } from '@/lib/haptics';
-import { VelocityTracker, isFlick, rubberband } from '@/lib/gesture';
+import { lockScroll } from '@/lib/scrollLock';
+import { VelocityTracker, committed, rubberband } from '@/lib/gestureVelocity';
 
 /**
  * Дотянул до этого — закрываем, даже если отпустил неподвижно.
@@ -75,11 +76,10 @@ export function BottomSheet({
 
   useEffect(() => {
     if (!open) return;
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.body.style.overflow = previous;
-    };
+    // Общий счётчик, а не своё запоминание: накладок на экране бывает
+    // несколько, и «вернуть как было» у каждой по отдельности оставляло
+    // страницу заблокированной навсегда (см. lib/scrollLock).
+    return lockScroll();
   }, [open]);
 
   useEffect(() => {
@@ -97,7 +97,7 @@ export function BottomSheet({
     // движение, и отпускание, и шторка застревала в перетащенном виде.
     e.currentTarget.setPointerCapture(e.pointerId);
     dragStart.current = e.clientY;
-    tracker.current.reset(e.clientY);
+    tracker.current.reset();
     setDrag(0);
   }
 
@@ -124,8 +124,10 @@ export function BottomSheet({
 
     if (drag === null) return;
 
-    // Любого из двух достаточно: дотянул до порога или бросил вниз.
-    if (drag > DISMISS_AFTER_PX || isFlick(tracker.current.velocity, 1)) onClose();
+    // Любого из двух достаточно: дотянул до порога или бросил вниз. Решает
+    // committed: он же отсекает случай, когда палец в последний момент пошёл
+    // обратно — тогда человек передумал, как далеко бы ни утащил до этого.
+    if (committed(drag, tracker.current.get(), DISMISS_AFTER_PX)) onClose();
     setDrag(null);
   }
 

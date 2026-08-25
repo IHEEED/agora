@@ -16,6 +16,7 @@ import { useSession } from '@/lib/useSession';
 import { invalidate, useApiData } from '@/lib/useApiData';
 import { Message, UserProfile, UserSummary } from '@/lib/types';
 import { DefaultAvatar } from '@/components/DefaultAvatar';
+import { MediaEditor } from '@/components/MediaEditor';
 import { MessageActions } from '@/components/MessageActions';
 import { BottomSheet } from '@/components/BottomSheet';
 import { BanNotice } from '@/components/BanNotice';
@@ -30,6 +31,9 @@ import { haptic } from '@/lib/haptics';
 import { useVoiceRecorder } from '@/lib/useVoiceRecorder';
 import { VoiceBubble } from '@/components/VoiceBubble';
 import { supabase } from '@/lib/supabase';
+import { useT, translate } from '@/lib/i18n';
+import { useBlockedUsers } from '@/lib/blockedUsers';
+import { VelocityTracker, committed } from '@/lib/gestureVelocity';
 
 /** Как часто перечитываем переписку, пока она открыта.
     Раньше был 4000 — при плохой сети задержка на запросе могла совпасть
@@ -42,6 +46,9 @@ const MEDIA_BUCKET = 'post-media';
 
 /** Сколько уходит удаляемое сообщение. Совпадает с transition в разметке. */
 const REMOVE_MS = 240;
+
+/** Сколько держится подсветка письма, к которому привёл закреп. */
+const SPOTLIGHT_MS = 1500;
 
 /**
  * Реакции. Двадцать самых ходовых, порядком примерно по частоте: первые шесть
@@ -60,6 +67,15 @@ const QUICK_REACTIONS = [
 ];
 
 /** Разделитель по дням — чтобы не гадать, когда именно это было сказано. */
+/**
+ * «Сегодня» берём через функцию, а не константой.
+ *
+ * dayLabel вызывается вне компонента, где хука нет, а язык человек меняет на
+ * ходу — вычисленная один раз строка осталась бы на языке, который был при
+ * загрузке модуля.
+ */
+const TODAY_LABEL = () => translate('date.today');
+
 function dayLabel(iso: string): string {
   const date = new Date(iso);
   const today = new Date();
@@ -67,7 +83,7 @@ function dayLabel(iso: string): string {
     date.getDate() === today.getDate() &&
     date.getMonth() === today.getMonth() &&
     date.getFullYear() === today.getFullYear();
-  if (sameDay) return 'Сегодня';
+  if (sameDay) return TODAY_LABEL();
 
   return date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
 }
@@ -89,6 +105,7 @@ function timeLabel(iso: string): string {
  * которой больше нигде не пользуются.
  */
 export default function ChatPage() {
+  const { t } = useT();
   const { userId } = useParams<{ userId: string }>();
   const router = useRouter();
   const { session } = useSession();
@@ -115,7 +132,12 @@ export default function ChatPage() {
   const [removing, setRemoving] = useState<string[]>([]);
   /** Сообщение, которое сейчас тянут влево, и на сколько оно уехало. */
   const [swipe, setSwipe] = useState<{ id: string; dx: number } | null>(null);
+  /** Сообщение, к которому только что перемотали по закрепу. Гаснет само. */
+  const [spotlight, setSpotlight] = useState<string | null>(null);
+  /** Какой из закреплённых показывать следующим: нажатия идут по кругу. */
+  const pinCursor = useRef(0);
   const swipeFrom = useRef<{ x: number; y: number; id: string; own: boolean } | null>(null);
+  const swipeSpeed = useRef(new VelocityTracker());
   const timers = useRef<number[]>([]);
 
   useEffect(() => {
@@ -127,6 +149,19 @@ export default function ChatPage() {
   // Кому можно переслать. Запрос уходит только когда шторку открыли.
   const people = useApiData<UserSummary[]>(forwarding ? '/users' : null);
   const me = session?.user.id;
+  const blocked = useBlockedUsers();
+
+  /**
+   * Кому показывать в пересылке.
+   *
+   * Себя убираем: переслать сообщение самому себе — действие без смысла, а
+   * стоит оно в списке первым, потому что список отсортирован по influence.
+   * Заблокированных тоже: смысл блокировки в том, чтобы человек не попадался,
+   * а список пересылки — ровно то место, где промахнуться проще всего.
+   */
+  const forwardTargets = (people.data ?? []).filter(
+    (candidate) => candidate.id !== me && !blocked.includes(candidate.id)
+  );
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -185,6 +220,8 @@ export default function ChatPage() {
    */
   const photoInputRef = useRef<HTMLInputElement>(null);
   const [photo, setPhoto] = useState<{ preview: string; url: string | null } | null>(null);
+  /** Снимок, который сейчас кадрируют. Пусто — окно подгонки закрыто. */
+  const [cropping, setCropping] = useState<string | null>(null);
   const voice = useVoiceRecorder();
 
   async function upload(file: Blob, extension: string): Promise<string | null> {
@@ -213,7 +250,14 @@ export default function ChatPage() {
     return supabase.storage.from(MEDIA_BUCKET).getPublicUrl(path).data.publicUrl;
   }
 
-  async function pickPhoto(event: React.ChangeEvent<HTMLInputElement>) {
+  /**
+   * Выбранный файл сначала показываем в кадре, и только потом отправляем.
+   *
+   * Раньше снимок уходил на сервер прямо из проводника — то есть ровно таким,
+   * каким его сняла камера: с лишним небом сверху, повёрнутым, на четыре
+   * мегабайта. Поправить было нечем, оставалось удалить и переснять.
+   */
+  function pickPhoto(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     // Сбрасываем поле сразу: без этого повторный выбор того же файла не даёт
     // события change, и снимок «не выбирается» со второго раза.
@@ -221,9 +265,20 @@ export default function ChatPage() {
     if (!file) return;
 
     setError(null);
-    const preview = URL.createObjectURL(file);
+    setCropping(URL.createObjectURL(file));
+  }
+
+  /** Кадр выбран — грузим уже обрезанное и сжатое. */
+  async function uploadCropped(blob: Blob) {
+    const source = cropping;
+    setCropping(null);
+
+    const preview = URL.createObjectURL(blob);
     setPhoto({ preview, url: null });
-    const url = await upload(file, file.name.split('.').pop() ?? 'jpg');
+    // Исходник больше не нужен: дальше живёт только обрезанное.
+    if (source) URL.revokeObjectURL(source);
+
+    const url = await upload(new File([blob], 'photo.jpg', { type: blob.type }), 'jpg');
     if (!url) {
       URL.revokeObjectURL(preview);
       setPhoto(null);
@@ -464,17 +519,89 @@ export default function ChatPage() {
     setDragX(0);
   }
 
+  /**
+   * Довести до конца переписки.
+   *
+   * Отдельной функцией, потому что зовут её из двух разных мест с разными
+   * намерениями: при открытии — мгновенно (никто не должен видеть, как экран
+   * проматывается сквозь всю историю), при отправке — плавно, чтобы было видно,
+   * что тебя увезли вниз, а не подменили кадр.
+   */
+  function scrollToEnd(smooth = false) {
+    bottomRef.current?.scrollIntoView({ block: 'end', behavior: smooth ? 'smooth' : 'auto' });
+  }
+
+  /** Стоим ли у конца переписки. Запас — на высоту пары строк. */
+  function atEnd() {
+    return window.innerHeight + window.scrollY >= document.body.scrollHeight - 140;
+  }
+
   // Переписку открываем на последнем письме — прокручивать снизу вверх
   // никто не станет.
   useLayoutEffect(() => {
-    bottomRef.current?.scrollIntoView({ block: 'end' });
+    scrollToEnd();
+    // Только на смене собеседника. Раньше здесь стояла длина списка, и любое
+    // пришедшее письмо утаскивало вниз человека, читающего старое, — прямо
+    // из-под пальца. Своя отправка увозит вниз сама (см. send), а чужая теперь
+    // увозит, только если ты и так стоял у конца (см. эффект ниже).
+  }, [userId]);
+
+  /**
+   * Пришло чужое — догоняем, но только если и так стояли внизу.
+   *
+   * Проверку делаем ДО того, как браузер отрисует новое письмо: к моменту
+   * эффекта высота страницы уже выросла, и «стоим внизу» стало бы ложью для
+   * всех. useLayoutEffect с замером в теле работает по той же причине, по
+   * которой не годится useEffect: между ними успевает пройти кадр.
+   */
+  const wasAtEnd = useRef(true);
+  useLayoutEffect(() => {
+    if (wasAtEnd.current) scrollToEnd();
   }, [messages.length]);
+
+  useEffect(() => {
+    function mark() {
+      wasAtEnd.current = atEnd();
+    }
+    mark();
+    window.addEventListener('scroll', mark, { passive: true });
+    return () => window.removeEventListener('scroll', mark);
+  }, []);
+
+  /**
+   * Перемотать к закреплённому и подсветить его.
+   *
+   * По кругу: закреплённых бывает несколько, а полоска показывает один. В
+   * Telegram повторное нажатие ведёт к следующему, и это единственный способ
+   * добраться до остальных, не открывая отдельный список.
+   *
+   * Подсветка обязательна. Без неё экран просто оказывается где-то в середине
+   * истории, и какое из письма то самое — непонятно: прокрутка привела, но не
+   * показала пальцем.
+   */
+  function goToPinned() {
+    if (pinned.length === 0) return;
+    const target = pinned[pinCursor.current % pinned.length];
+    pinCursor.current += 1;
+    document
+      .getElementById(`msg-${target.id}`)
+      ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setSpotlight(target.id);
+    window.setTimeout(() => {
+      setSpotlight((current) => (current === target.id ? null : current));
+    }, SPOTLIGHT_MS);
+  }
 
   async function send(e: SubmitEvent) {
     e.preventDefault();
     const text = body.trim();
     // Снимок без подписи — обычная реплика, а не пустая.
     if ((!text && !photo?.url) || sending) return;
+
+    // Своя отправка всегда увозит к концу, где реплика и появится, — даже если
+    // человек читал старое. Отправить письмо и остаться смотреть на позапрошлый
+    // разговор нельзя: отправленное надо увидеть.
+    wasAtEnd.current = true;
 
     setSending(true);
     setError(null);
@@ -521,6 +648,11 @@ export default function ChatPage() {
         setMessages((prev) => [...prev, draft]);
         setJustSent(draftId);
         setSendDistance(distanceToComposer());
+        // Плавно, а не рывком: отправка — единственный момент, когда экран
+        // едет сам, и человек должен увидеть, что его увезли вниз, а не
+        // обнаружить себя в другом месте переписки. Кадром позже, чтобы
+        // реплика успела занять высоту, иначе «конец» окажется выше её.
+        requestAnimationFrame(() => scrollToEnd(true));
         setReplyTo(null);
         setBody('');
         dropPhoto();
@@ -650,6 +782,7 @@ export default function ChatPage() {
     // протаскивание при выделении текста сработало бы ответом.
     if (event.pointerType === 'mouse' || selected) return;
     swipeFrom.current = { x: event.clientX, y: event.clientY, id: message.id, own: false };
+    swipeSpeed.current.reset();
   }
 
   function swipeMove(event: React.PointerEvent) {
@@ -674,6 +807,7 @@ export default function ChatPage() {
       (event.currentTarget as HTMLElement).setPointerCapture?.(event.pointerId);
     }
 
+    swipeSpeed.current.add(event.clientX);
     // Вязкость: корень от пройденного, а не сам путь.
     const pulled = Math.min(SWIPE_MAX, Math.sqrt(-dx) * 9);
     setSwipe({ id: from.id, dx: -pulled });
@@ -688,8 +822,10 @@ export default function ChatPage() {
     const from = swipeFrom.current;
     swipeFrom.current = null;
     const pulled = -(swipe?.dx ?? 0);
+    const velocity = swipeSpeed.current.get();
     setSwipe(null);
-    if (!from?.own || pulled < SWIPE_TRIGGER) return;
+    // Знаки сводим к одной оси: тянут влево, то есть путь отрицательный.
+    if (!from?.own || !committed(-pulled, velocity, SWIPE_TRIGGER)) return;
 
     const message = messages.find((m) => m.id === from.id);
     if (message) startReply(message);
@@ -899,7 +1035,7 @@ export default function ChatPage() {
               // ту самую, от которой островки и уводят.
               className="chat-island mr-auto flex min-w-0 items-center gap-2.5 rounded-full py-1 pl-1 pr-3.5"
             >
-              <DefaultAvatar name={person?.username ?? '?'} size={34} />
+              <DefaultAvatar name={person?.username ?? '?'} size={34} src={person?.avatar_url} />
               <span className="min-w-0 truncate text-[15.5px] font-semibold text-[var(--text)]">
                 {person?.username ?? '…'}
               </span>
@@ -925,11 +1061,7 @@ export default function ChatPage() {
         {pinned.length > 0 && !selected && (
           <button
             type="button"
-            onClick={() => {
-              document
-                .getElementById(`msg-${pinned[pinned.length - 1].id}`)
-                ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }}
+            onClick={goToPinned}
             className="chat-island chat-pinned mb-2 flex items-center gap-2.5 rounded-2xl px-3 py-2 text-left transition-transform active:scale-[0.99]"
           >
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" className="flex-none">
@@ -1096,7 +1228,9 @@ export default function ChatPage() {
                     // заливка спорила бы с собственным цветом пузыря.
                     boxShadow: selected?.includes(message.id)
                       ? '0 0 0 2px var(--bg), 0 0 0 4px var(--accent)'
-                      : undefined,
+                      : spotlight === message.id
+                        ? '0 0 0 2px var(--bg), 0 0 0 4px var(--accent)'
+                        : undefined,
                     // Прижатая сторона внутри цепочки — единственное место, где
                     // овал размыкается: у идущих подряд реплик одного человека
                     // соседние углы притуплены, и столбик читается как одна
@@ -1197,11 +1331,16 @@ export default function ChatPage() {
 
                 {reactions.length > 0 && (
                   <span
-                    className="-mt-2 flex w-fit items-center gap-1 rounded-full px-2 py-0.5"
+                    // key по составу реакций: без него React считает метку той
+                    // же самой при смене эмодзи, анимация не перезапускается, и
+                    // замена реакции проходит беззвучно — как будто не нажал.
+                    key={reactions.map((r) => r.emoji).join('')}
+                    className="reaction-badge -mt-2 flex w-fit items-center gap-1 rounded-full px-2 py-0.5"
                     style={{
                       alignSelf: mine ? 'flex-end' : 'flex-start',
                       background: 'var(--surface)',
                       border: '1px solid var(--border)',
+                      ['--reaction-origin' as string]: mine ? 'right' : 'left',
                     }}
                   >
                     {reactions.map((reaction) => (
@@ -1452,6 +1591,18 @@ export default function ChatPage() {
           document.body
         )}
 
+      {/* Подгонка снимка перед отправкой. Отменили — исходник отпускаем:
+          blob-адреса живут до перезагрузки страницы и сами не убираются. */}
+      <MediaEditor
+        open={cropping !== null}
+        src={cropping}
+        onCancel={() => {
+          if (cropping) URL.revokeObjectURL(cropping);
+          setCropping(null);
+        }}
+        onApply={(blob) => void uploadCropped(blob)}
+      />
+
       <MessageActions
         open={menuFor !== null}
         anchor={menuAnchor}
@@ -1462,13 +1613,13 @@ export default function ChatPage() {
         actions={[
           {
             key: 'reply',
-            label: 'Ответить',
+            label: t('msg.reply'),
             icon: <path d="M11 5.5 4 12l7 6.5V15c4 0 7 1.2 9 4-.6-4.8-3.6-8.4-9-9Z" />,
             onSelect: () => menuFor && startReply(menuFor),
           },
           {
             key: 'forward',
-            label: 'Переслать',
+            label: t('msg.forward'),
             icon: <path d="M13 5.5 20 12l-7 6.5V15c-4 0-7 1.2-9 4 .6-4.8 3.6-8.4 9-9Z" />,
             onSelect: () => {
               if (menuFor) setForwarding([menuFor]);
@@ -1488,7 +1639,7 @@ export default function ChatPage() {
           },
           {
             key: 'select',
-            label: 'Выбрать',
+            label: t('msg.select'),
             icon: (
               <>
                 <rect x="3.5" y="3.5" width="17" height="17" rx="4.5" />
@@ -1499,7 +1650,7 @@ export default function ChatPage() {
           },
           {
             key: 'copy',
-            label: 'Скопировать',
+            label: t('msg.copy'),
             icon: (
               <>
                 <rect x="9" y="9" width="11" height="11" rx="2.5" />
@@ -1515,7 +1666,7 @@ export default function ChatPage() {
             ? [
                 {
                   key: 'edit',
-                  label: 'Редактировать',
+                  label: t('msg.edit'),
                   icon: (
                     <>
                       <path d="M4 20h4L19 9a2.1 2.1 0 0 0-3-3L5 17v3Z" />
@@ -1526,7 +1677,7 @@ export default function ChatPage() {
                 },
                 {
                   key: 'delete',
-                  label: 'Удалить',
+                  label: t('msg.delete'),
                   danger: true,
                   icon: (
                     <>
@@ -1553,23 +1704,42 @@ export default function ChatPage() {
         }
       >
         <div className="flex flex-col divide-y divide-[var(--border)]">
-          {(people.data ?? []).map((person) => (
+          {forwardTargets.map((person) => (
             <button
               key={person.id}
               type="button"
               onClick={() => forwardTo(person.id)}
               className="flex items-center gap-3 py-3 text-left transition-colors active:bg-[var(--surface-2)]"
             >
-              <DefaultAvatar name={person.username} size={44} />
+              <DefaultAvatar name={person.username} size={44} src={person.avatar_url} />
               <span className="min-w-0 flex-1 truncate text-[15px] font-medium text-[var(--text)]">
                 {person.username}
               </span>
             </button>
           ))}
+
           {people.loading && (
             <SkeletonList count={5}>
               <SkeletonRow />
             </SkeletonList>
+          )}
+
+          {/* Три разных исхода, и раньше все три выглядели одинаково — пустой
+              белой плашкой. Пока список едет, стоят заглушки; если не доехал —
+              сказано, что случилось; если ехать было не за кем — сказано и это.
+              Молчащая шторка хуже любого из трёх сообщений: человек не знает,
+              ждать ему или закрывать. */}
+          {people.error && (
+            <p className="py-10 text-center text-[14px] leading-relaxed" style={{ color: 'var(--down)' }}>
+              {people.error}
+            </p>
+          )}
+
+          {!people.loading && !people.error && forwardTargets.length === 0 && (
+            <p className="py-10 text-center text-[14px] leading-relaxed text-[var(--text-muted)]">
+              Переслать пока некому — здесь появятся люди, которых вы найдёте
+              в поиске или встретите в клубах.
+            </p>
           )}
         </div>
       </BottomSheet>

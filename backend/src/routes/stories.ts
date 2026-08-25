@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { supabase } from '../config/supabase';
 import { requireAuth, optionalAuth } from '../middleware/auth';
+import { userEmbed } from '../config/schema';
 
 const router = Router();
 
@@ -49,8 +50,22 @@ type StoryRow = {
   } | null;
 };
 
-const SELECT =
-  '*, author:users!stories_author_id_fkey(id, username), post:posts(id, title, body, image_url, image_urls)';
+/**
+ * Поля выдачи — функцией, а не константой.
+ *
+ * Константа вычисляется при импорте модуля, то есть до того, как сервер
+ * спросит базу, что в ней есть: probeSchema зовётся в обработчике listen.
+ * Значение замирало на «колонки avatar_url нет» и оставалось таким до
+ * перезапуска — даже когда колонка уже появилась. Со стороны это выглядело
+ * особенно сбивчиво: миграция выполнена, лица в базе есть, в рекомендациях
+ * они видны, а в полосе историй по-прежнему силуэты.
+ *
+ * Функция считает строку на каждый запрос. Это склейка двух строк, её
+ * стоимость неизмерима на фоне похода в базу, зато она всегда отражает
+ * сегодняшнее состояние схемы.
+ */
+const select = () =>
+  `*, ${userEmbed('author', 'stories_author_id_fkey')}, post:posts(id, title, body, image_url, image_urls)`;
 
 /**
  * Активные истории, сгруппированные по авторам.
@@ -64,7 +79,7 @@ router.get('/', optionalAuth, async (req, res) => {
 
   const { data, error } = await supabase
     .from('stories')
-    .select(SELECT)
+    .select(select())
     .gt('expires_at', new Date().toISOString())
     .order('created_at', { ascending: true });
 
@@ -157,7 +172,7 @@ router.post('/', requireAuth, async (req, res) => {
       body: body ?? null,
       image_url: image_url ?? null,
     })
-    .select(SELECT)
+    .select(select())
     .single();
 
   if (error) {

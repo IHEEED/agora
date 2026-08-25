@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { supabase } from '../config/supabase';
 import { hiddenUserIds, isBlockedBetween } from '../lib/blocks';
 import { requireAuth } from '../middleware/auth';
+import { userColumns } from '../config/schema';
 
 const router = Router();
 
@@ -49,11 +50,20 @@ function describeError(error: { code?: string; message?: string }, fallback: str
 }
 
 /** Имена собеседников одним запросом — иначе по запросу на каждую переписку. */
+/** Человек в выдаче. Аватарки может не быть — см. config/schema. */
+type PersonRow = { id: string; username: string; avatar_url?: string | null };
+
 async function usersByIds(ids: string[]) {
-  const people = new Map<string, { id: string; username: string }>();
+  const people = new Map<string, PersonRow>();
   if (ids.length === 0) return people;
 
-  const { data } = await supabase.from('users').select('id, username').in('id', ids);
+  // .returns — потому что список полей строится на ходу (см. config/schema), и
+  // вывести тип из шаблона библиотека не может.
+  const { data } = await supabase
+    .from('users')
+    .select(userColumns())
+    .in('id', ids)
+    .returns<PersonRow[]>();
   data?.forEach((user) => people.set(user.id, user));
   return people;
 }
@@ -115,10 +125,43 @@ router.get('/threads', requireAuth, async (req, res) => {
 
   const people = await usersByIds([...threads.keys()]);
 
+  /**
+   * Личные настройки переписок: закрепление и приглушённый звук.
+   *
+   * Ошибку глушим намеренно. Таблицы может ещё не быть (миграция 018), и
+   * список переписок — не то место, где об этом уместно сообщать: без настроек
+   * он полностью работоспособен, просто все переписки идут по свежести.
+   * Уронить весь экран из-за невыполненной миграции было бы хуже самой
+   * невыполненной миграции.
+   */
+  const prefs = new Map<string, { pinned_at: string | null; muted: boolean }>();
+  const { data: prefRows } = await supabase
+    .from('chat_prefs')
+    .select('peer_id, pinned_at, muted')
+    .eq('owner_id', me);
+
+  for (const row of prefRows ?? []) {
+    prefs.set(row.peer_id, { pinned_at: row.pinned_at, muted: row.muted });
+  }
+
   res.json(
-    [...threads.values()].map((thread) => ({
+    [...threads.values()]
+      .sort((a, b) => {
+        // Закреплённые наверх, между собой — по времени закрепления, последний
+        // закреплённый первым. Остальные остаются в том порядке, в котором
+        // пришли, то есть по свежести письма.
+        const pa = prefs.get(a.userId)?.pinned_at ?? null;
+        const pb = prefs.get(b.userId)?.pinned_at ?? null;
+        if (pa && pb) return pb.localeCompare(pa);
+        if (pa) return -1;
+        if (pb) return 1;
+        return 0;
+      })
+      .map((thread) => ({
       user: people.get(thread.userId) ?? { id: thread.userId, username: '—' },
       unread: thread.unread,
+      pinned: Boolean(prefs.get(thread.userId)?.pinned_at),
+      muted: Boolean(prefs.get(thread.userId)?.muted),
       lastMessage: {
         // Вложение без подписи в списке переписок описываем словом: пустая
         // строка там читалась бы как «сообщение не загрузилось».
@@ -134,6 +177,75 @@ router.get('/threads', requireAuth, async (req, res) => {
       },
     }))
   );
+});
+
+/**
+ * Настройки переписки: закрепить, приглушить.
+ *
+ * Один обработчик на обе настройки: они лежат в одной строке, приходят из
+ * одного меню и по отдельности не встречаются. Два маршрута ради двух полей
+ * означали бы два одинаковых upsert.
+ */
+router.patch('/prefs/:peerId', requireAuth, async (req, res) => {
+  const me = req.user!.id;
+  const peerId = String(req.params.peerId);
+
+  if (peerId === me) {
+    return res.status(400).json({ error: 'Переписки с собой не бывает' });
+  }
+
+  const patch: { pinned_at?: string | null; muted?: boolean } = {};
+  if ('pinned' in req.body) {
+    // Время, а не флажок: закреплённых бывает несколько, и порядок между ними
+    // задаётся моментом закрепления.
+    patch.pinned_at = req.body.pinned ? new Date().toISOString() : null;
+  }
+  if ('muted' in req.body) patch.muted = Boolean(req.body.muted);
+
+  if (Object.keys(patch).length === 0) {
+    return res.status(400).json({ error: 'Нечего менять' });
+  }
+
+  const { error } = await supabase
+    .from('chat_prefs')
+    .upsert({ owner_id: me, peer_id: peerId, ...patch }, { onConflict: 'owner_id,peer_id' });
+
+  if (error) {
+    console.error('messages: prefs failed', error);
+    return res.status(500).json({ error: describeError(error, 'Не удалось сохранить настройку') });
+  }
+
+  res.json({ ok: true });
+});
+
+/**
+ * Убрать переписку из своего списка.
+ *
+ * Удаляем письма обеих сторон: своей копии переписки в схеме нет, письмо одно
+ * на двоих. Это честно названо в подтверждении на экране — «удалить у обоих», —
+ * потому что тихое удаление у собеседника — не та неожиданность, которую прощают.
+ */
+router.delete('/thread/:peerId', requireAuth, async (req, res) => {
+  const me = req.user!.id;
+  const peerId = String(req.params.peerId);
+
+  const { error } = await supabase
+    .from('messages')
+    .delete()
+    .or(
+      `and(sender_id.eq.${me},recipient_id.eq.${peerId}),` +
+        `and(sender_id.eq.${peerId},recipient_id.eq.${me})`
+    );
+
+  if (error) {
+    console.error('messages: thread delete failed', error);
+    return res.status(500).json({ error: describeError(error, 'Не удалось удалить переписку') });
+  }
+
+  // Настройки уходят следом: закреплённая пустота в списке — мусор.
+  await supabase.from('chat_prefs').delete().eq('owner_id', me).eq('peer_id', peerId);
+
+  res.json({ ok: true });
 });
 
 router.post('/', requireAuth, async (req, res) => {

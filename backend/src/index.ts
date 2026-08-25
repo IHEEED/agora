@@ -12,6 +12,8 @@ import votesRouter from './routes/votes';
 import usersRouter from './routes/users';
 import messagesRouter from './routes/messages';
 import storiesRouter from './routes/stories';
+import { probeSchema } from './config/schema';
+import notesRouter from './routes/notes';
 import blocksRouter from './routes/blocks';
 import reportsRouter from './routes/reports';
 import moderationRouter from './routes/moderation';
@@ -103,6 +105,7 @@ app.use('/votes', votesRouter);
 app.use('/users', usersRouter);
 app.use('/messages', messagesRouter);
 app.use('/stories', storiesRouter);
+app.use('/notes', notesRouter);
 app.use('/blocks', blocksRouter);
 app.use('/reports', reportsRouter);
 app.use('/moderation', moderationRouter);
@@ -117,6 +120,17 @@ app.use('/invites', invitesRouter);
  */
 app.listen(Number(port), '0.0.0.0', () => {
   console.log(`Server running on port ${port}`);
+
+  /**
+   * Спрашиваем базу, что в ней есть из необязательного.
+   *
+   * Миграции выполняются руками, и между выкладкой кода и выполнением миграции
+   * всегда есть промежуток. Обычно новая возможность просто не работает — но
+   * запрос к PostgREST со ссылкой на несуществующую колонку падает целиком,
+   * унося с собой всё, что этим запросом бралось. Один раз спросив, дальше
+   * строим выборки по факту (см. config/schema).
+   */
+  void probeSchema();
 
   /**
    * Греем соединение до Supabase сразу, не дожидаясь первого посетителя.
