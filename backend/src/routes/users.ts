@@ -2,6 +2,7 @@ import { Response, Router } from 'express';
 import { supabase } from '../config/supabase';
 import { hiddenUserIds } from '../lib/blocks';
 import { isBanned, optionalAuth, requireAuth } from '../middleware/auth';
+import { profileColumnsReady } from '../config/schema';
 import { userColumns } from '../config/schema';
 
 /** Человек в выдаче. Аватарки может не быть — см. config/schema. */
@@ -76,7 +77,7 @@ router.get('/suggestions', optionalAuth, async (req, res) => {
 router.get('/me', requireAuth, async (req, res) => {
   const { data, error } = await supabase
     .from('users')
-    .select('id, username, karma, role, banned_until, ban_reason, invites_left, created_at')
+    .select('id, username, karma, role, banned_until, ban_reason, invites_left, created_at, display_name, bio, avatar_url, avatar_fit, cover_url, cover_fit')
     .eq('id', req.user!.id)
     .maybeSingle();
 
@@ -95,6 +96,60 @@ router.get('/me', requireAuth, async (req, res) => {
     banned,
     isModerator: data.role === 'moderator' || data.role === 'admin',
   });
+});
+
+/**
+ * Имя, подпись и картинки — на сервер.
+ *
+ * До этого они лежали в localStorage, и профиля у человека было столько,
+ * сколько устройств: на телефоне одно имя, на ноутбуке другое. Все три он
+ * считал своим единственным, а собеседник не видел ни одного — тому доставался
+ * только ник.
+ *
+ * Ник здесь не меняется: он уникален, и у него своя ручка с задержкой в две
+ * недели (ниже). Смешивать их в одну значило бы либо распространить задержку на
+ * подпись, либо снять её с ника.
+ */
+router.patch('/me/profile', requireAuth, async (req, res) => {
+  if (!profileColumnsReady()) {
+    return res.status(503).json({ error: 'Профиль ещё не переехал на сервер (миграция 022)' });
+  }
+
+  const patch: Record<string, unknown> = {};
+
+  // Пустая строка — это «убрать», а не «не трогать». Разница важна: человек,
+  // стерший подпись, ожидает, что её не станет, а не что вернётся прежняя.
+  if ('displayName' in req.body) {
+    const value = String(req.body.displayName ?? '').trim().slice(0, 40);
+    patch.display_name = value || null;
+  }
+
+  if ('bio' in req.body) {
+    const value = String(req.body.bio ?? '').trim().slice(0, 160);
+    patch.bio = value || null;
+  }
+
+  if ('avatarUrl' in req.body) {
+    patch.avatar_url = req.body.avatarUrl ? String(req.body.avatarUrl) : null;
+    // Кадрирование без картинки бессмысленно и наоборот: снимаем вместе.
+    patch.avatar_fit = req.body.avatarUrl ? (req.body.avatarFit ?? null) : null;
+  }
+
+  if ('coverUrl' in req.body) {
+    patch.cover_url = req.body.coverUrl ? String(req.body.coverUrl) : null;
+    patch.cover_fit = req.body.coverUrl ? (req.body.coverFit ?? null) : null;
+  }
+
+  if (Object.keys(patch).length === 0) return res.status(204).send();
+
+  const { error } = await supabase.from('users').update(patch).eq('id', req.user!.id);
+
+  if (error) {
+    console.error('users: profile update failed', error);
+    return res.status(500).json({ error: 'Не удалось сохранить профиль' });
+  }
+
+  res.status(204).send();
 });
 
 /**
@@ -239,7 +294,10 @@ router.get('/:id', optionalAuth, async (req, res) => {
   const [profile, followers, following, mine] = await Promise.all([
     supabase
       .from('users')
-      .select(userColumns('karma, created_at'))
+      // Подпись и обложка нужны только на самой странице профиля, поэтому их
+      // нет в общем наборе userColumns: тащить их в каждую строку ленты значило
+      // бы возить лишнее ради экрана, куда заходят раз в сессию.
+      .select(userColumns(profileColumnsReady() ? 'karma, created_at, bio, cover_url, cover_fit' : 'karma, created_at'))
       .eq('id', id)
       .single<UserRow>(),
     supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', id),

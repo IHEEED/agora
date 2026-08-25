@@ -4,6 +4,9 @@ import { useRef, useState } from 'react';
 import { BottomSheet } from '@/components/BottomSheet';
 import { DefaultAvatar } from '@/components/DefaultAvatar';
 import { DEFAULT_FIT, Fit } from '@/components/ImageFitter';
+import { apiFetch } from '@/lib/api';
+import { uploadImage } from '@/lib/uploadImage';
+import { invalidate } from '@/lib/useApiData';
 import { ImageAdjustDialog } from '@/components/ImageAdjustDialog';
 import { useT } from '@/lib/i18n';
 
@@ -37,12 +40,21 @@ export function ProfileEditSheet({
   defaultName,
   defaultBio,
   defaultUsername,
+  defaultAvatar,
+  defaultAvatarFit,
+  defaultCover,
+  defaultCoverFit,
 }: {
   open: boolean;
   onClose: () => void;
   defaultName: string;
   defaultBio: string;
   defaultUsername: string;
+  /** Всё это приходит с сервера — см. миграцию 022. */
+  defaultAvatar?: string | null;
+  defaultAvatarFit?: Fit | null;
+  defaultCover?: string | null;
+  defaultCoverFit?: Fit | null;
 }) {
   const { t } = useT();
   const [name, setName] = useState('');
@@ -98,6 +110,9 @@ export function ProfileEditSheet({
     });
   }
 
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
   // Значения подтягиваем на открытии, а не при монтировании: шторка живёт
   // на странице постоянно, и подхватывать сохранённое надо каждый раз.
   // Правка прямо в рендере, а не в эффекте, — это тот случай «состояние
@@ -107,40 +122,65 @@ export function ProfileEditSheet({
   if (open !== wasOpen) {
     setWasOpen(open);
     if (open) {
-      setName(readProfileField(PROFILE_NAME_KEY, defaultName));
-      setBio(readProfileField(PROFILE_BIO_KEY, defaultBio));
-      setUsername(readProfileField(PROFILE_USERNAME_KEY, defaultUsername));
-      setAvatarPreview(readProfileField(PROFILE_AVATAR_KEY) || null);
-      setCover(readProfileField(PROFILE_COVER_KEY) || null);
-      try {
-        setAvatarFit({ ...DEFAULT_FIT, ...JSON.parse(readProfileField(PROFILE_AVATAR_FIT_KEY, '{}')) });
-      } catch {
-        setAvatarFit(DEFAULT_FIT);
-      }
-      try {
-        setCoverFit({ ...DEFAULT_FIT, ...JSON.parse(readProfileField(PROFILE_COVER_FIT_KEY, '{}')) });
-      } catch {
-        setCoverFit(DEFAULT_FIT);
-      }
+      // Всё из профиля на сервере. localStorage больше не участвует: он и был
+      // причиной того, что на телефоне у человека одно имя, а на ноутбуке
+      // другое, и оба он считал своим единственным.
+      setName(defaultName);
+      setBio(defaultBio);
+      setUsername(defaultUsername);
+      setAvatarPreview(defaultAvatar ?? null);
+      setCover(defaultCover ?? null);
+      setAvatarFit(defaultAvatarFit ?? DEFAULT_FIT);
+      setCoverFit(defaultCoverFit ?? DEFAULT_FIT);
+      setSaveError(null);
     }
   }
 
-  function save() {
-    window.localStorage.setItem(PROFILE_NAME_KEY, name.trim());
-    window.localStorage.setItem(PROFILE_BIO_KEY, bio.trim());
-    window.localStorage.setItem(PROFILE_USERNAME_KEY, username.trim());
-    if (avatarPreview) {
-      window.localStorage.setItem(PROFILE_AVATAR_KEY, avatarPreview);
-      window.localStorage.setItem(PROFILE_AVATAR_FIT_KEY, JSON.stringify(avatarFit));
+  /**
+   * Сохранение идёт на сервер, а картинки — в хранилище.
+   *
+   * Ник меняется отдельной ручкой: у него своя уникальность и задержка в две
+   * недели, и складывать его в общий запрос значило бы либо распространить
+   * задержку на подпись, либо снять её с ника.
+   */
+  async function save() {
+    setSaving(true);
+    setSaveError(null);
+
+    try {
+      const avatarUrl = avatarPreview ? await uploadImage(avatarPreview, 'avatars') : null;
+      const coverUrl = cover ? await uploadImage(cover, 'covers') : null;
+
+      await apiFetch('/users/me/profile', {
+        method: 'PATCH',
+        body: JSON.stringify({
+          displayName: name.trim(),
+          bio: bio.trim(),
+          avatarUrl,
+          avatarFit: avatarUrl ? avatarFit : null,
+          coverUrl,
+          coverFit: coverUrl ? coverFit : null,
+        }),
+      });
+
+      const nextUsername = username.trim();
+      if (nextUsername && nextUsername !== defaultUsername) {
+        await apiFetch('/users/me/username', {
+          method: 'PATCH',
+          body: JSON.stringify({ username: nextUsername }),
+        });
+      }
+
+      invalidate('/users');
+      window.dispatchEvent(new CustomEvent(PROFILE_CHANGED_EVENT));
+      onClose();
+    } catch (error) {
+      // Не закрываем шторку: закрыть её после неудачи значило бы сделать вид,
+      // что сохранение прошло, и человек узнал бы правду через день.
+      setSaveError(error instanceof Error ? error.message : 'Не удалось сохранить');
+    } finally {
+      setSaving(false);
     }
-    if (cover) {
-      window.localStorage.setItem(PROFILE_COVER_KEY, cover);
-      window.localStorage.setItem(PROFILE_COVER_FIT_KEY, JSON.stringify(coverFit));
-    } else {
-      window.localStorage.removeItem(PROFILE_COVER_KEY);
-    }
-    window.dispatchEvent(new CustomEvent(PROFILE_CHANGED_EVENT));
-    onClose();
   }
 
   return (
@@ -150,12 +190,22 @@ export function ProfileEditSheet({
       title={t('profile.edit')}
       height="76vh"
       footer={
-        <button
-          onClick={save}
-          className="rounded-full bg-[var(--accent)] py-3 text-[15px] font-medium text-[var(--accent-contrast)]"
-        >
-          {t('profile.editSave')}
-        </button>
+        <div className="flex flex-col gap-2">
+          {saveError && (
+            <p className="px-1 text-center text-[13px]" style={{ color: 'var(--down)' }}>
+              {saveError}
+            </p>
+          )}
+          <button
+            onClick={save}
+            disabled={saving}
+            className="rounded-full bg-[var(--accent)] py-3 text-[15px] font-medium text-[var(--accent-contrast)] disabled:opacity-50"
+          >
+            {/* Картинка уезжает в хранилище, и на телефонной связи это заметно.
+                Молчащая кнопка в такой паузе читается как «не нажалось». */}
+            {saving ? 'Сохраняю…' : t('profile.editSave')}
+          </button>
+        </div>
       }
     >
       <div className="flex flex-col gap-4 py-3">

@@ -362,14 +362,17 @@ export function PostCard({
               вместо показания. */}
           {post.views > 0 && (
             <span
-              className="mr-1 flex items-center gap-1.5 px-2.5 py-2.5 text-[var(--text-muted)]"
+              className="mr-0.5 flex items-center gap-1 px-2 py-2.5 text-[var(--text-muted)]"
               title={`${post.views} просмотров`}
             >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              {/* Мельче соседей намеренно: голоса и комментарии — действия, а
+                  это показание. Равный кегль ставил их в один ряд по важности,
+                  хотя просмотр значит меньше любого из них. */}
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12" />
                 <circle cx="12" cy="12" r="3" />
               </svg>
-              <span className="font-num text-[15px]">{compactViews(post.views)}</span>
+              <span className="font-num text-[13px]">{compactViews(post.views)}</span>
             </span>
           )}
 

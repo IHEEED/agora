@@ -4,6 +4,10 @@ export interface Author {
   username: string;
   /** Адрес аватарки. Пусто — показываем силуэт по умолчанию. */
   avatar_url?: string | null;
+  /** Кадрирование аватарки, подобранное её владельцем (миграция 022). */
+  avatar_fit?: { zoom: number; x: number; y: number } | null;
+  /** Показываемое имя. Пусто — показываем username. */
+  display_name?: string | null;
   /** Подставляет бэкенд по текущей сессии — чтобы кнопка не мигала плюсом. */
   isFollowing?: boolean;
 }
@@ -30,6 +34,10 @@ export interface UserSummary {
   karma: number;
   /** Адрес аватарки. Пусто — показываем силуэт по умолчанию. */
   avatar_url?: string | null;
+  /** Кадрирование аватарки, подобранное её владельцем (миграция 022). */
+  avatar_fit?: { zoom: number; x: number; y: number } | null;
+  /** Показываемое имя. Пусто — показываем username. */
+  display_name?: string | null;
   /** Подставляет бэкенд по текущей сессии; без неё всегда false. */
   isFollowing?: boolean;
 }
@@ -75,6 +83,10 @@ export interface UserProfile extends UserSummary {
   followers: number;
   following: number;
   created_at?: string;
+  /** Подпись под именем. Только на странице профиля — в ленту не возится. */
+  bio?: string | null;
+  cover_url?: string | null;
+  cover_fit?: { zoom: number; x: number; y: number } | null;
 }
 
 export interface Post {
