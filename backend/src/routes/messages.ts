@@ -265,6 +265,8 @@ router.post('/', requireAuth, requirePhoneVerified, async (req, res) => {
   // записывал: по файлу её пришлось бы вычислять, а полоску рисовать до загрузки.
   const imageUrl = req.body?.image_url ? String(req.body.image_url) : null;
   const audioUrl = req.body?.audio_url ? String(req.body.audio_url) : null;
+  // Кто написал это изначально. Пусто — сообщение своё.
+  const forwardedFrom = req.body?.forwarded_from ? String(req.body.forwarded_from) : null;
   const audioSeconds = Number.isFinite(Number(req.body?.audio_seconds))
     ? Math.max(1, Math.min(600, Math.round(Number(req.body.audio_seconds))))
     : null;
@@ -306,6 +308,10 @@ router.post('/', requireAuth, requirePhoneVerified, async (req, res) => {
       // колонкой целиком, и у тех, кто не выполнил 012, сломалась бы вся
       // отправка, а не только снимки.
       ...(imageUrl ? { image_url: imageUrl } : null),
+      // Колонку подставляем только у пересланного — по той же причине, что и
+      // соседние: PostgREST отвергает запрос с неизвестной колонкой целиком, и
+      // у тех, кто не выполнил 025, сломалась бы вся отправка.
+      ...(forwardedFrom ? { forwarded_from: forwardedFrom } : null),
       ...(audioUrl ? { audio_url: audioUrl, audio_seconds: audioSeconds } : null),
     })
     // Звёздочка, а не перечисление колонок: edited_at появляется миграцией 008, и
@@ -410,11 +416,26 @@ router.get('/:userId', requireAuth, async (req, res) => {
   // цитат не появится, но переписка откроется как раньше.
   const byId = new Map(data.map((row) => [row.id, row]));
 
+  /**
+   * Имена тех, чьи реплики переслали.
+   *
+   * Одним запросом на всю переписку, а не по запросу на сообщение: пересланных
+   * в разговоре бывает подряд десяток, и это был бы десяток походов в базу
+   * ради одной подписи.
+   */
+  const forwardedIds = [
+    ...new Set(data.map((row) => row.forwarded_from).filter(Boolean) as string[]),
+  ];
+  const forwardedAuthors = await usersByIds(forwardedIds);
+
   res.json(
     data.map((message) => {
       const original = message.reply_to_id ? byId.get(message.reply_to_id) : undefined;
       return {
         ...message,
+        forwardedFrom: message.forwarded_from
+          ? (forwardedAuthors.get(message.forwarded_from) ?? null)
+          : null,
         reactions: reactions.get(message.id) ?? [],
         replyTo: original
           ? {

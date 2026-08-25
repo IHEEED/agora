@@ -53,6 +53,8 @@ export interface UserSummary {
 /** Одно письмо в переписке. */
 export interface Message {
   id: string;
+  /** Кто написал это изначально, если сообщение переслано (миграция 025). */
+  forwardedFrom?: { id: string; username: string } | null;
   sender_id: string;
   recipient_id: string;
   /** У реплики из одного вложения текста нет. */

@@ -26,6 +26,7 @@ import { setNavHidden } from '@/lib/navVisibility';
 import { markGoingBack } from '@/lib/navDirection';
 import { createPortal } from 'react-dom';
 import { peelScreen } from '@/lib/peelScreen';
+import { setPendingForward, takePendingForward } from '@/lib/pendingForward';
 import { releaseBackdrop } from '@/lib/screenBackdrop';
 import { haptic } from '@/lib/haptics';
 import { ARROW_REACTIONS, ArrowReaction, UP_REACTION, isArrowReaction } from '@/components/ArrowReaction';
@@ -603,8 +604,48 @@ export default function ChatPage() {
   async function send(e: SubmitEvent) {
     e.preventDefault();
     const text = body.trim();
-    // Снимок без подписи — обычная реплика, а не пустая.
-    if ((!text && !photo?.url) || sending) return;
+    // Снимок без подписи — обычная реплика, а не пустая. Пересылаемое тоже
+    // отправляется без единого своего слова: подпись к нему — дело хозяйское.
+    if ((!text && !photo?.url && !staged) || sending) return;
+
+    /**
+     * Сначала пересланное, потом своя подпись.
+     *
+     * Порядок именно такой: подпись объясняет то, что над ней, и пришедшая
+     * первой она объясняла бы пустоту. По одному, а не пачкой, — сервер
+     * принимает по сообщению, и порядок в чужой переписке должен совпасть с
+     * тем, в каком они шли в исходной.
+     */
+    if (staged) {
+      const list = staged.messages;
+      const from = staged.fromUserId;
+      setStaged(null);
+      wasAtEnd.current = true;
+
+      try {
+        for (const message of list) {
+          await apiFetch('/messages', {
+            method: 'POST',
+            body: JSON.stringify({
+              recipient_id: userId,
+              body: message.body,
+              image_url: message.image_url ?? null,
+              // Подписываем автором исходной реплики, а не тем, из чьей
+              // переписки её взяли: это разные люди, когда пересылают
+              // пересланное.
+              forwarded_from: message.sender_id === from ? from : message.sender_id,
+            }),
+          });
+        }
+        load();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Не удалось переслать');
+        return;
+      }
+
+      // Своих слов не было — на этом всё.
+      if (!text && !photo?.url) return;
+    }
 
     // Своя отправка всегда увозит к концу, где реплика и появится, — даже если
     // человек читал старое. Отправить письмо и остаться смотреть на позапрошлый
@@ -926,27 +967,38 @@ export default function ChatPage() {
     });
   }
 
-  /** Разослать выбранное другому человеку. Копией, а не ссылкой: переписки
-      независимы, и удаление оригинала не должно стирать пересланное. */
-  async function forwardTo(recipientId: string) {
+  /**
+   * Пересылка открывает переписку с готовым черновиком, а не отправляет сразу.
+   *
+   * Отправка по нажатию в списке не оставляла ни секунды, чтобы понять, туда ли
+   * ты нажал, — а список получателей ровно то место, где промахнуться проще
+   * всего. И подписать пересылаемое было негде, хотя половина пересылок именно
+   * ради подписи и делается: «смотри, что пишут».
+   */
+  function forwardTo(recipientId: string) {
     const list = forwarding ?? [];
     setForwarding(null);
     setSelected(null);
-    try {
-      // По очереди, а не разом: сервер принимает по одному сообщению, а
-      // порядок пересланного должен совпасть с порядком в переписке.
-      for (const message of list) {
-        await apiFetch('/messages', {
-          method: 'POST',
-          body: JSON.stringify({ recipient_id: recipientId, body: message.body }),
-        });
-      }
-      // Переслал самому себе — пусть увидит их сразу.
-      if (recipientId === userId) load();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Не удалось переслать');
+    if (list.length === 0) return;
+
+    setPendingForward({ messages: list, fromUserId: userId });
+
+    // Себе — не переходим никуда, просто кладём черновик в это же поле.
+    if (recipientId === userId) {
+      setStaged(takePendingForward());
+      return;
     }
+
+    router.push(`/messages/${recipientId}`);
   }
+
+  /**
+   * Пересланное, ждущее отправки.
+   *
+   * Забираем один раз на монтировании: оставшийся черновик всплыл бы при
+   * следующем заходе в тот же чат, и человек не понял бы, откуда он взялся.
+   */
+  const [staged, setStaged] = useState(() => takePendingForward());
 
   /** Очистить переписку: сервер удалит только наши письма, чужие останутся. */
   async function clearChat() {
@@ -1307,6 +1359,25 @@ export default function ChatPage() {
                     borderBottomLeftRadius: !mine && !groupEnd ? 8 : undefined,
                   }}
                 >
+                  {/* Подпись «переслано от» — над текстом, а не под ним.
+                      Читают сверху вниз, и знать, чьи это слова, надо до того,
+                      как их прочёл, а не после. Иначе первую реплику человек
+                      всегда приписывает не тому. */}
+                  {message.forwardedFrom && (
+                    <Link
+                      href={`/u/${message.forwardedFrom.id}`}
+                      onClick={(event) => event.stopPropagation()}
+                      className="mb-1 flex items-center gap-1 text-[12px] font-medium"
+                      style={{ color: mine ? 'var(--accent-contrast)' : 'var(--accent)', opacity: mine ? 0.85 : 1 }}
+                    >
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M13 5l7 7-7 7" />
+                        <path d="M20 12H8a4 4 0 0 0-4 4v3" />
+                      </svg>
+                      Переслано от {message.forwardedFrom.username}
+                    </Link>
+                  )}
+
                   {/* Цитата над ответом — отдельная карточка внутри пузыря.
                       Прежде она была вжата в самый угол: полоска в два
                       пикселя, кегль вдвое мельче реплики, отступы почти в ноль
@@ -1489,6 +1560,44 @@ export default function ChatPage() {
           </div>
         ) : (
         <>
+        {/* Пересылаемое — над строкой ввода, до отправки.
+            Здесь человек видит, что именно уйдёт, и может передумать или
+            подписать. Раньше между «нажал в списке» и «отправлено» не было ни
+            секунды. */}
+        {staged && (
+          <div
+            className="mb-1.5 flex w-full max-w-2xl items-center gap-2 rounded-2xl px-3 py-2"
+            style={{ background: 'var(--surface-2)' }}
+          >
+            <span className="flex-none" style={{ color: 'var(--accent)' }}>
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M13 5l7 7-7 7" />
+                <path d="M20 12H8a4 4 0 0 0-4 4v3" />
+              </svg>
+            </span>
+            <div className="flex min-w-0 flex-1 flex-col">
+              <span className="text-[12.5px] font-medium" style={{ color: 'var(--accent)' }}>
+                {staged.messages.length === 1
+                  ? 'Пересылаемое сообщение'
+                  : `Пересылаемых сообщений: ${staged.messages.length}`}
+              </span>
+              <span className="truncate text-[13px] text-[var(--text-muted)]">
+                {staged.messages[0]?.body || 'Вложение'}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setStaged(null)}
+              aria-label="Не пересылать"
+              className="flex-none text-[var(--text-muted)]"
+            >
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+                <path d="M6 6l12 12M18 6 6 18" />
+              </svg>
+            </button>
+          </div>
+        )}
+
         {/* Полоска над строкой ввода — одна на правку и на ответ: и то и другое
             отвечает на вопрос «что сейчас происходит с этим полем», и две
             полосы подряд означали бы, что можно править и отвечать разом. */}
