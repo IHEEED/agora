@@ -294,7 +294,7 @@ export default function ProfilePage() {
                 {displayName}
                 {/* Своя галочка тоже видна. Не показывать её у себя — значит
                     оставить человека гадать, выдали ему её или нет. */}
-                <VerifiedMark verified={profile?.verified_at} size={16} />
+                <VerifiedMark verified={profile?.verified_at} size={19} />
               </h1>
               <span className="text-[13px] font-medium" style={{ color: 'var(--accent)' }}>
                 @{handle}

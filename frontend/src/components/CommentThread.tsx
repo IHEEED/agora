@@ -144,7 +144,7 @@ export function CommentThread({
             >
               {comment.author.username}
             </Link>
-            <VerifiedMark verified={comment.author.verified_at} size={13} />
+            <VerifiedMark verified={comment.author.verified_at} size={15} />
             <span className="text-[var(--text-muted)]">{formatCompactAge(comment.created_at)}</span>
           </div>
 

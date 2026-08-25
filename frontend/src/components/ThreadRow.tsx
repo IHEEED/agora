@@ -202,7 +202,7 @@ export function ThreadRow({
           <div className="flex items-baseline gap-2">
             <span className="min-w-0 flex-1 truncate text-[15px] font-semibold text-[var(--text)]">
               {thread.user.username}
-              <VerifiedMark verified={thread.user.verified_at} size={13} />
+              <VerifiedMark verified={thread.user.verified_at} size={16} />
             </span>
             {thread.muted && (
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2" strokeLinecap="round" className="flex-none self-center">

@@ -201,7 +201,7 @@ export default function VerificationPage() {
                   className="flex min-w-0 flex-1 items-center gap-1.5 text-[15px] text-[var(--text)]"
                 >
                   <span className="truncate">{user.username}</span>
-                  <VerifiedMark verified={user.verified_at} size={14} />
+                  <VerifiedMark verified={user.verified_at} size={16} />
                 </Link>
 
                 <span className="flex-none text-[12.5px] text-[var(--text-muted)]">
