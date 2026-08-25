@@ -160,7 +160,7 @@ export default function UserProfilePage() {
             </div>
 
             <div className="flex flex-col gap-0.5">
-              <h1 className="flex items-center gap-1.5 text-[17px] font-semibold leading-tight text-[var(--text)]">
+              <h1 className="flex items-center gap-1 text-[17px] font-semibold leading-tight text-[var(--text)]">
                 {username || '—'}
                 <VerifiedMark verified={verified} size={19} />
               </h1>

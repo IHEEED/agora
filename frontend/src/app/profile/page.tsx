@@ -290,7 +290,9 @@ export default function ProfilePage() {
                 потом цифры, потом кнопка — и каждая приходящая строка толкала
                 соседей вниз. Это и выглядело как прыгающая аватарка. */}
             <div className="flex flex-col gap-0.5">
-              <h1 className="flex items-center gap-1.5 text-[17px] font-semibold leading-tight text-[var(--text)]">
+              {/* gap-1, а не 1.5: галочка относится к имени, а не стоит рядом
+                  с ним. Просвет шире буквы разрывает их на две вещи. */}
+              <h1 className="flex items-center gap-1 text-[17px] font-semibold leading-tight text-[var(--text)]">
                 {displayName}
                 {/* Своя галочка тоже видна. Не показывать её у себя — значит
                     оставить человека гадать, выдали ему её или нет. */}
