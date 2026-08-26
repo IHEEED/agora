@@ -1,8 +1,9 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useRef, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
 import { VelocityTracker, committed } from '@/lib/gestureVelocity';
+import { spring, type SpringHandle } from '@/lib/spring';
 import { lockScroll } from '@/lib/scrollLock';
 
 /**
@@ -47,8 +48,34 @@ export function ImageViewer({
   const open = index >= 0 && index < images.length;
 
   // Сдвиг пальцем: по горизонтали листает, по вертикали закрывает.
-  const [drag, setDrag] = useState({ x: 0, y: 0 });
-  const [dragging, setDragging] = useState(false);
+  /**
+   * Сдвиг живёт в стиле узлов, а не в состоянии.
+   *
+   * Двигаются двое: лента кадров и затемнение под ней, которое гаснет по мере
+   * вытягивания вниз. Раньше оба читали состояние, то есть каждое движение
+   * пальца перерисовывало просмотр вместе со всеми загруженными картинками.
+   *
+   * Оси разведены на две пружины намеренно. Одна пружина на двумерное
+   * расстояние рассинхронизируется, когда по X и Y скорости разные: диагональ
+   * доезжает, а составляющие — нет.
+   */
+  const drag = useRef({ x: 0, y: 0 });
+  const springX = useRef<SpringHandle | null>(null);
+  const springY = useRef<SpringHandle | null>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+  /**
+   * Индекс в ref — только для кадрового цикла.
+   *
+   * Он живёт в состоянии (его задаёт нажатие в ленте), но transform собирается
+   * вне отрисовки, а замыкание с прошлым индексом там дало бы ленту, съехавшую
+   * на кадр назад. Синхронизируем эффектом и заново показываем сдвиг: смена
+   * индекса — это тоже смена transform.
+   */
+  const indexRef = useRef(index);
+  useEffect(() => {
+    indexRef.current = index;
+    applyDrag();
+  });
   const from = useRef<{ x: number; y: number } | null>(null);
   const trackRef = useRef<HTMLDivElement>(null);
   const speedX = useRef(new VelocityTracker());
@@ -97,6 +124,30 @@ export function ImageViewer({
     return lockScroll();
   }, [open]);
 
+  /**
+   * Показать текущий сдвиг.
+   *
+   * Индекс сюда приходит извне, из отрисовки: он меняется редко и живёт в
+   * состоянии, а вот сдвиг пальцем — на каждом кадре. Собираем их вместе здесь,
+   * потому что transform один и владеть им может только кто-то один.
+   */
+  function applyDrag() {
+    const { x, y } = drag.current;
+    const progress = Math.min(1, y / 220);
+
+    const track = trackRef.current;
+    if (track) {
+      track.style.transform =
+        `translate3d(calc(${-indexRef.current * 100}% + ${x}px), ${y}px, 0)` +
+        ` scale(${1 - progress * 0.12})`;
+    }
+
+    // Затемнение уходит вместе с картинкой: она не просто уезжает, а буквально
+    // забирает его с собой.
+    const root = rootRef.current;
+    if (root) root.style.background = `rgba(0, 0, 0, ${0.94 - progress * 0.5})`;
+  }
+
   function onPointerDown(event: React.PointerEvent) {
     from.current = { x: event.clientX, y: event.clientY };
     axis.current = null;
@@ -105,7 +156,12 @@ export function ImageViewer({
     // Без захвата указатель, ушедший за пределы окна или на элемент выше,
     // перестаёт слать события — картинка застревает на полпути.
     event.currentTarget.setPointerCapture?.(event.pointerId);
-    setDragging(true);
+    // Схватили — снимаем пружины: возвращающаяся картинка подхватывается на
+    // ходу, а не начинает с нуля.
+    springX.current?.stop();
+    springY.current?.stop();
+    springX.current = null;
+    springY.current = null;
   }
 
   function onPointerMove(event: React.PointerEvent) {
@@ -123,7 +179,8 @@ export function ImageViewer({
     if (axis.current === 'x') offset.current = { x: dx, y: 0 };
     // Вверх не тянем: закрывать движением вверх некуда — там шапка.
     if (axis.current === 'y') offset.current = { x: 0, y: Math.max(0, dy) };
-    setDrag(offset.current);
+    drag.current = offset.current;
+    applyDrag();
   }
 
   /**
@@ -185,31 +242,50 @@ export function ImageViewer({
     from.current = null;
     axis.current = null;
     offset.current = { x: 0, y: 0 };
-    setDragging(false);
-    setDrag({ x: 0, y: 0 });
+    // Возврат — пружиной по каждой оси отдельно, унося скорость пальца.
+    const back = (axis: 'x' | 'y', velocity: number) =>
+      spring({
+        from: drag.current[axis],
+        to: 0,
+        velocity,
+        onUpdate: (value) => {
+          drag.current = { ...drag.current, [axis]: value };
+          applyDrag();
+        },
+      });
+
+    const vx = speedX.current.get();
+    const vy = speedY.current.get();
 
     // Далеко утащили или быстро бросили — см. lib/gestureVelocity.
-    if (committed(y, speedY.current.get(), 110)) return closeWithReturn();
+    if (committed(y, vy, 110)) return closeWithReturn();
     // Четверть ширины — столько нужно протащить, чтобы это было решением, а не
     // случайным смахиванием во время разглядывания. Резкий флик засчитывается
     // и раньше: он однозначен.
     const threshold = window.innerWidth * 0.25;
-    const vx = speedX.current.get();
-    if (committed(x, vx, threshold)) return go(x < 0 ? 1 : -1);
+    if (committed(x, vx, threshold)) {
+      go(x < 0 ? 1 : -1);
+      // Индекс сменился — сдвиг обнуляем мгновенно, иначе пружина повезла бы
+      // ленту обратно поверх уже произошедшего перелистывания.
+      drag.current = { x: 0, y: 0 };
+      return;
+    }
+
+    springX.current = back('x', vx);
+    springY.current = back('y', vy);
   }
 
   if (!mounted || !open) return null;
 
-  // Прозрачность фона падает по мере вытягивания вниз: картинка не просто
-  // уезжает, а буквально забирает с собой затемнение.
-  const dismissProgress = Math.min(1, drag.y / 220);
-
   return createPortal(
     <div
       data-viewer-root
+      ref={rootRef}
       className="fixed inset-0 z-[95] flex items-center justify-center"
       style={{
-        background: `rgba(0, 0, 0, ${0.94 - dismissProgress * 0.5})`,
+        // Затемнение в покое. Дальше его пишет кадровый цикл (applyDrag):
+        // оно гаснет по мере вытягивания картинки вниз.
+        background: 'rgba(0, 0, 0, 0.94)',
         // Жест целиком наш: и вбок, и вниз. touch-action по умолчанию отдаёт
         // горизонталь браузеру, и на телефоне палец просто ничего не двигал —
         // это и было «крупнее не листается». Выделение отключаем по той же
@@ -236,12 +312,10 @@ export function ImageViewer({
         ref={trackRef}
         className="flex h-full w-full items-center"
         style={{
-          transform: `translate3d(calc(${-index * 100}% + ${drag.x}px), ${drag.y}px, 0) scale(${
-            1 - dismissProgress * 0.12
-          })`,
-          transition: dragging
-            ? 'none'
-            : 'transform 260ms cubic-bezier(0.32, 0.72, 0, 1)',
+          // Ни transform, ни transition: их пишет applyDrag прямо в узел.
+          // Переход владел бы transform и не дал бы схватить уезжающую
+          // картинку на полпути.
+          transform: `translate3d(${-index * 100}%, 0, 0)`,
         }}
       >
         {images.map((src, position) => (

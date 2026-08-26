@@ -1,10 +1,12 @@
 'use client';
 
-import { useCallback, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useLayoutEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { markGoingBack } from '@/lib/navDirection';
 import { foldScreenTo, peelScreen, unfoldFrom } from '@/lib/peelScreen';
 import { findFoldTarget, takeFoldOrigin } from '@/lib/foldOrigin';
+import { useDragSpring } from '@/lib/useDragSpring';
+import { VelocityTracker, committed } from '@/lib/gestureVelocity';
 
 /** Ширина полосы у левой кромки, с которой начинается жест. */
 const EDGE_ZONE = 32;
@@ -34,11 +36,10 @@ const DISMISS_RATIO = 0.3;
  */
 export function useScreenLeave(fold?: string) {
   const router = useRouter();
-  const [dragX, setDragX] = useState(0);
-  const [dragging, setDragging] = useState(false);
   const from = useRef<number | null>(null);
   /** Узел экрана — с него снимается копия. Ставится на корень через ref. */
   const screenRef = useRef<HTMLDivElement>(null);
+  const speed = useRef(new VelocityTracker());
 
   // Разворот из кнопки. Точку запомнила сама кнопка в момент нажатия
   // (см. foldOrigin): мерить её отсюда поздно — глиф в шапке к этому кадру
@@ -89,6 +90,30 @@ export function useScreenLeave(fold?: string) {
   /** Для onClick: обработчик события получил бы событие вместо сдвига. */
   const onBack = useCallback(() => goBack(0), [goBack]);
 
+  /**
+   * Сдвиг экрана живёт в стиле узла, а не в состоянии.
+   *
+   * Было двумя состояниями (dragX и dragging) и CSS-переходом на отпускании.
+   * Переход владеет свойством до конца своей длительности: схватить
+   * возвращающийся экран и снова потянуть было нельзя — сначала доедет. А
+   * setState на каждое движение указателя перерисовывал весь экран целиком,
+   * то есть самое тяжёлое поддерево в приложении, десятки раз за жест.
+   */
+  const {
+    bind: bindScreen,
+    set: setShift,
+    release: releaseShift,
+    grab: grabShift,
+    read: readShift,
+  } = useDragSpring<HTMLDivElement>((node, value) => {
+    // В покое именно пусто, а не translateX(0): любой transform создаёт слой,
+    // из которого дочерним элементам не подняться над размытием шторок.
+    node.style.transform = value ? `translateX(${value}px)` : '';
+  });
+
+  /** Скорость, унесённая у перехваченной пружины. */
+  const carried = useRef(0);
+
   function onPointerDown(event: React.PointerEvent) {
     // Мышь тоже тянет.
     //
@@ -102,28 +127,60 @@ export function useScreenLeave(fold?: string) {
     // Перехватываем указатель: без этого курсор, ушедший за пределы узла,
     // перестаёт слать события, и экран замирает на полпути.
     event.currentTarget.setPointerCapture?.(event.pointerId);
-    setDragging(true);
+    // Схватили — снимаем пружину, забирая её скорость: возвращающийся экран
+    // подхватывается на ходу, а не с нуля.
+    carried.current = grabShift();
+    speed.current.reset();
   }
 
   function onPointerMove(event: React.PointerEvent) {
     if (from.current === null) return;
-    setDragX(Math.max(0, event.clientX - from.current));
+    speed.current.add(event.clientX);
+    setShift(Math.max(0, event.clientX - from.current));
   }
 
   function onPointerUp() {
     if (from.current === null) return;
-    const far = dragX > window.innerWidth * DISMISS_RATIO;
+    const shift = readShift();
+    const velocity = speed.current.get() || carried.current;
     from.current = null;
-    setDragging(false);
-    // Слой подхватывает ровно тот сдвиг, на котором отпустили, и продолжает
-    // движение с него. Сбрось мы dragX до нуля — экран прыгнул бы назад.
-    if (far) goBack(dragX);
-    setDragX(0);
+
+    // Далеко утащили или быстро бросили. Раньше решало только расстояние, и
+    // короткий резкий флик от кромки — самое естественное «назад» на телефоне —
+    // не срабатывал вовсе (см. lib/gestureVelocity).
+    if (committed(shift, velocity, window.innerWidth * DISMISS_RATIO)) {
+      // Слой подхватывает ровно тот сдвиг, на котором отпустили, и продолжает
+      // движение с него. Обнули мы сдвиг — экран прыгнул бы назад.
+      goBack(shift);
+      return;
+    }
+
+    // Не дотянули — возвращаем пружиной, унося скорость пальца: между «вёл» и
+    // «поехало само» не должно быть видимого шва.
+    releaseShift(0, velocity);
   }
+
+  /**
+   * Один приёмник узла на двоих.
+   *
+   * Пружина пишет в узел transform, а снятие слоя снимает с него копию — значит
+   * ссылку на один и тот же элемент должны получить оба. Раздавать её двумя
+   * разными способами (ref-объект в разметке и bind у пружины) нельзя: React
+   * принимает только одно значение атрибута ref.
+   */
+  const attachScreen = useCallback(
+    (node: HTMLDivElement | null) => {
+      screenRef.current = node;
+      bindScreen(node);
+    },
+    [bindScreen]
+  );
 
   /** Обработчики жеста — на корневой узел экрана, вместе со style и ref. */
   const swipeHandlers = {
-    ref: screenRef,
+    // Узел нужен обоим: пружина в него пишет, снятие слоя с него снимает копию.
+    // Приёмник поэтому один, а раскладывает он в два места.
+    ref: attachScreen,
     onPointerDown,
     onPointerMove,
     onPointerUp,
@@ -131,11 +188,9 @@ export function useScreenLeave(fold?: string) {
   };
 
   const style: React.CSSProperties = {
-    // В покое именно none, а не translateX(0): любой transform создаёт слой,
-    // из которого дочерним элементам не подняться над размытием шторок.
-    transform: dragX ? `translateX(${dragX}px)` : 'none',
-    // Пока тянут пальцем — без перехода, иначе экран отстаёт от руки.
-    transition: dragging ? 'none' : 'transform var(--enter-ms) var(--enter-ease)',
+    // Ни transform, ни transition: и то и другое пишет пружина прямо в узел.
+    // Переход здесь был бы прямо вреден — он владел бы свойством и не давал
+    // перехватить движение на полпути.
     // Вертикальную прокрутку браузер обрабатывает сам, горизонтальную забираем
     // себе. Без этого на телефоне жест от кромки уходил в системный «назад»
     // или в прокрутку, и экран за пальцем не шёл.

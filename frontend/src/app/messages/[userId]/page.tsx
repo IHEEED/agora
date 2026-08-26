@@ -34,6 +34,8 @@ import { supabase } from '@/lib/supabase';
 import { useT, translate } from '@/lib/i18n';
 import { useBlockedUsers } from '@/lib/blockedUsers';
 import { VelocityTracker, committed } from '@/lib/gestureVelocity';
+import { useDragSpring } from '@/lib/useDragSpring';
+import { spring, type SpringHandle } from '@/lib/spring';
 
 /** Как часто перечитываем переписку, пока она открыта.
     Раньше был 4000 — при плохой сети задержка на запросе могла совпасть
@@ -131,7 +133,25 @@ export default function ChatPage() {
   // Какие сообщения сейчас уходят: они ещё в разметке, но уже схлопываются.
   const [removing, setRemoving] = useState<string[]>([]);
   /** Сообщение, которое сейчас тянут влево, и на сколько оно уехало. */
-  const [swipe, setSwipe] = useState<{ id: string; dx: number } | null>(null);
+  /**
+   * Свайп по пузырю живёт в стиле узла, а не в состоянии.
+   *
+   * Здесь особый случай: узел меняется от жеста к жесту — тянут то одно
+   * сообщение, то другое. Готовый хук привязан к одному узлу, поэтому пружина
+   * берётся напрямую, а узел запоминается в начале жеста.
+   *
+   * Состояние тут было хуже, чем в других местах: setSwipe перерисовывал не
+   * один пузырь, а весь список сообщений на каждое движение пальца.
+   */
+  const swipeNode = useRef<HTMLElement | null>(null);
+  const swipeSpring = useRef<SpringHandle | null>(null);
+  const swipeShift = useRef(0);
+
+  function applySwipe(value: number) {
+    swipeShift.current = value;
+    const node = swipeNode.current;
+    if (node) node.style.transform = value ? `translateX(${value}px)` : '';
+  }
   /** Сообщение, к которому только что перемотали по закрепу. Гаснет само. */
   const [spotlight, setSpotlight] = useState<string | null>(null);
   /** Какой из закреплённых показывать следующим: нажатия идут по кругу. */
@@ -445,12 +465,44 @@ export default function ChatPage() {
 
   const EDGE_ZONE = 28;
   const dragFrom = useRef<number | null>(null);
-  const [dragX, setDragX] = useState(0);
-  // Отдельный флаг вместо чтения ref в разметке: ref для отрисовки не годится,
-  // React о его изменении не знает.
-  const [dragging, setDragging] = useState(false);
   /** Узел экрана: с него снимается копия, которая и уезжает вправо. */
   const screenRef = useRef<HTMLDivElement>(null);
+  /** Строка ввода: живёт порталом, но едет вместе с экраном. */
+  const composerRef = useRef<HTMLFormElement>(null);
+  const dragSpeed = useRef(new VelocityTracker());
+  const dragCarried = useRef(0);
+
+  /**
+   * Сдвиг переписки — в стиле узлов, а не в состоянии.
+   *
+   * Двигаются двое: сам экран и строка ввода, которая живёт порталом в body и
+   * обязана уехать вместе с ним, а не остаться поверх списка. Раньше оба
+   * читали одно состояние, то есть каждое движение пальца перерисовывало всю
+   * переписку — самое тяжёлое поддерево в приложении. Теперь оба узла пишутся
+   * из одного кадрового цикла, и отрисовки за жест не происходит.
+   */
+  const {
+    bind: bindChat,
+    set: setChatShift,
+    release: releaseChatShift,
+    grab: grabChatShift,
+    read: readChatShift,
+  } = useDragSpring<HTMLDivElement>((node, value) => {
+    // В покое пусто, а не translateX(0): любой transform создаёт слой, из
+    // которого дочернему пузырю не подняться над размытием меню — сообщение
+    // оставалось замыленным вместе с фоном.
+    const shift = value ? `translateX(${value}px)` : '';
+    node.style.transform = shift;
+    if (composerRef.current) composerRef.current.style.transform = shift;
+  });
+
+  const attachChat = useCallback(
+    (node: HTMLDivElement | null) => {
+      screenRef.current = node;
+      bindChat(node);
+    },
+    [bindChat]
+  );
 
   // Портал строки ввода возможен только в браузере: на сервере document нет.
   // Через useSyncExternalStore, как в BottomSheet: серверный снимок false,
@@ -498,25 +550,33 @@ export default function ChatPage() {
     // перестаёт слать события и переписка застревает на полпути.
     event.currentTarget.setPointerCapture?.(event.pointerId);
     document.documentElement.dataset.chatDragging = '1';
-    setDragging(true);
+    dragCarried.current = grabChatShift();
+    dragSpeed.current.reset();
   }
 
   function onPointerMove(event: React.PointerEvent) {
     if (dragFrom.current === null) return;
-    setDragX(Math.max(0, event.clientX - dragFrom.current));
+    dragSpeed.current.add(event.clientX);
+    setChatShift(Math.max(0, event.clientX - dragFrom.current));
   }
 
   function onPointerUp() {
     if (dragFrom.current === null) return;
-    const far = dragX > window.innerWidth / 3;
+    const shift = readChatShift();
+    const velocity = dragSpeed.current.get() || dragCarried.current;
     dragFrom.current = null;
-    setDragging(false);
-    if (far) {
+
+    // Далеко утащили или быстро бросили. Резкий флик от кромки — самое
+    // естественное «назад» на телефоне, и по одному расстоянию он не
+    // засчитывался (см. lib/gestureVelocity).
+    if (committed(shift, velocity, window.innerWidth / 3)) {
       haptic('unlock');
       // Слой продолжает движение с того сдвига, на котором отпустили.
-      leave(dragX);
+      leave(shift);
+      return;
     }
-    setDragX(0);
+
+    releaseChatShift(0, velocity);
   }
 
   /**
@@ -783,6 +843,11 @@ export default function ChatPage() {
     if (event.pointerType === 'mouse' || selected) return;
     swipeFrom.current = { x: event.clientX, y: event.clientY, id: message.id, own: false };
     swipeSpeed.current.reset();
+    // Схватили — снимаем пружину предыдущего жеста, если она ещё едет.
+    swipeSpring.current?.stop();
+    swipeSpring.current = null;
+    swipeNode.current = event.currentTarget as HTMLElement;
+    swipeShift.current = 0;
   }
 
   function swipeMove(event: React.PointerEvent) {
@@ -810,20 +875,39 @@ export default function ChatPage() {
     swipeSpeed.current.add(event.clientX);
     // Вязкость: корень от пройденного, а не сам путь.
     const pulled = Math.min(SWIPE_MAX, Math.sqrt(-dx) * 9);
-    setSwipe({ id: from.id, dx: -pulled });
+    // Прежнее значение читаем до записи: отклик даётся на пересечении порога,
+    // а не при каждом движении за ним.
+    const before = -swipeShift.current;
+    applySwipe(-pulled);
 
     // Дошли до порога — короткий отклик, как у переключателя. Один раз, на
     // пересечении: держать палец за порогом и получать дрожь непрерывно —
     // ощущение сломанного, а не сработавшего.
-    if (pulled >= SWIPE_TRIGGER && (swipe?.dx ?? 0) > -SWIPE_TRIGGER) haptic();
+    if (pulled >= SWIPE_TRIGGER && before < SWIPE_TRIGGER) haptic();
   }
 
   function swipeEnd() {
     const from = swipeFrom.current;
     swipeFrom.current = null;
-    const pulled = -(swipe?.dx ?? 0);
+    const pulled = -swipeShift.current;
     const velocity = swipeSpeed.current.get();
-    setSwipe(null);
+
+    // Возвращаем пружиной, унося скорость пальца. Узел отпускаем только когда
+    // пружина доехала: отпусти мы его сразу, следующий жест по другому
+    // сообщению стёр бы сдвиг этого прямо посреди возврата.
+    const node = swipeNode.current;
+    swipeSpring.current = spring({
+      from: swipeShift.current,
+      to: 0,
+      velocity,
+      onUpdate: (value) => {
+        swipeShift.current = value;
+        if (node) node.style.transform = value ? `translateX(${value}px)` : '';
+      },
+      onDone: () => {
+        swipeSpring.current = null;
+      },
+    });
     // Знаки сводим к одной оси: тянут влево, то есть путь отрицательный.
     if (!from?.own || !committed(-pulled, velocity, SWIPE_TRIGGER)) return;
 
@@ -938,7 +1022,7 @@ export default function ChatPage() {
 
   return (
     <div
-      ref={screenRef}
+      ref={attachChat}
       className="flex flex-1 flex-col items-center"
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
@@ -951,9 +1035,8 @@ export default function ChatPage() {
         // В покое transform именно none, а не translateX(0): любой transform
         // создаёт слой, из которого дочернему пузырю не подняться над
         // размытием меню — сообщение оставалось замыленным вместе с фоном.
-        transform: dragX ? `translateX(${dragX}px)` : 'none',
-        // Пока тянут пальцем — без перехода, иначе экран отстаёт от руки.
-        transition: dragging ? 'none' : 'transform var(--enter-ms) var(--enter-ease)',
+        // Ни transform, ни transition: их пишет пружина прямо в узел. Переход
+        // здесь владел бы свойством и не давал перехватить движение на полпути.
         // Вертикаль остаётся браузеру, горизонталь забираем себе: иначе жест от
         // кромки уходит в системный «назад» и переписка за пальцем не идёт.
         touchAction: 'pan-y',
@@ -1190,11 +1273,10 @@ export default function ChatPage() {
                     // по стороне пузыря — иначе своё сообщение уползало бы к
                     // середине экрана, откуда оно не приходило.
                     transformOrigin: mine ? 'right center' : 'left center',
-                    transform: going
-                      ? 'scale(0.85)'
-                      : swipe?.id === message.id
-                        ? `translateX(${swipe.dx}px)`
-                        : undefined,
+                    // Сдвиг от свайпа сюда не попадает: его пишет пружина
+                    // прямо в узел (см. applySwipe). Здесь остаётся только
+                    // сжатие на удалении.
+                    transform: going ? 'scale(0.85)' : undefined,
                     opacity: going ? 0 : 1,
                     // Уходящее сообщение не тянет за собой соседей: высота
                     // схлопывается вместе с ним, а не пропадает разом. Без
@@ -1206,19 +1288,17 @@ export default function ChatPage() {
                     paddingTop: going ? 0 : undefined,
                     paddingBottom: going ? 0 : undefined,
                     overflow: going ? 'hidden' : undefined,
-                    // Пока палец на пузыре — никакого перехода: он обязан
-                    // стоять там, где палец, иначе жест ощущается как связь по
-                    // переписке, а не как предмет в руке. Отпустили — тот же
-                    // переход возвращает его на место сам.
+                    // Переход только на удалении. Для свайпа его нет вовсе:
+                    // пузырь обязан стоять там, где палец, а возврат ведёт
+                    // пружина — переход владел бы transform и не дал бы
+                    // перехватить движение на полпути.
                     transition: going
                       ? `transform ${REMOVE_MS}ms var(--exit-ease),` +
                         ` opacity ${Math.round(REMOVE_MS * 0.7)}ms linear,` +
                         ` max-height ${REMOVE_MS}ms var(--exit-ease),` +
                         ` padding ${REMOVE_MS}ms var(--exit-ease),` +
                         ` margin ${REMOVE_MS}ms var(--exit-ease)`
-                      : swipe?.id === message.id
-                        ? 'none'
-                        : 'transform 260ms var(--enter-ease)',
+                      : undefined,
                     // Горизонталь достаётся жесту, вертикаль остаётся прокрутке
                     // переписки: без этого браузер забирает себе оба движения и
                     // тянуть пузырь не даёт вовсе.
@@ -1384,12 +1464,11 @@ export default function ChatPage() {
         onSubmit={send}
         // Метка для снимка экрана: строка живёт порталом в body, но уехать
         // обязана вместе с перепиской, а не остаться поверх списка (см. peelScreen).
+        ref={composerRef}
         data-screen-fixed
         className="fixed inset-x-0 bottom-0 z-40 flex flex-col items-center px-3 md:pl-20"
         style={{
           paddingBottom: 'calc(10px + env(safe-area-inset-bottom))',
-          transform: dragX ? `translateX(${dragX}px)` : 'none',
-          transition: dragging ? 'none' : 'transform var(--enter-ms) var(--enter-ease)',
         }}
       >
         {/* Полоска над строкой ввода — одна на правку и на ответ: и то и другое
