@@ -14,6 +14,7 @@ import { ProfileAvatar } from '@/components/ProfileAvatar';
 import { FollowButton } from '@/components/FollowButton';
 import { PeopleSheet } from '@/components/PeopleSheet';
 import { PersonMenuSheet } from '@/components/PersonMenuSheet';
+import { VerifiedMark } from '@/components/VerifiedMark';
 import { setBlocked, useIsBlocked } from '@/lib/blockedUsers';
 import { useScreenLeave } from '@/lib/useScreenLeave';
 import { useStickyTab } from '@/lib/useStickyTab';
@@ -81,6 +82,11 @@ export default function UserProfilePage() {
   const username = person?.username ?? posts[0]?.author.username ?? '';
   const isMe = session?.user.id === userId;
   const influence = useMemo(() => posts.reduce((sum, post) => sum + post.score, 0), [posts]);
+
+  // Галочку здесь только показываем. Выдают её на своём экране: Настройки →
+  // Модерация → Подтверждение личности. Кнопка в чужом профиле смешивала два
+  // разных занятия — смотреть на человека и управлять им.
+  const verified = person?.verified_at ?? null;
 
   return (
     <div className="flex flex-1 flex-col items-center" style={leaveStyle} {...swipeHandlers}>
@@ -154,13 +160,15 @@ export default function UserProfilePage() {
             </div>
 
             <div className="flex flex-col gap-0.5">
-              <h1 className="text-[17px] font-semibold leading-tight text-[var(--text)]">
+              <h1 className="flex items-center gap-1 text-[17px] font-semibold leading-tight text-[var(--text)]">
                 {username || '—'}
+                <VerifiedMark verified={verified} size={19} />
               </h1>
               <span className="text-[13px] font-medium" style={{ color: 'var(--accent)' }}>
                 @{username}
               </span>
             </div>
+
 
             {/* Люди отдельно, цифры про профиль — отдельно, как в своём. */}
             <div className="flex items-center gap-4">

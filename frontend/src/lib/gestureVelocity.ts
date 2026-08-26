@@ -96,3 +96,30 @@ export function committed(distance: number, velocity: number, threshold: number)
   // пальца на неподвижном элементе читалась бы как жест.
   return Math.abs(velocity) >= FLICK_SPEED && Math.abs(distance) > threshold * 0.35;
 }
+
+/**
+ * Сопротивление за границей.
+ *
+ * Чем дальше тянут за край, тем меньше элемент следует за пальцем. Жёсткий
+ * упор читается как «зависло», нарастающее сопротивление — как «тянуть можно,
+ * но дальше ничего нет». Формула из образцов к докладу Apple.
+ */
+export function rubberband(overshoot: number, dimension: number, constant = 0.55): number {
+  return (overshoot * dimension * constant) / (dimension + constant * Math.abs(overshoot));
+}
+
+/**
+ * Затухание, не зависящее от частоты кадров.
+ *
+ * `velocity *= 0.94` на кадр — это «упадёт в сорок раз за секунду» на экране
+ * 60 Гц и вдвое быстрее на 120 Гц. Тот же код, разное поведение, и заметить
+ * это на своей машине невозможно. Возводим в степень от прошедшего времени, и
+ * затухание становится свойством секунды, а не кадра.
+ *
+ * Множитель — доля скорости, остающаяся через секунду. Значение подобрано
+ * руками на ленте историй: на глаз это единственный способ решить, длинный
+ * бросок или нет.
+ */
+export function decay(velocity: number, elapsedMs: number, perSecond = 0.004): number {
+  return velocity * Math.pow(perSecond, elapsedMs / 1000);
+}

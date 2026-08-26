@@ -20,6 +20,8 @@ import { supabase } from './supabase';
  */
 
 let hasAvatarColumn: boolean | null = null;
+let hasProfileColumns: boolean | null = null;
+let hasVerified: boolean | null = null;
 
 /**
  * Есть ли users.avatar_url (миграция 015).
@@ -37,6 +39,31 @@ export async function probeSchema(): Promise<void> {
       'users.avatar_url не найдена — аватарки отключены. Выполните миграцию 017 и перезапустите.'
     );
   }
+
+  // Имя и подпись (022). Спрашиваем одной колонкой из набора: они появляются
+  // одной миграцией и по отдельности не бывают.
+  const profile = await supabase.from('users').select('display_name').limit(0);
+  hasProfileColumns = !profile.error;
+
+  if (!hasProfileColumns) {
+    console.warn(
+      'users.display_name не найдена — имя и подпись остаются на устройстве. Выполните миграцию 022 и перезапустите.'
+    );
+  }
+
+  // Галочка (024). Отдельно от профиля: миграции разные, и одна может быть
+  // выполнена без другой.
+  const verified = await supabase.from('users').select('verified_at').limit(0);
+  hasVerified = !verified.error;
+
+  if (!hasVerified) {
+    console.warn('users.verified_at не найдена — галочки отключены. Выполните миграцию 024.');
+  }
+}
+
+/** Есть ли колонки профиля из 022. Нужно роуту сохранения, а не только выдаче. */
+export function profileColumnsReady(): boolean {
+  return hasProfileColumns === true;
 }
 
 /**
@@ -50,7 +77,14 @@ export function userColumns(extra?: string): string {
   // null означает «ещё не спрашивали»: до ответа ведём себя осторожно и
   // аватарку не просим. Проверка идёт при старте, так что это состояние живёт
   // доли секунды и только на самых первых запросах.
-  return hasAvatarColumn ? `${base}, avatar_url` : base;
+  const withAvatar = hasAvatarColumn ? `${base}, avatar_url, avatar_fit` : base;
+  // Имя показывается везде, где показан ник: в ленте, в переписках, в
+  // уведомлениях. Просить его отдельным запросом на каждом экране значило бы
+  // удвоить обращения ради одной строки.
+  const withProfile = hasProfileColumns ? `${withAvatar}, display_name` : withAvatar;
+  // Галочка идёт рядом с ником всюду, где ник показан, — значит и просить её
+  // надо там же, а не отдельным запросом на каждый экран.
+  return hasVerified ? `${withProfile}, verified_at` : withProfile;
 }
 
 /**

@@ -361,6 +361,89 @@ router.post('/reports/:id/delete-target', async (req, res) => {
   res.json({ ok: true });
 });
 
+/**
+ * Галочка: подтвердить, что человек — тот, за кого себя выдаёт.
+ *
+ * Не про важность и не про число подписчиков: в сети, где ник берут почти
+ * любой, единственная защита от подделки — чья-то проверка. Поэтому раздаёт
+ * её модератор, а не формула.
+ */
+router.post('/verify', async (req, res) => {
+  const moderator = req.user!.id;
+  const on = req.body?.verified !== false;
+
+  /**
+   * По нику или по идентификатору — на выбор.
+   *
+   * Из очереди жалоб и с чужого профиля приходит идентификатор: там человек
+   * уже перед глазами. А на экране подтверждений его вводят ником — это
+   * единственное, что модератор знает про человека, которого ему назвали в
+   * переписке или в заявке.
+   */
+  let targetId = String(req.body?.userId ?? '');
+  const username = String(req.body?.username ?? '').trim();
+
+  if (!targetId && username) {
+    const { data, error } = await supabase
+      .from('users')
+      .select('id')
+      // Регистронезависимо и без @: ник диктуют вслух и переписывают с экрана,
+      // и отказ «такого нет» из-за заглавной буквы — худший вид точности.
+      .ilike('username', username.replace(/^@/, ''))
+      .maybeSingle();
+
+    if (error) {
+      console.error('moderation: username lookup failed', error);
+      return res.status(500).json({ error: 'Не удалось найти человека' });
+    }
+    if (!data) return res.status(404).json({ error: 'Такого ника нет' });
+
+    targetId = data.id;
+  }
+
+  if (!targetId) return res.status(400).json({ error: 'Нужен ник или пользователь' });
+
+  const { error } = await supabase
+    .from('users')
+    .update(
+      on
+        ? { verified_at: new Date().toISOString(), verified_by: moderator }
+        : { verified_at: null, verified_by: null }
+    )
+    .eq('id', targetId);
+
+  if (error) {
+    console.error('moderation: verify failed', error);
+    return res.status(500).json({ error: 'Не удалось изменить статус' });
+  }
+
+  await log({
+    moderator_id: moderator,
+    target_user_id: targetId,
+    action: on ? 'verify' : 'unverify',
+    reason: String(req.body?.reason ?? '').trim().slice(0, 200) || null,
+  });
+
+  res.json({ ok: true, verified: on, userId: targetId });
+});
+
+/** Кому галочка уже выдана — чтобы видеть список целиком, а не по одному. */
+router.get('/verified', async (_req, res) => {
+  const { data, error } = await supabase
+    .from('users')
+    .select('id, username, verified_at')
+    .not('verified_at', 'is', null)
+    .order('verified_at', { ascending: false })
+    .limit(100);
+
+  if (error) {
+    console.error('moderation: verified list failed', error);
+    return res.status(500).json({ error: 'Не удалось загрузить список' });
+  }
+
+  res.json(data);
+});
+
 /** История по человеку: за что его уже наказывали. */
 router.get('/users/:id/history', async (req, res) => {
   const { data, error } = await supabase

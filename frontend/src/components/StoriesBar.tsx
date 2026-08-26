@@ -6,6 +6,7 @@ import { StoryViewer } from '@/components/StoryViewer';
 import { StoryComposer, StoryDraft } from '@/components/StoryComposer';
 import { NewStorySheet } from '@/components/NewStorySheet';
 import { StoryGroup } from '@/lib/types';
+import { VelocityTracker, decay } from '@/lib/gestureVelocity';
 import { haptic } from '@/lib/haptics';
 import { DefaultAvatar } from '@/components/DefaultAvatar';
 import { useT } from '@/lib/i18n';
@@ -55,7 +56,8 @@ export function StoriesBar({
   /** Открыт ли экран новой истории — того, что заводится с нуля. */
   const [composing, setComposing] = useState(false);
   const trackRef = useRef<HTMLDivElement>(null);
-  const drag = useRef({ active: false, startX: 0, startScroll: 0, lastX: 0, velocity: 0 });
+  const drag = useRef({ active: false, startX: 0, startScroll: 0 });
+  const tracker = useRef(new VelocityTracker());
   const inertia = useRef<number | null>(null);
 
   useEffect(() => {
@@ -68,19 +70,13 @@ export function StoriesBar({
     // Тач и перо скроллят нативно с собственной инерцией — берём только мышь.
     if (e.pointerType !== 'mouse' || !trackRef.current) return;
     if (inertia.current) cancelAnimationFrame(inertia.current);
-    drag.current = {
-      active: true,
-      startX: e.clientX,
-      startScroll: trackRef.current.scrollLeft,
-      lastX: e.clientX,
-      velocity: 0,
-    };
+    drag.current = { active: true, startX: e.clientX, startScroll: trackRef.current.scrollLeft };
+    tracker.current.reset();
   }
 
   function onPointerMove(e: React.PointerEvent) {
     if (!drag.current.active || !trackRef.current) return;
-    drag.current.velocity = e.clientX - drag.current.lastX;
-    drag.current.lastX = e.clientX;
+    tracker.current.add(e.clientX);
     trackRef.current.scrollLeft = drag.current.startScroll - (e.clientX - drag.current.startX);
   }
 
@@ -88,15 +84,33 @@ export function StoriesBar({
     if (!drag.current.active) return;
     drag.current.active = false;
 
-    // Плавное затухание вместо резкой остановки на месте отпускания.
-    let velocity = drag.current.velocity;
-    const step = () => {
+    /**
+     * Плавное затухание вместо резкой остановки на месте отпускания.
+     *
+     * Скорость в точках за секунду, затухание — степенью от прошедшего
+     * времени. Прежний вариант вычитал «точки за событие» и умножал на 0.94
+     * каждый кадр: на экране 120 Гц кадров вдвое больше, и брошенная лента
+     * останавливалась вдвое быстрее. На обычной матрице этого не увидеть, а на
+     * ProMotion жест ощущается вялым — при том, что код один и тот же.
+     */
+    // Потолок на скорость. Резкий рывок мышью даёт выброс в несколько тысяч
+    // точек в секунду, и лента улетала в конец одним движением.
+    let velocity = Math.max(-2200, Math.min(2200, tracker.current.get()));
+    let previous = performance.now();
+
+    const step = (now: number) => {
       const track = trackRef.current;
-      if (!track || Math.abs(velocity) < 0.4) return;
-      track.scrollLeft -= velocity;
-      velocity *= 0.94;
+      const elapsed = now - previous;
+      previous = now;
+
+      // Ниже двадцати точек в секунду движение уже неразличимо глазом.
+      if (!track || Math.abs(velocity) < 20) return;
+
+      track.scrollLeft -= (velocity * elapsed) / 1000;
+      velocity = decay(velocity, elapsed);
       inertia.current = requestAnimationFrame(step);
     };
+
     inertia.current = requestAnimationFrame(step);
   }
 

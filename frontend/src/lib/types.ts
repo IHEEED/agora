@@ -4,6 +4,12 @@ export interface Author {
   username: string;
   /** Адрес аватарки. Пусто — показываем силуэт по умолчанию. */
   avatar_url?: string | null;
+  /** Кадрирование аватарки, подобранное её владельцем (миграция 022). */
+  avatar_fit?: { zoom: number; x: number; y: number } | null;
+  /** Показываемое имя. Пусто — показываем username. */
+  display_name?: string | null;
+  /** Когда модератор подтвердил подлинность. Пусто — галочки нет (024). */
+  verified_at?: string | null;
   /** Подставляет бэкенд по текущей сессии — чтобы кнопка не мигала плюсом. */
   isFollowing?: boolean;
 }
@@ -15,6 +21,10 @@ export interface Community {
   created_by: string;
   created_at: string;
   creator: Author;
+  /** Сколько подписчиков. Появляется миграцией 023. */
+  members?: number;
+  /** Подписан ли я. Подставляет сервер по текущей сессии. */
+  isMember?: boolean;
 }
 
 export interface PollOption {
@@ -30,6 +40,12 @@ export interface UserSummary {
   karma: number;
   /** Адрес аватарки. Пусто — показываем силуэт по умолчанию. */
   avatar_url?: string | null;
+  /** Кадрирование аватарки, подобранное её владельцем (миграция 022). */
+  avatar_fit?: { zoom: number; x: number; y: number } | null;
+  /** Показываемое имя. Пусто — показываем username. */
+  display_name?: string | null;
+  /** Когда модератор подтвердил подлинность. Пусто — галочки нет (024). */
+  verified_at?: string | null;
   /** Подставляет бэкенд по текущей сессии; без неё всегда false. */
   isFollowing?: boolean;
 }
@@ -37,6 +53,8 @@ export interface UserSummary {
 /** Одно письмо в переписке. */
 export interface Message {
   id: string;
+  /** Кто написал это изначально, если сообщение переслано (миграция 025). */
+  forwardedFrom?: { id: string; username: string } | null;
   sender_id: string;
   recipient_id: string;
   /** У реплики из одного вложения текста нет. */
@@ -61,7 +79,7 @@ export interface Message {
 
 /** Строка в списке переписок: собеседник и последнее письмо. */
 export interface MessageThread {
-  user: { id: string; username: string; avatar_url?: string | null };
+  user: { id: string; username: string; avatar_url?: string | null; verified_at?: string | null };
   unread: number;
   /** Закреплён ли у меня. Настройка личная — собеседник о ней не знает. */
   pinned?: boolean;
@@ -75,10 +93,16 @@ export interface UserProfile extends UserSummary {
   followers: number;
   following: number;
   created_at?: string;
+  /** Подпись под именем. Только на странице профиля — в ленту не возится. */
+  bio?: string | null;
+  cover_url?: string | null;
+  cover_fit?: { zoom: number; x: number; y: number } | null;
 }
 
 export interface Post {
   id: string;
+  /** Показывать первой в общей ленте у всех. Появляется миграцией 023. */
+  pinned_global?: boolean;
   /** Какую запись эта продолжает. Появляется миграцией 010. */
   continues_post_id?: string | null;
   /**
@@ -117,7 +141,7 @@ export interface Post {
   myRepost?: boolean;
 }
 
-export type PostSort = 'hot' | 'new' | 'top' | 'commented';
+export type PostSort = 'hot' | 'new' | 'top' | 'commented' | 'viewed';
 export type CommentSort = 'best' | 'new';
 
 export interface Comment {

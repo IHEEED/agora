@@ -3,9 +3,10 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { CREATE_HREF, CreateIcon, SIDEBAR_TABS } from '@/components/navTabs';
-import { MessagesButton } from '@/components/MessagesButton';
+import { NotificationsButton } from '@/components/NotificationsButton';
 import { OverlayLink } from '@/components/OverlayLink';
 import { useT } from '@/lib/i18n';
+import { useUnreadMessages } from '@/lib/useUnreadNotifications';
 import type { TranslationKey } from '@/lib/i18n';
 
 /**
@@ -24,6 +25,7 @@ import type { TranslationKey } from '@/lib/i18n';
  */
 export function DesktopSidebar() {
   const pathname = usePathname();
+  const unread = useUnreadMessages();
   const { t } = useT();
 
   return (
@@ -51,13 +53,25 @@ export function DesktopSidebar() {
               key={tab.href}
               href={tab.href}
               aria-current={active ? 'page' : undefined}
+              {...(tab.href === '/messages' ? { 'data-messages-button': '' } : null)}
               className="flex w-[76px] flex-col items-center gap-1 rounded-2xl py-2 transition-colors"
               style={{
                 color: active ? 'var(--accent)' : 'var(--text-muted)',
                 background: active ? 'var(--accent-soft)' : 'transparent',
               }}
             >
-              <tab.Icon active={active} size={24} />
+              <span className="relative flex items-center justify-center">
+                <tab.Icon active={active} size={24} />
+                {/* Та же точка, что в нижнем баре: одно и то же состояние
+                    обязано выглядеть одинаково на обоих экранах. */}
+                {tab.href === '/messages' && unread > 0 && (
+                  <span
+                    aria-hidden
+                    className="absolute -right-1 -top-0.5 h-[9px] w-[9px] rounded-full"
+                    style={{ background: 'var(--accent)' }}
+                  />
+                )}
+              </span>
               {/* Подпись переводится вместе со всем остальным: label в TABS —
                   для aria и служебных мест, на экран идёт ключ. */}
               {/* Без truncate: обрезать подпись, ради которой панель и
@@ -81,7 +95,7 @@ export function DesktopSidebar() {
             стоящий он читался как настройки или выход — то, что к разделам не
             относится; а это такой же раздел, как уведомления, и стоять ему
             следом за ними. */}
-        <MessagesButton variant="sidebar" />
+        <NotificationsButton variant="sidebar" />
       </div>
     </nav>
   );

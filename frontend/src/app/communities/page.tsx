@@ -131,17 +131,23 @@ export default function CommunitiesPage() {
               <circle cx="11" cy="11" r="6.5" />
               <path d="m20 20-4.3-4.3" />
             </svg>
+            {/* Слово рядом с лупой, а не подсказкой внутри поля.
+                Подсказка исчезает на первом же введённом знаке — и поле,
+                оставшись с одной лупой, перестаёт объяснять, что оно делает.
+                Особенно на середине набора, когда результатов ещё нет и
+                смотреть не на что. Эта надпись стоит всегда. */}
+            <span className="text-[15px]">{t('common.searchLabel')}</span>
           </span>
           <input
             type="search"
             enterKeyHint="search"
-            placeholder={t('communities.search')}
+            placeholder=""
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             // Фокус убирает нижний бар вниз — там, где сейчас встанет клавиатура.
             onFocus={() => setNavHidden(true)}
             onBlur={() => setNavHidden(false)}
-            className="field-line w-full py-2.5 pl-9 pr-2 text-[15px] text-[var(--text)] outline-none transition-colors focus:border-[var(--accent)]"
+            className="field-line w-full py-2.5 pl-[84px] pr-2 text-[15px] text-[var(--text)] outline-none transition-colors focus:border-[var(--accent)]"
           />
         </div>
 

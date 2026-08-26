@@ -26,13 +26,15 @@ import { setNavHidden } from '@/lib/navVisibility';
 import { markGoingBack } from '@/lib/navDirection';
 import { createPortal } from 'react-dom';
 import { peelScreen } from '@/lib/peelScreen';
+import { setPendingForward, takePendingForward } from '@/lib/pendingForward';
 import { releaseBackdrop } from '@/lib/screenBackdrop';
 import { haptic } from '@/lib/haptics';
+import { ARROW_REACTIONS, ArrowReaction, UP_REACTION, isArrowReaction } from '@/components/ArrowReaction';
 import { useVoiceRecorder } from '@/lib/useVoiceRecorder';
 import { VoiceBubble } from '@/components/VoiceBubble';
 import { supabase } from '@/lib/supabase';
 import { useT, translate } from '@/lib/i18n';
-import { useBlockedUsers } from '@/lib/blockedUsers';
+import { setBlocked, useBlockedUsers } from '@/lib/blockedUsers';
 import { VelocityTracker, committed } from '@/lib/gestureVelocity';
 import { useDragSpring } from '@/lib/useDragSpring';
 import { spring, type SpringHandle } from '@/lib/spring';
@@ -62,6 +64,8 @@ const SPOTLIGHT_MS = 1500;
  * имеющегося, и реакция перестаёт что-либо значить.
  */
 const QUICK_REACTIONS = [
+  // Первыми и своей парой: согласие и несогласие — не чувство, а ответ.
+  ...ARROW_REACTIONS,
   '❤️', '👍', '🔥', '😂', '😮', '😢',
   '🙏', '👏', '🎉', '😍', '🤔', '😭',
   '👎', '💯', '🤣', '🥰', '😅', '🤯',
@@ -106,6 +110,9 @@ function timeLabel(iso: string): string {
  * приложении нет, а сокет ради одной страницы тянет за собой инфраструктуру,
  * которой больше нигде не пользуются.
  */
+/** Сколько ждём второго нажатия. Триста миллисекунд — привычный порог. */
+const DOUBLE_TAP_MS = 300;
+
 export default function ChatPage() {
   const { t } = useT();
   const { userId } = useParams<{ userId: string }>();
@@ -170,6 +177,8 @@ export default function ChatPage() {
   const people = useApiData<UserSummary[]>(forwarding ? '/users' : null);
   const me = session?.user.id;
   const blocked = useBlockedUsers();
+  /** Заблокирован ли собеседник — от этого зависит, что стоит внизу экрана. */
+  const peerBlocked = blocked.includes(userId);
 
   /**
    * Кому показывать в пересылке.
@@ -655,8 +664,48 @@ export default function ChatPage() {
   async function send(e: SubmitEvent) {
     e.preventDefault();
     const text = body.trim();
-    // Снимок без подписи — обычная реплика, а не пустая.
-    if ((!text && !photo?.url) || sending) return;
+    // Снимок без подписи — обычная реплика, а не пустая. Пересылаемое тоже
+    // отправляется без единого своего слова: подпись к нему — дело хозяйское.
+    if ((!text && !photo?.url && !staged) || sending) return;
+
+    /**
+     * Сначала пересланное, потом своя подпись.
+     *
+     * Порядок именно такой: подпись объясняет то, что над ней, и пришедшая
+     * первой она объясняла бы пустоту. По одному, а не пачкой, — сервер
+     * принимает по сообщению, и порядок в чужой переписке должен совпасть с
+     * тем, в каком они шли в исходной.
+     */
+    if (staged) {
+      const list = staged.messages;
+      const from = staged.fromUserId;
+      setStaged(null);
+      wasAtEnd.current = true;
+
+      try {
+        for (const message of list) {
+          await apiFetch('/messages', {
+            method: 'POST',
+            body: JSON.stringify({
+              recipient_id: userId,
+              body: message.body,
+              image_url: message.image_url ?? null,
+              // Подписываем автором исходной реплики, а не тем, из чьей
+              // переписки её взяли: это разные люди, когда пересылают
+              // пересланное.
+              forwarded_from: message.sender_id === from ? from : message.sender_id,
+            }),
+          });
+        }
+        load();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Не удалось переслать');
+        return;
+      }
+
+      // Своих слов не было — на этом всё.
+      if (!text && !photo?.url) return;
+    }
 
     // Своя отправка всегда увозит к концу, где реплика и появится, — даже если
     // человек читал старое. Отправить письмо и остаться смотреть на позапрошлый
@@ -746,8 +795,56 @@ export default function ChatPage() {
     }
   }
 
+  /**
+   * Двойное нажатие ставит стрелку — то же движение, что двойной тап в
+   * Telegram, только вместо сердца наш знак одобрения. Он же стоит под каждой
+   * записью в ленте, и «поддержать» в приложении выглядит одинаково везде.
+   *
+   * Обычно двойное нажатие приходится оплачивать задержкой одиночного: нельзя
+   * сказать, одиночное оно, пока не прошло время ожидания второго. Здесь платы
+   * нет — одиночное нажатие по пузырю не делает ничего (вне режима выбора),
+   * так что и откладывать нечего.
+   */
+  const lastTap = useRef<{ id: string; at: number } | null>(null);
+  const tapFrom = useRef<{ x: number; y: number } | null>(null);
+
+  function tapDown(event: React.PointerEvent) {
+    tapFrom.current = { x: event.clientX, y: event.clientY };
+  }
+
+  function tapUp(event: React.PointerEvent, message: Message) {
+    const from = tapFrom.current;
+    tapFrom.current = null;
+    if (!from || selected) return;
+
+    // Протяжка — это ответ свайпом, а не нажатие. Десять точек хватает, чтобы
+    // отличить намеренное движение от дрожи пальца.
+    if (Math.hypot(event.clientX - from.x, event.clientY - from.y) > 10) {
+      lastTap.current = null;
+      return;
+    }
+
+    // Время берём из самого события, а не спрашиваем часы. Так короче на один
+    // вызов и, что важнее, честнее: timeStamp — это момент, когда палец
+    // оторвался, а не когда до обработчика дошла очередь.
+    const now = event.timeStamp;
+    const previous = lastTap.current;
+    lastTap.current = { id: message.id, at: now };
+
+    if (previous && previous.id === message.id && now - previous.at < DOUBLE_TAP_MS) {
+      // Третье нажатие подряд не должно читаться как ещё одно двойное.
+      lastTap.current = null;
+      haptic('unlock');
+      void react(message, UP_REACTION);
+    }
+  }
+
   async function react(message: Message, emoji: string) {
     setMenuFor(null);
+    // Толчок на саму реакцию, а не только на открытие меню: это законченное
+    // действие, и подтверждать его должно то же, что подтверждает голос под
+    // записью.
+    haptic();
     // Показываем сразу, не дожидаясь сети: действие безобидное, а ждать
     // полсекунды ради смайлика незачем.
     const mine = message.reactions?.find((r) => r.userId === me);
@@ -954,27 +1051,38 @@ export default function ChatPage() {
     });
   }
 
-  /** Разослать выбранное другому человеку. Копией, а не ссылкой: переписки
-      независимы, и удаление оригинала не должно стирать пересланное. */
-  async function forwardTo(recipientId: string) {
+  /**
+   * Пересылка открывает переписку с готовым черновиком, а не отправляет сразу.
+   *
+   * Отправка по нажатию в списке не оставляла ни секунды, чтобы понять, туда ли
+   * ты нажал, — а список получателей ровно то место, где промахнуться проще
+   * всего. И подписать пересылаемое было негде, хотя половина пересылок именно
+   * ради подписи и делается: «смотри, что пишут».
+   */
+  function forwardTo(recipientId: string) {
     const list = forwarding ?? [];
     setForwarding(null);
     setSelected(null);
-    try {
-      // По очереди, а не разом: сервер принимает по одному сообщению, а
-      // порядок пересланного должен совпасть с порядком в переписке.
-      for (const message of list) {
-        await apiFetch('/messages', {
-          method: 'POST',
-          body: JSON.stringify({ recipient_id: recipientId, body: message.body }),
-        });
-      }
-      // Переслал самому себе — пусть увидит их сразу.
-      if (recipientId === userId) load();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Не удалось переслать');
+    if (list.length === 0) return;
+
+    setPendingForward({ messages: list, fromUserId: userId });
+
+    // Себе — не переходим никуда, просто кладём черновик в это же поле.
+    if (recipientId === userId) {
+      setStaged(takePendingForward());
+      return;
     }
+
+    router.push(`/messages/${recipientId}`);
   }
+
+  /**
+   * Пересланное, ждущее отправки.
+   *
+   * Забираем один раз на монтировании: оставшийся черновик всплыл бы при
+   * следующем заходе в тот же чат, и человек не понял бы, откуда он взялся.
+   */
+  const [staged, setStaged] = useState(() => takePendingForward());
 
   /** Очистить переписку: сервер удалит только наши письма, чужие останутся. */
   async function clearChat() {
@@ -1220,10 +1328,12 @@ export default function ChatPage() {
                     // одним и тем же.
                     if (!selected) holdStart(event, message);
                     swipeStart(event, message);
+                    tapDown(event);
                   }}
-                  onPointerUp={() => {
+                  onPointerUp={(event) => {
                     holdCancel();
                     swipeEnd();
+                    tapUp(event, message);
                   }}
                   onPointerCancel={() => {
                     holdCancel();
@@ -1298,7 +1408,12 @@ export default function ChatPage() {
                         ` max-height ${REMOVE_MS}ms var(--exit-ease),` +
                         ` padding ${REMOVE_MS}ms var(--exit-ease),` +
                         ` margin ${REMOVE_MS}ms var(--exit-ease)`
-                      : undefined,
+                      : // Обводку ведём переходом, и только её: подсветка закрепа
+                        // может прийти когда угодно, в том числе посреди
+                        // протяжки. Сдвиг сюда не попадает — им распоряжается
+                        // пружина, а переход отнял бы у неё transform и не дал
+                        // перехватить движение на полпути.
+                        'box-shadow 260ms ease',
                     // Горизонталь достаётся жесту, вертикаль остаётся прокрутке
                     // переписки: без этого браузер забирает себе оба движения и
                     // тянуть пузырь не даёт вовсе.
@@ -1306,11 +1421,16 @@ export default function ChatPage() {
                     pointerEvents: going ? 'none' : undefined,
                     // Отмеченное обводится акцентом снаружи, а не заливается:
                     // заливка спорила бы с собственным цветом пузыря.
-                    boxShadow: selected?.includes(message.id)
-                      ? '0 0 0 2px var(--bg), 0 0 0 4px var(--accent)'
-                      : spotlight === message.id
+                    //
+                    // Прозрачная обводка вместо undefined в покое — обязательна.
+                    // Переход между «нет тени» и «есть тень» браузер не
+                    // анимирует: ему нечего интерполировать, и рамка вспыхивала
+                    // и гасла рывком. Между двумя тенями одной формы, где
+                    // меняется только цвет, — ведёт спокойно.
+                    boxShadow:
+                      selected?.includes(message.id) || spotlight === message.id
                         ? '0 0 0 2px var(--bg), 0 0 0 4px var(--accent)'
-                        : undefined,
+                        : '0 0 0 2px transparent, 0 0 0 4px transparent',
                     // Прижатая сторона внутри цепочки — единственное место, где
                     // овал размыкается: у идущих подряд реплик одного человека
                     // соседние углы притуплены, и столбик читается как одна
@@ -1321,6 +1441,25 @@ export default function ChatPage() {
                     borderBottomLeftRadius: !mine && !groupEnd ? 8 : undefined,
                   }}
                 >
+                  {/* Подпись «переслано от» — над текстом, а не под ним.
+                      Читают сверху вниз, и знать, чьи это слова, надо до того,
+                      как их прочёл, а не после. Иначе первую реплику человек
+                      всегда приписывает не тому. */}
+                  {message.forwardedFrom && (
+                    <Link
+                      href={`/u/${message.forwardedFrom.id}`}
+                      onClick={(event) => event.stopPropagation()}
+                      className="mb-1 flex items-center gap-1 text-[12px] font-medium"
+                      style={{ color: mine ? 'var(--accent-contrast)' : 'var(--accent)', opacity: mine ? 0.85 : 1 }}
+                    >
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M13 5l7 7-7 7" />
+                        <path d="M20 12H8a4 4 0 0 0-4 4v3" />
+                      </svg>
+                      Переслано от {message.forwardedFrom.username}
+                    </Link>
+                  )}
+
                   {/* Цитата над ответом — отдельная карточка внутри пузыря.
                       Прежде она была вжата в самый угол: полоска в два
                       пикселя, кегль вдвое мельче реплики, отступы почти в ноль
@@ -1423,11 +1562,15 @@ export default function ChatPage() {
                       ['--reaction-origin' as string]: mine ? 'right' : 'left',
                     }}
                   >
-                    {reactions.map((reaction) => (
-                      <span key={reaction.userId} className="emoji text-[13px]">
-                        {reaction.emoji}
-                      </span>
-                    ))}
+                    {reactions.map((reaction) =>
+                      isArrowReaction(reaction.emoji) ? (
+                        <ArrowReaction key={reaction.userId} kind={reaction.emoji} size={13} />
+                      ) : (
+                        <span key={reaction.userId} className="emoji text-[13px]">
+                          {reaction.emoji}
+                        </span>
+                      )
+                    )}
                   </span>
                 )}
 
@@ -1471,6 +1614,71 @@ export default function ChatPage() {
           paddingBottom: 'calc(10px + env(safe-area-inset-bottom))',
         }}
       >
+        {/* Заблокированному собеседнику не пишут.
+            Строка ввода на этом экране обещала бы обратное: человек набрал бы
+            реплику, нажал отправить и получил отказ от сервера — при том, что
+            блокировку он поставил сам и десять минут назад. Вместо обещания —
+            прямой выход из положения. */}
+        {peerBlocked ? (
+          <div
+            className="flex w-full max-w-2xl flex-col items-center gap-2 rounded-2xl px-4 py-3.5"
+            style={{ background: 'var(--surface-2)' }}
+          >
+            <span className="text-[13.5px] text-[var(--text-muted)]">
+              Вы заблокировали этого человека
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                haptic();
+                void setBlocked(userId, false).catch(() => {});
+              }}
+              className="rounded-full px-5 py-2 text-[14px] font-medium"
+              style={{ background: 'var(--accent)', color: 'var(--accent-contrast)' }}
+            >
+              Разблокировать
+            </button>
+          </div>
+        ) : (
+        <>
+        {/* Пересылаемое — над строкой ввода, до отправки.
+            Здесь человек видит, что именно уйдёт, и может передумать или
+            подписать. Раньше между «нажал в списке» и «отправлено» не было ни
+            секунды. */}
+        {staged && (
+          <div
+            className="mb-1.5 flex w-full max-w-2xl items-center gap-2 rounded-2xl px-3 py-2"
+            style={{ background: 'var(--surface-2)' }}
+          >
+            <span className="flex-none" style={{ color: 'var(--accent)' }}>
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M13 5l7 7-7 7" />
+                <path d="M20 12H8a4 4 0 0 0-4 4v3" />
+              </svg>
+            </span>
+            <div className="flex min-w-0 flex-1 flex-col">
+              <span className="text-[12.5px] font-medium" style={{ color: 'var(--accent)' }}>
+                {staged.messages.length === 1
+                  ? 'Пересылаемое сообщение'
+                  : `Пересылаемых сообщений: ${staged.messages.length}`}
+              </span>
+              <span className="truncate text-[13px] text-[var(--text-muted)]">
+                {staged.messages[0]?.body || 'Вложение'}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setStaged(null)}
+              aria-label="Не пересылать"
+              className="flex-none text-[var(--text-muted)]"
+            >
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+                <path d="M6 6l12 12M18 6 6 18" />
+              </svg>
+            </button>
+          </div>
+        )}
+
         {/* Полоска над строкой ввода — одна на правку и на ответ: и то и другое
             отвечает на вопрос «что сейчас происходит с этим полем», и две
             полосы подряд означали бы, что можно править и отвечать разом. */}
@@ -1664,6 +1872,8 @@ export default function ChatPage() {
           <p className="pt-1 text-[12.5px]" style={{ color: 'var(--down)' }}>
             {voice.error}
           </p>
+        )}
+        </>
         )}
       </form>,
 

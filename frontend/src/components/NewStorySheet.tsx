@@ -2,7 +2,7 @@
 
 import { useRef, useState } from 'react';
 import { BottomSheet } from '@/components/BottomSheet';
-import { MediaEditor } from '@/components/MediaEditor';
+import { StoryEditor } from '@/components/StoryEditor';
 import { supabase } from '@/lib/supabase';
 import { apiFetch } from '@/lib/api';
 import { invalidate } from '@/lib/useApiData';
@@ -61,6 +61,13 @@ export function NewStorySheet({ open, onClose }: { open: boolean; onClose: () =>
     setCropping(URL.createObjectURL(file));
   }
 
+  /**
+   * Готовая картинка из конструктора: снимок с уже впечатанными подписями.
+   *
+   * Подписи впечатаны, а не описаны отдельно, намеренно — иначе каждый
+   * смотрящий пересобирал бы историю у себя, и она выглядела бы у всех
+   * по-разному: другой шрифт, другой перенос, другая ширина.
+   */
   async function upload(blob: Blob) {
     const source = cropping;
     setCropping(null);
@@ -205,7 +212,11 @@ export function NewStorySheet({ open, onClose }: { open: boolean; onClose: () =>
         </div>
       </BottomSheet>
 
-      <MediaEditor
+      {/* Полноэкранный конструктор вместо обрезки.
+          Историю смотрят во весь экран, и собирать её надо в том же кадре:
+          подпись, поставленная в углу маленького превью, на настоящем экране
+          оказалась бы в другом месте. */}
+      <StoryEditor
         open={cropping !== null}
         src={cropping}
         onCancel={() => {

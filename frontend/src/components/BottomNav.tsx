@@ -7,6 +7,8 @@ import { CREATE_HREF, CreateIcon, MOBILE_SLOTS } from '@/components/navTabs';
 import { OverlayLink } from '@/components/OverlayLink';
 import { useNavHiddenRequest } from '@/lib/navVisibility';
 import { useT } from '@/lib/i18n';
+import { useUnreadMessages } from '@/lib/useUnreadNotifications';
+import { setFoldOrigin } from '@/lib/foldOrigin';
 
 /**
  * Нижняя навигация по образцу таб-бара iOS.
@@ -22,6 +24,7 @@ import { useT } from '@/lib/i18n';
  */
 export function BottomNav() {
   const pathname = usePathname();
+  const unread = useUnreadMessages();
   const { t } = useT();
   const hiddenByPage = useNavHiddenRequest();
   const [hiddenByScroll, setHiddenByScroll] = useState(false);
@@ -168,6 +171,21 @@ export function BottomNav() {
               href={slot.href}
               aria-label={slot.label}
               aria-current={active ? 'page' : undefined}
+              // Метка для складывания экрана обратно в кнопку: мессенджер
+              // уходит в ту же точку, из которой открылся (см. useScreenLeave).
+              // Раньше ею была кнопка в шапке, теперь — эта вкладка.
+              {...(slot.href === '/messages' ? { 'data-messages-button': '' } : null)}
+              onClick={(event) => {
+                // Экран мессенджера разворачивается из той точки, по которой
+                // нажали, и складывается обратно в неё же. Рамку запоминаем до
+                // перехода: на монтировании экрана мерить уже поздно.
+                //
+                // Без этого разворот шёл из левого верхнего угла — оттуда, где
+                // кнопка стояла раньше, когда мессенджер жил в шапке.
+                if (slot.href === '/messages') {
+                  setFoldOrigin(event.currentTarget.getBoundingClientRect());
+                }
+              }}
               ref={(node) => {
                 slotRefs.current[index] = node;
               }}
@@ -177,6 +195,24 @@ export function BottomNav() {
               }}
             >
               <slot.Icon active={active} size={26} />
+              {/* Точка непрочитанных — на мессенджере. Без числа внутри:
+                  на вкладке важно «есть или нет», а сколько именно и от кого —
+                  видно на самом экране. */}
+              {slot.href === '/messages' && unread > 0 && (
+                <span
+                  aria-hidden
+                  className="absolute h-[9px] w-[9px] rounded-full"
+                  style={{
+                    // Привязка к самой иконке, а не к краю слота: слоты
+                    // растягиваются по ширине бара, и точка уезжала бы от
+                    // колокола тем дальше, чем шире экран.
+                    top: 'calc(50% - 13px)',
+                    left: 'calc(50% + 5px)',
+                    background: 'var(--accent)',
+                    boxShadow: '0 0 0 2px var(--tabbar-bg, var(--surface))',
+                  }}
+                />
+              )}
             </Link>
           );
         })}

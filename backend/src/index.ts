@@ -18,6 +18,7 @@ import blocksRouter from './routes/blocks';
 import reportsRouter from './routes/reports';
 import moderationRouter from './routes/moderation';
 import invitesRouter from './routes/invites';
+import notificationsRouter from './routes/notifications';
 
 dotenv.config();
 
@@ -110,6 +111,7 @@ app.use('/blocks', blocksRouter);
 app.use('/reports', reportsRouter);
 app.use('/moderation', moderationRouter);
 app.use('/invites', invitesRouter);
+app.use('/notifications', notificationsRouter);
 
 /**
  * Слушаем на всех интерфейсах, а не только на localhost.

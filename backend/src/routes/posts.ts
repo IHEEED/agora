@@ -25,10 +25,12 @@ type PostRow = {
 
 const router = Router();
 
-type PostSort = 'hot' | 'new' | 'top' | 'commented';
+type PostSort = 'hot' | 'new' | 'top' | 'commented' | 'viewed';
 
 function parsePostSort(value: unknown): PostSort {
-  return value === 'new' || value === 'top' || value === 'commented' ? value : 'hot';
+  return value === 'new' || value === 'top' || value === 'commented' || value === 'viewed'
+    ? value
+    : 'hot';
 }
 
 // затухание по времени в духе Reddit: чем больше голосов, тем медленнее
@@ -40,7 +42,9 @@ function hotScore(score: number, createdAt: string): number {
   return sign * order - ageHours / 12.5;
 }
 
-function sortPosts<T extends { created_at: string; score: number; commentCount: number }>(
+function sortPosts<
+  T extends { created_at: string; score: number; commentCount: number; views?: number },
+>(
   posts: T[],
   sort: PostSort
 ): T[] {
@@ -55,6 +59,15 @@ function sortPosts<T extends { created_at: string; score: number; commentCount: 
       break;
     case 'commented':
       sorted.sort((a, b) => b.commentCount - a.commentCount);
+      break;
+    case 'viewed':
+      // При равных просмотрах — свежее выше. Иначе порядок среди нулей решает
+      // база, и лента перетасовывается на каждом обновлении сама по себе.
+      sorted.sort(
+        (a, b) =>
+          (b.views ?? 0) - (a.views ?? 0) ||
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
       break;
     case 'hot':
     default:
@@ -513,22 +526,38 @@ router.get('/reposts/:userId', optionalAuth, async (req, res) => {
   res.json(await enrichPosts(data, req.user?.id));
 });
 
+/**
+ * Просмотр.
+ *
+ * Прибавляет база, а не этот код. Раньше здесь было «прочитать, прибавить,
+ * записать» — два запроса и промежуток между ними: двое открывших запись
+ * одновременно прочитают одно число и запишут одно, из двух просмотров
+ * останется один. На своей машине этого не увидеть, в живой ленте это обычное
+ * дело (см. миграцию 021).
+ */
 router.post('/:id/view', async (req, res) => {
-  const { id } = req.params;
+  const { error } = await supabase.rpc('bump_post_views', { target: req.params.id });
 
-  const { data: post, error: fetchError } = await supabase.from('posts').select('views').eq('id', id).single();
+  if (error) {
+    // Пока миграция 021 не выполнена, функции нет. Просмотр — не то, ради чего
+    // стоит отдавать ошибку на экран: возвращаемся к прежнему способу.
+    if (error.code === 'PGRST202' || /bump_post_views/.test(error.message ?? '')) {
+      const { data: post } = await supabase
+        .from('posts')
+        .select('views')
+        .eq('id', req.params.id)
+        .maybeSingle();
 
-  if (fetchError || !post) {
-    return res.status(404).json({ error: 'post not found' });
-  }
+      if (post) {
+        await supabase
+          .from('posts')
+          .update({ views: post.views + 1 })
+          .eq('id', req.params.id);
+      }
+      return res.status(204).send();
+    }
 
-  const { error: updateError } = await supabase
-    .from('posts')
-    .update({ views: post.views + 1 })
-    .eq('id', id);
-
-  if (updateError) {
-    console.error('posts: failed to record view', updateError);
+    console.error('posts: failed to record view', error);
     return res.status(500).json({ error: 'Не удалось учесть просмотр' });
   }
 
@@ -582,7 +611,22 @@ router.get('/', optionalAuth, async (req, res) => {
     ? data.filter((post) => !hidden.has(post.author_id as string))
     : data;
 
-  res.json(foldChains(sortPosts(await enrichPosts(visible, req.user?.id), sort)));
+  /**
+   * Закреплённая запись всегда первая, какой бы ни была сортировка.
+   *
+   * Это объявление от тех, кто делает приложение, и его смысл в том, что его
+   * видят все. Попади оно в общий порядок — в «популярных» оно бы утонуло за
+   * день, а в «свежих» уехало вниз через час.
+   *
+   * Сортируем остальное как обычно и ставим закреплённое сверху, а не
+   * подмешиваем в сортировку: любая формула, в которой закреплённое участвует
+   * наравне, однажды поставит его вторым.
+   */
+  const enriched = foldChains(sortPosts(await enrichPosts(visible, req.user?.id), sort));
+  const pinned = enriched.filter((post) => (post as { pinned_global?: boolean }).pinned_global);
+  const rest = enriched.filter((post) => !(post as { pinned_global?: boolean }).pinned_global);
+
+  res.json([...pinned, ...rest]);
 });
 
 router.get('/community/:communityId', optionalAuth, async (req, res) => {

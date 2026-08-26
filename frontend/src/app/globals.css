@@ -1205,6 +1205,42 @@ label,
   box-shadow: var(--sheet-shadow);
 }
 
+/* Продолжение шторки за нижнюю кромку экрана.
+   Шторку можно оттянуть вверх — она поддаётся с сопротивлением, а не упирается
+   намертво. Но стоило ей сдвинуться, как под ней открывалась полоса страницы:
+   шторка стоит ровно по нижнему краю, и снизу у неё ничего нет. Полоса эта не
+   часть замысла, а дыра в декорации.
+   Продолжаем фон вниз, за экран. Ничего не занимает и не меняет раскладку —
+   просто там, куда шторка отъезжает, лежит она же. */
+/* Пустая вкладка занимает панель целиком и встаёт по центру.
+
+   Панель профиля держит высоту не короче окна намеренно: без этого пустая
+   вкладка укорачивает документ, браузер подтягивает прокрутку к новому
+   максимуму, и нажатие на вкладку выглядит так, будто оно забросило страницу
+   наверх. Плата за это — та самая пустота под короткой надписью: строчка «пока
+   ничего нет» жалась к верху, а под ней оставалось полтора экрана ничего.
+
+   Строчка не должна расти, но может встать посередине отведённого ей места.
+   Пустота никуда не делась — она просто перестала выглядеть обрывом. */
+.empty-fill {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 58vh;
+  padding: 2.5rem 0;
+}
+
+.bottom-sheet::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  height: 140px;
+  background: var(--sheet-bg);
+}
+
 /* Въезд следующего шага мастера — пара к затуханию предыдущего. */
 /* Шаги внутри шторки «куда опубликовать» → «текст поста». Направление входа
    зеркалит направление ухода: вперёд экран приезжает снизу, назад — сверху.
@@ -1274,6 +1310,13 @@ label,
 .app-header-veil {
   position: absolute;
   inset: 0;
+  /* Строго под содержимым шапки.
+     Порядок отрисовки без z-index решает порядок в разметке, и по нему вуаль
+     и так внизу. Но backdrop-filter заводит собственный контекст наложения, и
+     Safari в этом случае местами поднимает его над соседями: на части
+     устройств знак и кнопки оказывались под дымкой — размытыми и приглушёнными.
+     Явные этажи снимают вопрос вовсе, а не полагаются на порядок тегов. */
+  z-index: 0;
   /* Свес вуали. Контент страниц отступает ровно на эту величину (.below-header),
      чтобы сториз и аватар профиля не попадали под размытие в покое.
      Было -56px: акцентная дымка спускалась почти до середины экрана и мешала
@@ -2220,23 +2263,95 @@ label,
  */
 .thought-cloud {
   position: absolute;
-  bottom: calc(100% - 4px);
+  bottom: calc(100% - 2px);
   left: 50%;
-  transform: translateX(-50%);
   z-index: 2;
+
+  /* Растущий прямоугольник, а не полоса в одну строку.
+     Строкой облачко вмещало три слова, дальше ставило многоточие — то есть
+     обрывало мысль на полуслове ровно там, где она начинала что-то значить.
+     Короткая мысль теперь остаётся маленьким квадратиком, длинная переносится
+     на вторую строку и становится выше: размер облачка сам говорит, много
+     человек сказал или обронил два слова. */
+  /* Ширина по тексту, а не по остатку места.
+     Пузырь стоит absolute, и без width его ширину выбирает браузер «как
+     влезет» — то есть по самому узкому варианту. Слово «мысль» при этом
+     ломалось пополам и вставало столбиком.
+     max-content: ширина ровно по строке, пока строка короче потолка. */
+  width: max-content;
   max-width: 132px;
-  padding: 4px 9px;
-  border-radius: 12px;
+  padding: 6px 10px;
+  border-radius: 16px;
   background: var(--surface-2);
   border: 1px solid var(--border);
   color: var(--text);
   font-size: 11px;
-  line-height: 1.25;
+  line-height: 1.3;
   text-align: center;
-  white-space: nowrap;
+  white-space: normal;
+  /* break-word, а не anywhere. anywhere разрешает разрыв в любом месте, и
+     короткое слово рвалось посреди букв, лишь бы влезть в узкую колонку.
+     break-word переносит только то, что не помещается целиком. */
+  overflow-wrap: break-word;
+  hyphens: none;
+
+  /* Две строки — потолок. Третья превращает облачко в заметку и накрывает
+     собой соседние аватарки в списке переписок. */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
   overflow: hidden;
-  text-overflow: ellipsis;
+
   cursor: default;
+
+  /* Появление: вырастает из хвостика, а не возникает готовым.
+     Точка роста внизу по центру — там, где хвостик касается лица: облачко
+     буквально всходит от того, кто это сказал. */
+  transform-origin: 50% calc(100% + 8px);
+  animation: thought-cloud-in 340ms var(--enter-ease, cubic-bezier(0.22, 1, 0.36, 1));
+  transition:
+    transform 200ms cubic-bezier(0.22, 1, 0.36, 1),
+    background-color 200ms ease,
+    border-color 200ms ease;
+}
+
+@keyframes thought-cloud-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) scale(0.4);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) scale(1);
+  }
+}
+
+/* Своё облачко нажимают — значит оно обязано отвечать на нажатие.
+   Отклик на нажатии, а не на отпускании: палец закрывает облачко собой, и
+   ждать отпускания незачем — к этому моменту уже открыт редактор. */
+.thought-cloud[role='button'] {
+  cursor: pointer;
+}
+
+.thought-cloud[role='button']:active {
+  transform: translateX(-50%) scale(0.92);
+}
+
+/* Пока лежит на месте — сдвиг по центру держится трансформацией, и её нельзя
+   потерять ни в одном состоянии: иначе облачко прыгает вбок на полширины. */
+.thought-cloud:not(:active) {
+  transform: translateX(-50%) scale(1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .thought-cloud {
+    animation: none;
+  }
+  .thought-cloud[role='button']:active {
+    transform: translateX(-50%) scale(1);
+    background: var(--surface);
+  }
 }
 
 /* Хвостик — два кружка убывающего размера, как в комиксах и в Instagram.
@@ -2252,28 +2367,57 @@ label,
   border: 1px solid var(--border);
 }
 
+/* Хвостик ближе к середине.
+   Отступ в девять точек был рассчитан на широкий пузырь в одну строку. На
+   коротком слове тот же отступ уводит кружки к самому краю, и облачко
+   выглядит съехавшим вбок, хотя стоит по центру. */
 .thought-cloud::before {
   width: 7px;
   height: 7px;
   bottom: -5px;
-  margin-left: -9px;
+  margin-left: -5px;
 }
 
 .thought-cloud::after {
   width: 4px;
   height: 4px;
   bottom: -10px;
-  margin-left: -14px;
+  margin-left: -8px;
 }
 
 /* В правке облачко шире и не обрезает текст: пишущий должен видеть, что
    написал, целиком — иначе он не знает, где кончилась мысль. */
+/* Правка: облачко расширяется, а не подменяется другим.
+   Ширина и цвет кромки идут переходом с того же класса, поэтому переход из
+   показа в правку читается как «оно раскрылось», а не как «одно исчезло,
+   другое появилось». Появление при этом не переигрывается — анимация входа
+   привязана к самому облачку, а оно то же самое. */
 .thought-cloud-editing {
   width: 168px;
+  min-width: 168px;
   max-width: none;
   white-space: normal;
   border-color: var(--accent);
+  background: var(--surface);
   cursor: text;
+  animation: none;
+
+  /* Внутри редактора текст не обрезаем: человек должен видеть, что пишет. */
+  display: block;
+  -webkit-line-clamp: none;
+  line-clamp: none;
+  overflow: visible;
+
+  transition:
+    width 240ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 200ms ease,
+    background-color 200ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .thought-cloud-editing {
+    transition: border-color 200ms ease, background-color 200ms ease;
+  }
 }
 
 /* ─── Материал плавающих поверхностей ────────────────────────────────────────
@@ -2417,5 +2561,56 @@ summary {
   .material-media {
     background: rgba(0, 0, 0, 0.72);
     border-color: rgba(255, 255, 255, 0.9);
+  }
+}
+
+/* ─── Моргание знака при обновлении ленты ───────────────────────────────────
+   `:P` — лицо, и у лица есть свой способ показать, что оно занято. Двоеточие
+   сжимается в тире и распрямляется, язык подаётся вниз следом — как будто знак
+   моргнул и облизнулся.
+
+   Глаза и язык живут по разным дорожкам с задержкой в сотую долю: одновременное
+   движение читается как дрожь всего знака, а разнесённое — как одно живое
+   действие. Тот же приём, что у настоящего моргания: веки и брови не совпадают.
+
+   Анимация на transform и opacity — их браузер считает на видеокарте и не
+   пересобирает раскладку шапки на каждом кадре. */
+@keyframes wordmark-eyes-blink {
+  0%, 62%, 100% { transform: scaleY(1); }
+  70% { transform: scaleY(0.14); }
+  78% { transform: scaleY(1); }
+}
+
+@keyframes wordmark-tongue-blink {
+  0%, 66%, 100% { transform: translateY(0) rotate(0deg); }
+  74% { transform: translateY(0.06em) rotate(-4deg); }
+  84% { transform: translateY(0) rotate(0deg); }
+}
+
+.wordmark-blink .wordmark-eyes {
+  display: inline-block;
+  transform-origin: center 55%;
+  animation: wordmark-eyes-blink 1.6s ease-in-out infinite;
+}
+
+.wordmark-blink .wordmark-tongue {
+  display: inline-block;
+  transform-origin: center top;
+  animation: wordmark-tongue-blink 1.6s ease-in-out infinite;
+}
+
+/* Уменьшенное движение: знак не моргает, а мягко приглушается и возвращается.
+   Само сообщение «идёт обновление» остаётся, а вестибулярной нагрузки нет. */
+@media (prefers-reduced-motion: reduce) {
+  .wordmark-blink .wordmark-eyes,
+  .wordmark-blink .wordmark-tongue {
+    animation: none;
+  }
+  .wordmark-blink {
+    animation: wordmark-fade 1.6s ease-in-out infinite;
+  }
+  @keyframes wordmark-fade {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.55; }
   }
 }

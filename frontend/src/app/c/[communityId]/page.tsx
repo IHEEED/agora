@@ -3,7 +3,9 @@
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { useApiData } from '@/lib/useApiData';
+import { invalidate, useApiData } from '@/lib/useApiData';
+import { apiFetch } from '@/lib/api';
+import { haptic } from '@/lib/haptics';
 import { useSession } from '@/lib/useSession';
 import { Community, Post } from '@/lib/types';
 import { PostCard } from '@/components/PostCard';
@@ -47,6 +49,38 @@ export default function CommunityPage() {
     [communitiesResult.data, communityId]
   );
   const posts = useMemo(() => postsResult.data ?? [], [postsResult.data]);
+
+  /**
+   * Подписка на клуб.
+   *
+   * Держим своё состояние поверх серверного: показать результат нажатия надо
+   * сразу, а список клубов перечитается фоном. Пока он не приехал, правду
+   * знает только эта переменная.
+   */
+  const [joinedLocal, setJoinedLocal] = useState<boolean | null>(null);
+  const joined = joinedLocal ?? community?.isMember ?? false;
+  const [joining, setJoining] = useState(false);
+
+  async function toggleJoin() {
+    if (joining) return;
+    haptic();
+    const next = !joined;
+    setJoinedLocal(next);
+    setJoining(true);
+
+    try {
+      await apiFetch(`/communities/${communityId}/join`, {
+        method: next ? 'POST' : 'DELETE',
+      });
+      invalidate('/communities');
+    } catch {
+      // Не получилось — возвращаем кнопку как была, а не оставляем её
+      // показывать несуществующую подписку.
+      setJoinedLocal(!next);
+    } finally {
+      setJoining(false);
+    }
+  }
 
   // Участников как таблицы нет, и выдумывать число нельзя. Считаем тех, кто
   // здесь писал: это честная величина и ровно та, что человеку интересна —
@@ -132,6 +166,21 @@ export default function CommunityPage() {
                 </p>
               )}
             </div>
+
+            {/* Подписка. Кнопка меняет вид, а не только подпись: «Вы подписаны»
+                акцентной заливкой читалось бы призывом нажать ещё раз. */}
+            <button
+              type="button"
+              onClick={toggleJoin}
+              className="rounded-full py-2.5 text-[14px] font-medium transition-opacity active:opacity-80"
+              style={
+                joined
+                  ? { background: 'var(--surface-2)', color: 'var(--text)' }
+                  : { background: 'var(--accent)', color: 'var(--accent-contrast)' }
+              }
+            >
+              {joined ? 'Вы подписаны' : 'Подписаться'}
+            </button>
 
             {/* Участники — единственная цифра, за которой есть список; она и
                 открывает его. Остальное справкой в строку, без линий. */}

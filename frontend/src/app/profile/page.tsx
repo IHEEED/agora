@@ -1,12 +1,15 @@
 'use client';
 
-import { useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useSession } from '@/lib/useSession';
-import { useApiData } from '@/lib/useApiData';
+import { invalidate, useApiData } from '@/lib/useApiData';
+import { apiFetch } from '@/lib/api';
+import { uploadImage } from '@/lib/uploadImage';
 import { CommentWithPost, Post, UserProfile } from '@/lib/types';
 import { PeopleSheet } from '@/components/PeopleSheet';
 import { PostCard } from '@/components/PostCard';
 import { ProfileAvatar } from '@/components/ProfileAvatar';
+import { VerifiedMark } from '@/components/VerifiedMark';
 import { ThoughtCloud } from '@/components/ThoughtCloud';
 import { InfluenceInfo } from '@/components/InfluenceInfo';
 import { SuggestedPeople } from '@/components/SuggestedPeople';
@@ -17,16 +20,7 @@ import { DEFAULT_FIT, Fit } from '@/components/ImageFitter';
 import { ImageAdjustDialog } from '@/components/ImageAdjustDialog';
 import Link from 'next/link';
 import {
-  PROFILE_BIO_KEY,
-  PROFILE_CHANGED_EVENT,
-  PROFILE_AVATAR_KEY,
-  PROFILE_AVATAR_FIT_KEY,
-  PROFILE_COVER_FIT_KEY,
-  PROFILE_COVER_KEY,
-  PROFILE_USERNAME_KEY,
-  PROFILE_NAME_KEY,
   ProfileEditSheet,
-  readProfileField,
 } from '@/components/ProfileEditSheet';
 import { usePhoneGate } from '@/components/PhoneGateContext';
 import { formatCompactAge } from '@/lib/formatDate';
@@ -35,10 +29,11 @@ import { TranslationKey, useT } from '@/lib/i18n';
 
 type Tab = 'posts' | 'comments' | 'reposts';
 
-// Ни отображаемого имени, ни описания в таблице users пока нет — держим их
-// здесь как образец, пока не появятся поля на бэкенде.
-const DISPLAY_NAME = 'Бодрин Фёдор';
-const BIO = 'иногда достаточно лишь пары фраз';
+// Имя и подпись переехали в базу (миграция 022). Здесь стояли образцы —
+// зашитое «Бодрин Фёдор» и подпись к нему, — и показывались они всем, у кого
+// имя ещё не заполнено. То есть человек видел в своём профиле чужое имя и
+// считал это ошибкой приложения; собственно, с этого и начался разговор про
+// рассинхрон профиля.
 
 const TABS: ReadonlyArray<readonly [Tab, TranslationKey]> = [
   ['posts', 'profile.posts'],
@@ -87,33 +82,13 @@ export default function ProfilePage() {
   // одинаковое, разница только в адресе запроса.
   const [peopleTab, setPeopleTab] = useState<'followers' | 'following' | null>(null);
 
-  // Обложка — пока только на устройстве: поля под неё в базе нет, бакета тоже.
   const coverInputRef = useRef<HTMLInputElement>(null);
   const [cover, setCover] = useState<string | null>(null);
   const [pendingCover, setPendingCover] = useState<string | null>(null);
   const [adjustingCover, setAdjustingCover] = useState(false);
-  const storedCover = useSyncExternalStore(
-    () => () => {},
-    () => window.localStorage.getItem(PROFILE_COVER_KEY),
-    () => null
-  );
-  const coverImage = cover ?? storedCover;
-
-  // Кадрирование обложки. Держим одной строкой в localStorage, чтобы не плодить
-  // три ключа под то, что всегда меняется вместе.
-  const [coverFit, setCoverFit] = useState<Fit>(() => {
-    if (typeof window === 'undefined') return DEFAULT_FIT;
-    try {
-      return { ...DEFAULT_FIT, ...JSON.parse(window.localStorage.getItem(PROFILE_COVER_FIT_KEY) ?? '{}') };
-    } catch {
-      return DEFAULT_FIT;
-    }
-  });
-
-  function saveCoverFit(next: Fit) {
-    setCoverFit(next);
-    window.localStorage.setItem(PROFILE_COVER_FIT_KEY, JSON.stringify(next));
-  }
+  // Кадрирование обложки — то, что человек подобрал прямо сейчас. Сохранённое
+  // приезжает с сервера вместе с самой обложкой (см. serverCoverFit ниже).
+  const [coverFit, setCoverFit] = useState<Fit | null>(null);
 
   function pickCover(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -132,57 +107,6 @@ export default function ProfilePage() {
     event.target.value = '';
   }
 
-  // Значения профиля живут на устройстве, пока в базе нет полей под них.
-  // Подписываемся на событие сохранения через useSyncExternalStore: у сервера
-  // и браузера разные снимки, поэтому разметка не расходится при гидратации.
-  const displayName = useSyncExternalStore(
-    (notify) => {
-      window.addEventListener(PROFILE_CHANGED_EVENT, notify);
-      return () => window.removeEventListener(PROFILE_CHANGED_EVENT, notify);
-    },
-    () => readProfileField(PROFILE_NAME_KEY, DISPLAY_NAME),
-    () => DISPLAY_NAME
-  );
-  const bio = useSyncExternalStore(
-    (notify) => {
-      window.addEventListener(PROFILE_CHANGED_EVENT, notify);
-      return () => window.removeEventListener(PROFILE_CHANGED_EVENT, notify);
-    },
-    () => readProfileField(PROFILE_BIO_KEY, BIO),
-    () => BIO
-  );
-  const savedAvatar = useSyncExternalStore(
-    (notify) => {
-      window.addEventListener(PROFILE_CHANGED_EVENT, notify);
-      return () => window.removeEventListener(PROFILE_CHANGED_EVENT, notify);
-    },
-    () => readProfileField(PROFILE_AVATAR_KEY),
-    () => ''
-  );
-  const savedAvatarFitRaw = useSyncExternalStore(
-    (notify) => {
-      window.addEventListener(PROFILE_CHANGED_EVENT, notify);
-      return () => window.removeEventListener(PROFILE_CHANGED_EVENT, notify);
-    },
-    () => readProfileField(PROFILE_AVATAR_FIT_KEY, '{}'),
-    () => '{}'
-  );
-
-  const savedAvatarFit = useMemo<Fit>(() => {
-    try {
-      return { ...DEFAULT_FIT, ...JSON.parse(savedAvatarFitRaw) };
-    } catch {
-      return DEFAULT_FIT;
-    }
-  }, [savedAvatarFitRaw]);
-  const savedHandle = useSyncExternalStore(
-    (notify) => {
-      window.addEventListener(PROFILE_CHANGED_EVENT, notify);
-      return () => window.removeEventListener(PROFILE_CHANGED_EVENT, notify);
-    },
-    () => readProfileField(PROFILE_USERNAME_KEY),
-    () => ''
-  );
 
   const userId = session?.user.id;
 
@@ -195,6 +119,31 @@ export default function ProfilePage() {
   // Счётчики подписок приходят отдельным запросом: считать их на клиенте
   // пришлось бы, вытянув оба списка целиком.
   const profileResult = useApiData<UserProfile>(userId ? `/users/${userId}` : null);
+
+  /**
+   * Профиль приходит с сервера, а не из браузера.
+   *
+   * Раньше имя, подпись и картинки лежали в localStorage, и профиля у человека
+   * было столько, сколько устройств: на телефоне одно имя, на ноутбуке другое,
+   * на сайте третье — и все три он считал своим единственным. Собеседник при
+   * этом не видел ни одного: ему доставался только ник.
+   */
+  const profile = profileResult.data;
+  // Обложка приезжает вместе с профилем; cover — то, что человек только что
+  // выбрал и ещё не сохранил, но уже видит.
+  const coverImage = cover ?? profile?.cover_url ?? null;
+  // То же с кадрированием: пока не сохранили — своё, дальше серверное.
+  const shownCoverFit: Fit = coverFit ?? { ...DEFAULT_FIT, ...(profile?.cover_fit ?? {}) };
+  // Запасное значение — собственный ник, а не выдуманное имя. Ник у человека
+  // есть всегда, и он свой.
+  const displayName = profile?.display_name || profile?.username || '';
+  const bio = profile?.bio || '';
+  const savedAvatar = profile?.avatar_url ?? '';
+  const savedAvatarFit = useMemo<Fit>(
+    () => ({ ...DEFAULT_FIT, ...(profile?.avatar_fit ?? {}) }),
+    [profile?.avatar_fit]
+  );
+  const savedHandle = profile?.username ?? '';
 
   /**
    * Своя мысль на сутки.
@@ -281,8 +230,8 @@ export default function ProfilePage() {
               className="profile-cover -mb-9 flex h-[168px] w-full items-start justify-end rounded-t-2xl p-3"
               style={{
                 backgroundImage: `url(${coverImage})`,
-                backgroundSize: `${coverFit.zoom * 100}%`,
-                backgroundPosition: `${coverFit.x}% ${coverFit.y}%`,
+                backgroundSize: `${shownCoverFit.zoom * 100}%`,
+                backgroundPosition: `${shownCoverFit.x}% ${shownCoverFit.y}%`,
                 backgroundRepeat: 'no-repeat',
               }}
             >
@@ -341,7 +290,14 @@ export default function ProfilePage() {
                 потом цифры, потом кнопка — и каждая приходящая строка толкала
                 соседей вниз. Это и выглядело как прыгающая аватарка. */}
             <div className="flex flex-col gap-0.5">
-              <h1 className="text-[17px] font-semibold leading-tight text-[var(--text)]">{displayName}</h1>
+              {/* gap-1, а не 1.5: галочка относится к имени, а не стоит рядом
+                  с ним. Просвет шире буквы разрывает их на две вещи. */}
+              <h1 className="flex items-center gap-1 text-[17px] font-semibold leading-tight text-[var(--text)]">
+                {displayName}
+                {/* Своя галочка тоже видна. Не показывать её у себя — значит
+                    оставить человека гадать, выдали ему её или нет. */}
+                <VerifiedMark verified={profile?.verified_at} size={19} />
+              </h1>
               <span className="text-[13px] font-medium" style={{ color: 'var(--accent)' }}>
                 @{handle}
               </span>
@@ -446,13 +402,13 @@ export default function ProfilePage() {
               ))}
               {posts.length === 0 &&
                 (phoneVerified ? (
-                  <p className="py-10 text-center text-[var(--text-muted)]">
+                  <p className="empty-fill text-center text-[var(--text-muted)]">
                     {t('profile.emptyPosts')}
                   </p>
                 ) : (
                   // Пока телефон не подтверждён, писать всё равно нельзя —
                   // поэтому на месте пустого состояния зовём это сделать.
-                  <div className="flex flex-col items-center gap-3 px-4 py-10 text-center">
+                  <div className="empty-fill flex flex-col items-center gap-3 px-4 text-center">
                     <p className="text-[14.5px] leading-relaxed text-[var(--text-muted)]">
                       {t('profile.verifyPrompt')}
                     </p>
@@ -521,7 +477,7 @@ export default function ProfilePage() {
                 </article>
               ))}
               {comments.length === 0 && (
-                <p className="py-10 text-center text-[var(--text-muted)]">
+                <p className="empty-fill text-center text-[var(--text-muted)]">
                   {t('profile.emptyComments')}
                 </p>
               )}
@@ -534,7 +490,7 @@ export default function ProfilePage() {
                 <PostCard key={post.id} post={post} />
               ))}
               {reposts.length === 0 && (
-                <p className="py-10 text-center text-[var(--text-muted)]">
+                <p className="empty-fill text-center text-[var(--text-muted)]">
                   {t('profile.emptyReposts')}
                 </p>
               )}
@@ -547,24 +503,46 @@ export default function ProfilePage() {
         open={adjustingCover}
         src={pendingCover}
         shape="cover"
-        initialFit={coverFit}
+        initialFit={shownCoverFit}
         onCancel={() => setAdjustingCover(false)}
-        onApply={(fit) => {
-          if (pendingCover) {
-            window.localStorage.setItem(PROFILE_COVER_KEY, pendingCover);
-            setCover(pendingCover);
-          }
-          saveCoverFit(fit);
+        onApply={async (fit) => {
           setAdjustingCover(false);
+          if (!pendingCover) return;
+
+          // Показываем сразу, отправляем следом: ждать загрузки файла, глядя
+          // на прежнюю обложку, — худшее из обоих.
+          setCover(pendingCover);
+          setCoverFit(fit);
+
+          try {
+            const url = await uploadImage(pendingCover, 'covers');
+            await apiFetch('/users/me/profile', {
+              method: 'PATCH',
+              body: JSON.stringify({ coverUrl: url, coverFit: fit }),
+            });
+            invalidate('/users');
+          } catch {
+            // Не получилось — возвращаем как было, а не оставляем обложку,
+            // которой на сервере нет.
+            setCover(null);
+            setCoverFit(null);
+          }
         }}
       />
 
       <ProfileEditSheet
         open={editing}
         onClose={() => setEditing(false)}
-        defaultName={DISPLAY_NAME}
-        defaultBio={BIO}
-        defaultUsername={emailHandle}
+        // Всё из профиля на сервере. Запасные значения — на случай, когда
+        // профиль ещё не приехал: пустые поля в открытой шторке человек примет
+        // за «у меня ничего не заполнено» и сотрёт то, что было.
+        defaultName={profile?.display_name ?? ''}
+        defaultBio={profile?.bio ?? ''}
+        defaultUsername={profile?.username ?? emailHandle}
+        defaultAvatar={profile?.avatar_url ?? null}
+        defaultAvatarFit={profile?.avatar_fit ?? null}
+        defaultCover={profile?.cover_url ?? null}
+        defaultCoverFit={profile?.cover_fit ?? null}
       />
 
       <PeopleSheet

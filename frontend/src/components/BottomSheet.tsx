@@ -4,9 +4,20 @@ import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
 import { haptic } from '@/lib/haptics';
 import { lockScroll } from '@/lib/scrollLock';
+import { VelocityTracker, committed, rubberband } from '@/lib/gestureVelocity';
 
-/** Ниже этого сдвига отпускание закрывает шторку, выше — возвращает на место. */
+/**
+ * Дотянул до этого — закрываем, даже если отпустил неподвижно.
+ *
+ * Это только половина условия: вторая — скорость. Короткий быстрый щелчок
+ * вниз означает «убери» ничуть не меньше, чем медленная протяжка до конца, но
+ * до порога не доходит. Раньше такая шторка возвращалась на место, хотя
+ * человек был уверен, что уже её выкинул.
+ */
 const DISMISS_AFTER_PX = 120;
+
+/** Насколько вверх шторка вообще поддаётся, прежде чем упереться совсем. */
+const RUBBER_LIMIT_PX = 90;
 
 /**
  * Шторка, выезжающая снизу: затемнение с закрытием по нажатию, полоска-ухватка
@@ -41,6 +52,7 @@ export function BottomSheet({
 }) {
   const [drag, setDrag] = useState<number | null>(null);
   const dragStart = useRef(0);
+  const tracker = useRef(new VelocityTracker());
 
   // Толчок на появление шторки — здесь, а не по местам вызова. Шторок в
   // приложении дюжина (комментарии, «поделиться», меню записи, меню человека,
@@ -79,20 +91,80 @@ export function BottomSheet({
     return () => window.removeEventListener('keydown', onKey);
   }, [open, onClose]);
 
+  /**
+   * Жест начинается где угодно, а не только на полоске-ухватке.
+   *
+   * Ухватка шириной в палец и высотой в спичку — единственное место, откуда
+   * шторка закрывалась. Попасть в неё с первого раза не выходит, и человек
+   * тянул вниз по содержимому, ничего не добивался и шёл искать крестик.
+   *
+   * Но у содержимого своя прокрутка, и отнимать её нельзя. Правило простое и
+   * то же, что во всех приложениях с такими шторками: тянуть шторку можно,
+   * пока список внутри стоит на самом верху. Прокрутил вниз хоть на пиксель —
+   * жест принадлежит списку, пока не вернёшься наверх.
+   */
+  function canDragFrom(target: EventTarget | null): boolean {
+    const scroller = (target as Element | null)?.closest?.('.sheet-scroll');
+    return !scroller || scroller.scrollTop <= 0;
+  }
+
   function onPointerDown(e: React.PointerEvent) {
+    // Мышью тянуть за текст незачем: там выделение, и оно важнее. На касании
+    // выделения нет, а есть жест.
+    if (e.pointerType === 'mouse' && !(e.currentTarget as HTMLElement).dataset.sheetHandle) {
+      const handle = (e.target as Element | null)?.closest?.('[data-sheet-handle]');
+      if (!handle) return;
+    }
+
+    if (!canDragFrom(e.target)) return;
+
+    // Захват указателя. Для касаний браузер делает это сам, а для мыши — нет:
+    // без захвата курсор, соскользнувший с узкой полоски-ухватки, обрывал и
+    // движение, и отпускание, и шторка застревала в перетащенном виде.
+    e.currentTarget.setPointerCapture(e.pointerId);
     dragStart.current = e.clientY;
+    tracker.current.reset();
     setDrag(0);
   }
 
   function onPointerMove(e: React.PointerEvent) {
     if (drag === null) return;
-    // Тянуть можно только вниз: вверх шторка уже упирается в свой потолок.
-    setDrag(Math.max(0, e.clientY - dragStart.current));
+    tracker.current.add(e.clientY);
+
+    const offset = e.clientY - dragStart.current;
+
+    // Вверх шторка уже упирается в свой потолок, но упирается мягко: за краем
+    // она продолжает следовать за пальцем, но всё неохотнее. Жёсткий упор
+    // читался как зависание.
+    setDrag(offset >= 0 ? offset : rubberband(offset, RUBBER_LIMIT_PX));
   }
 
-  function onPointerUp() {
+  function onPointerUp(e: React.PointerEvent) {
+    // Захват отпускаем сами и до всего остального. Браузер снимает его и на
+    // pointerup, но если шторка при этом закрывается, элемент исчезает вместе
+    // с необработанным захватом — и следующее нажатие по ухватке приходит уже
+    // в элемент, который считает, что его всё ещё тянут.
+    if (e.currentTarget.hasPointerCapture?.(e.pointerId)) {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    }
+
     if (drag === null) return;
-    if (drag > DISMISS_AFTER_PX) onClose();
+
+    // Любого из двух достаточно: дотянул до порога или бросил вниз. Решает
+    // committed: он же отсекает случай, когда палец в последний момент пошёл
+    // обратно — тогда человек передумал, как далеко бы ни утащил до этого.
+    if (committed(drag, tracker.current.get(), DISMISS_AFTER_PX)) onClose();
+    setDrag(null);
+  }
+
+  /**
+   * Страховка на случай, когда отпускания не будет вовсе.
+   *
+   * Захват теряется и без pointerup: окно ушло из фокуса, система показала
+   * своё окно поверх, устройство ввода отключили. Без этого сброса шторка
+   * оставалась висеть оттянутой, и вернуть её на место было нечем.
+   */
+  function onLostCapture() {
     setDrag(null);
   }
 
@@ -135,6 +207,11 @@ export function BottomSheet({
         // оформления должно быть право менять его вместе с остальным, а зашитая
         // здесь цифра это право отбирала.
         className="bottom-sheet fixed inset-x-0 bottom-0 mx-auto flex max-w-2xl flex-col"
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerUp}
+        onLostPointerCapture={onLostCapture}
         style={{
           zIndex: 61 + layer * 10,
           height,
@@ -157,10 +234,7 @@ export function BottomSheet({
         }}
       >
         <div
-          onPointerDown={onPointerDown}
-          onPointerMove={onPointerMove}
-          onPointerUp={onPointerUp}
-          onPointerCancel={onPointerUp}
+          data-sheet-handle
           className="flex flex-none cursor-grab touch-none flex-col items-center gap-3 pb-2 pt-2.5"
         >
           <span className="h-1 w-9 rounded-full" style={{ background: 'var(--control-border)' }} />

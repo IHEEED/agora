@@ -176,11 +176,14 @@ export default function SearchPage() {
       <main className="below-header flex w-full max-w-2xl flex-col gap-4 px-4 pb-8">
         {/* Крупный заголовок со стрелкой назад — как в системных экранах
             поиска: понятно, куда попал и как выйти, без охоты за крестиком. */}
-        <div className="flex items-center gap-2 px-0.5">
+        <div className="flex items-center gap-3 px-0.5">
+          {/* Кружок с подложкой, а не голая стрелка — тот же приём, что в
+              настройках: без фона она читалась украшением рядом с заголовком,
+              и на неё просто не жали. */}
           <button
             onClick={leave}
             aria-label={t('common.back')}
-            className="-ml-2 flex h-10 w-10 flex-none items-center justify-center rounded-full text-[var(--text)] transition-colors hover:bg-[var(--surface-2)]"
+            className="glass flex h-11 w-11 flex-none items-center justify-center rounded-full text-[var(--text)] transition-transform active:scale-95"
           >
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
               <path d="M15 5l-7 7 7 7" />

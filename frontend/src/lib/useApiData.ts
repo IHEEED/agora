@@ -44,6 +44,34 @@ export function invalidate(prefix: string) {
   });
 }
 
+/**
+ * Кто следит за идущими запросами.
+ *
+ * Нужно знаку в шапке: пока лента перечитывается, он моргает. Отдельного
+ * «обновляется» состояния заводить не за чем — оно уже есть, просто лежит
+ * внутри и никому не видно.
+ */
+const fetchWatchers = new Set<() => void>();
+
+function notifyFetching() {
+  fetchWatchers.forEach((watcher) => watcher());
+}
+
+/** Идёт ли сейчас запрос по адресу, начинающемуся с этого. */
+export function isFetching(prefix: string): boolean {
+  for (const path of inFlight.keys()) {
+    if (path.startsWith(prefix)) return true;
+  }
+  return false;
+}
+
+export function subscribeFetching(watcher: () => void) {
+  fetchWatchers.add(watcher);
+  return () => {
+    fetchWatchers.delete(watcher);
+  };
+}
+
 function load<T>(path: string): Promise<T> {
   const existing = inFlight.get(path);
   if (existing) return existing as Promise<T>;
@@ -56,9 +84,11 @@ function load<T>(path: string): Promise<T> {
     })
     .finally(() => {
       inFlight.delete(path);
+      notifyFetching();
     });
 
   inFlight.set(path, request);
+  notifyFetching();
   return request;
 }
 
