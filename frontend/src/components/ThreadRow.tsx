@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useRef } from 'react';
 import Link from 'next/link';
 import { DefaultAvatar } from '@/components/DefaultAvatar';
 import { formatCompactAge } from '@/lib/formatDate';
@@ -8,6 +8,7 @@ import { MessageThread } from '@/lib/types';
 import { holdBackdrop } from '@/lib/screenBackdrop';
 import { haptic } from '@/lib/haptics';
 import { VelocityTracker, committed } from '@/lib/gestureVelocity';
+import { useDragSpring } from '@/lib/useDragSpring';
 import { ThoughtCloud } from '@/components/ThoughtCloud';
 import { useT } from '@/lib/i18n';
 
@@ -55,12 +56,43 @@ export function ThreadRow({
   onMenu: (rect: DOMRect) => void;
 }) {
   const { t } = useT();
-  const [dx, setDx] = useState(0);
-  const [dragging, setDragging] = useState(false);
   const from = useRef<{ x: number; y: number } | null>(null);
   const own = useRef(false);
   const holdTimer = useRef<number | null>(null);
   const speed = useRef(new VelocityTracker());
+  const hintRef = useRef<HTMLSpanElement | null>(null);
+  /** Скорость, унесённая у перехваченной пружины. */
+  const carried = useRef(0);
+
+  /**
+   * Сдвиг строки живёт в стиле узла, а не в состоянии React.
+   *
+   * Раньше каждое движение пальца вызывало setState: полная отрисовка строки на
+   * каждое событие указателя, а браузер шлёт их чаще, чем кадры. Здесь за весь
+   * жест не происходит ни одной отрисовки — и отпускание идёт пружиной, то есть
+   * его можно схватить на полпути и повести обратно (см. lib/useDragSpring).
+   */
+  // Подписи считаем при отрисовке и держим в ref: кадровый цикл не должен
+  // звать переводчик, а состояние закрепления меняется редко.
+  const labels = {
+    right: t(thread.pinned ? 'thread.unpin' : 'thread.pin'),
+    left: t(thread.muted ? 'thread.unmute' : 'thread.mute'),
+  };
+
+  const { bind: bindRow, set: setDrag, release: releaseDrag, grab: grabDrag, read: readDrag } =
+    useDragSpring<HTMLAnchorElement>((node, value) => {
+      node.style.transform = value ? `translateX(${value}px)` : '';
+      const hint = hintRef.current;
+      if (!hint) return;
+      // Подсказка проявляется по мере натяжения и живёт с той стороны, в которую
+      // тянут. Пишем её здесь же: два узла, меняющихся вместе, обязаны меняться
+      // в одном кадре.
+      const strength = Math.min(1, Math.abs(value) / TRIGGER);
+      hint.style.opacity = String(strength);
+      hint.style.left = value > 0 ? '0' : 'auto';
+      hint.style.right = value > 0 ? 'auto' : '0';
+      hint.textContent = value > 0 ? labels.right : labels.left;
+    });
 
   function cancelHold() {
     if (holdTimer.current !== null) {
@@ -74,6 +106,9 @@ export function ThreadRow({
     from.current = { x: event.clientX, y: event.clientY };
     own.current = false;
     speed.current.reset();
+    // Схватили — снимаем пружину, забирая её скорость. Если строка ехала
+    // назад, палец подхватывает её на ходу, а не с нуля.
+    carried.current = grabDrag();
 
     const target = event.currentTarget as HTMLElement;
     holdTimer.current = window.setTimeout(() => {
@@ -82,7 +117,7 @@ export function ThreadRow({
       // строки.
       haptic('open');
       from.current = null;
-      setDx(0);
+      releaseDrag(0);
       onMenu(target.getBoundingClientRect());
     }, HOLD_MS);
   }
@@ -107,7 +142,6 @@ export function ThreadRow({
       }
       cancelHold();
       own.current = true;
-      setDragging(true);
       (event.currentTarget as HTMLElement).setPointerCapture?.(event.pointerId);
     }
 
@@ -115,22 +149,24 @@ export function ThreadRow({
     speed.current.add(event.clientX);
     const pulled = Math.min(MAX, Math.sqrt(Math.abs(moved)) * 11);
     const next = moved > 0 ? pulled : -pulled;
-    if (Math.abs(next) >= TRIGGER && Math.abs(dx) < TRIGGER) haptic();
-    setDx(next);
+    if (Math.abs(next) >= TRIGGER && Math.abs(readDrag()) < TRIGGER) haptic();
+    setDrag(next);
   }
 
   function up() {
     cancelHold();
-    const settled = dx;
+    const settled = readDrag();
+    const velocity = speed.current.get() || carried.current;
     from.current = null;
     own.current = false;
-    setDragging(false);
-    setDx(0);
+    // Возвращаем пружиной, унося скорость пальца: между «вёл» и «поехало само»
+    // не должно быть видимого шва.
+    releaseDrag(0, velocity);
 
     // Далеко утащили или быстро бросили — см. lib/gestureVelocity. Короткий
     // резкий флик до порога не доезжает, хотя это самое решительное движение,
     // на какое способен палец.
-    if (!committed(settled, speed.current.get(), TRIGGER)) return;
+    if (!committed(settled, velocity, TRIGGER)) return;
     // Одно действие на сторону, а не две кнопки под пальцем: выбирать между
     // ними пришлось бы глазами, а тогда свайп теряет единственное преимущество
     // перед меню — скорость.
@@ -138,35 +174,26 @@ export function ThreadRow({
     else onMute();
   }
 
-  const right = dx > 0;
-  const strength = Math.min(1, Math.abs(dx) / TRIGGER);
-
   return (
     <div className="relative overflow-hidden rounded-2xl">
-      {/* Подсказка в освобождённом поле. Проявляется по мере натяжения, то есть
-          видна ровно в момент выбора. */}
-      {dx !== 0 && (
-        <span
-          aria-hidden
-          className="absolute inset-y-0 flex items-center px-4 text-[12.5px] font-medium"
-          style={{
-            [right ? 'left' : 'right']: 0,
-            opacity: strength,
-            color: right ? 'var(--accent)' : 'var(--text-muted)',
-          }}
-        >
-          {right
-            ? t(thread.pinned ? 'thread.unpin' : 'thread.pin')
-            : t(thread.muted ? 'thread.unmute' : 'thread.mute')}
-        </span>
-      )}
+      {/* Подсказка в освобождённом поле. Стоит в разметке всегда и прозрачна в
+          покое: её текст и сторону пишет тот же кадровый цикл, что двигает
+          строку (см. useDragSpring выше). Появляться и исчезать через React
+          она не может — это отрисовка на каждое движение пальца. */}
+      <span
+        ref={hintRef}
+        aria-hidden
+        className="absolute inset-y-0 flex items-center px-4 text-[12.5px] font-medium"
+        style={{ opacity: 0, right: 0, color: 'var(--text-muted)' }}
+      />
 
       <Link
         href={`/messages/${thread.user.id}`}
+        ref={bindRow}
         onClick={(event) => {
           // Уехавшая строка не открывает переписку: палец только что выбирал
           // действие, и открытие поверх него читалось бы промахом.
-          if (Math.abs(dx) > 4) {
+          if (Math.abs(readDrag()) > 4) {
             event.preventDefault();
             return;
           }
@@ -186,8 +213,9 @@ export function ThreadRow({
           // Своя заливка обязательна: под строкой лежит подсказка, и без фона
           // она просвечивала бы сквозь текст переписки.
           background: 'var(--bg)',
-          transform: dx ? `translateX(${dx}px)` : undefined,
-          transition: dragging ? 'none' : 'transform 240ms var(--enter-ease)',
+          // Ни transform, ни transition здесь нет: и то и другое пишет пружина
+          // напрямую в узел. Переход тут был бы прямо вреден — он владел бы
+          // свойством и не давал перехватить движение на полпути.
           touchAction: 'pan-y',
         }}
       >
