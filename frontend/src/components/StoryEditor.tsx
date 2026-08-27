@@ -65,20 +65,32 @@ function newLayer(): TextLayer {
   };
 }
 
+/**
+ * Сколько история живёт, на выбор.
+ *
+ * Сутки были не правилом жанра, а значением по умолчанию, выданным за правило.
+ * Шесть часов — для того, что относится к этому вечеру; двенадцать — «до
+ * завтра»; сутки — прежнее поведение, оно и остаётся выбранным.
+ */
+const HOURS = [6, 12, 24] as const;
+
 export function StoryEditor({
   open,
   src,
   onCancel,
   onApply,
   sending = false,
+  error,
 }: {
   open: boolean;
   /** Адрес выбранного снимка — обычно blob:. */
   src: string | null;
   onCancel: () => void;
   /** Готовая картинка со впечатанными подписями. */
-  onApply: (blob: Blob) => void;
+  onApply: (blob: Blob, hours: number) => void;
   sending?: boolean;
+  /** Что пошло не так при отправке. Показываем прямо в кадре, не уводя с него. */
+  error?: string | null;
 }) {
   const frameRef = useRef<HTMLDivElement>(null);
   const [layers, setLayers] = useState<TextLayer[]>([]);
@@ -96,6 +108,27 @@ export function StoryEditor({
    * файле тысяча восемьдесят. Доля переносится между ними без пересчёта.
    */
   const [pan, setPan] = useState({ x: 0, y: 0 });
+
+  /**
+   * Во сколько раз снимок увеличен сверх «закрыть кадр целиком».
+   *
+   * Единица — исходная обрезка по большей стороне, то есть то, что было
+   * всегда. Больше единицы — приближение: снимок растёт, за края уходит
+   * больше, а сдвигать его становится куда.
+   *
+   * Потолок втрое. Дальше видно зерно: истории собирают из телефонных
+   * снимков, и на четырёхкратном приближении кадр 1080 на 1920 набирается из
+   * четверти исходника — это уже не кадрирование, а увеличение шума.
+   */
+  const [zoom, setZoom] = useState(1);
+
+  /** Сколько история живёт. Спрашиваем здесь: это вопрос про кадр, а не про файл. */
+  const [hours, setHours] = useState<(typeof HOURS)[number]>(24);
+
+  /** Расстояние между пальцами в начале щипка. */
+  const pinchFrom = useRef<{ span: number; zoom: number } | null>(null);
+  /** Указатели на экране: щипок начинается со второго. */
+  const touches = useRef(new Map<number, { x: number; y: number }>());
   const panFrom = useRef<{ x: number; y: number; fromX: number; fromY: number } | null>(null);
   const [active, setActive] = useState<string | null>(null);
   const [editing, setEditing] = useState<string | null>(null);
@@ -258,7 +291,10 @@ export function StoryEditor({
 
     // Обрезка «по большей стороне»: снимок закрывает кадр целиком, лишнее
     // уходит за края поровну с двух сторон.
-    const scale = Math.max(canvas.width / image.naturalWidth, canvas.height / image.naturalHeight);
+    // Тот же масштаб, что на экране. Разойдись они — человек отправил бы не
+    // то, что видел, и понял бы это уже после отправки.
+    const scale =
+      Math.max(canvas.width / image.naturalWidth, canvas.height / image.naturalHeight) * zoom;
     const drawWidth = image.naturalWidth * scale;
     const drawHeight = image.naturalHeight * scale;
 
@@ -332,7 +368,7 @@ export function StoryEditor({
     haptic('unlock');
     try {
       const blob = await flatten();
-      if (blob) onApply(blob);
+      if (blob) onApply(blob, hours);
     } finally {
       setBusy(false);
     }
@@ -360,6 +396,18 @@ export function StoryEditor({
             // выбрана, тянуть можно только фон, и разбираться, что именно
             // тянут, не приходится.
             if (editing) return;
+            touches.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+
+            // Второй палец — это щипок, а не второй сдвиг. Отменяем начатую
+            // протяжку: продолжать её одной рукой, пока вторая масштабирует,
+            // значит двигать снимок туда, куда никто не вёл.
+            if (touches.current.size === 2) {
+              const [a, b] = [...touches.current.values()];
+              pinchFrom.current = { span: Math.hypot(a.x - b.x, a.y - b.y), zoom };
+              panFrom.current = null;
+              return;
+            }
+
             panFrom.current = {
               x: event.clientX,
               y: event.clientY,
@@ -369,6 +417,24 @@ export function StoryEditor({
             (event.currentTarget as HTMLElement).setPointerCapture?.(event.pointerId);
           }}
           onPointerMove={(event) => {
+            if (touches.current.has(event.pointerId)) {
+              touches.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+            }
+
+            // Щипок: масштаб идёт за расстоянием между пальцами один к одному.
+            // Развели вдвое — снимок вырос вдвое; это то единственное
+            // соотношение, при котором жест ощущается как растягивание
+            // предмета, а не как управление ползунком на расстоянии.
+            const pinch = pinchFrom.current;
+            if (pinch && touches.current.size === 2) {
+              const [a, b] = [...touches.current.values()];
+              const span = Math.hypot(a.x - b.x, a.y - b.y);
+              if (pinch.span > 0) {
+                setZoom(Math.max(1, Math.min(3, (pinch.zoom * span) / pinch.span)));
+              }
+              return;
+            }
+
             const start = panFrom.current;
             const frame = frameRef.current;
             if (!start || !frame) return;
@@ -393,11 +459,18 @@ export function StoryEditor({
               y: Math.max(-1, Math.min(1, nextY)),
             });
           }}
-          onPointerUp={() => {
+          onPointerUp={(event) => {
+            touches.current.delete(event.pointerId);
             panFrom.current = null;
+            // Пальцев снова меньше двух — щипок закончился. Оставшийся палец
+            // новую протяжку не начинает: для неё нужен новый pointerdown, и
+            // без этого снимок дёргался бы в момент, когда один палец подняли.
+            if (touches.current.size < 2) pinchFrom.current = null;
           }}
-          onPointerCancel={() => {
+          onPointerCancel={(event) => {
+            touches.current.delete(event.pointerId);
             panFrom.current = null;
+            if (touches.current.size < 2) pinchFrom.current = null;
           }}
           // Жест целиком наш: без этого браузер забирает вертикаль себе и
           // снимок за пальцем вверх-вниз не идёт.
@@ -421,7 +494,13 @@ export function StoryEditor({
             // снимок ложится в кадр, и позиция двигает его внутри этого
             // расчёта. transform поверх сдвинул бы снимок вместе с обрезкой и
             // открыл пустоту у края.
-            style={{ objectPosition: `${50 + pan.x * 50}% ${50 + pan.y * 50}%` }}
+            style={{
+              objectPosition: `${50 + pan.x * 50}% ${50 + pan.y * 50}%`,
+              // Масштаб трансформацией поверх object-cover: он растит уже
+              // обрезанный кадр, поэтому пустоте у краёв взяться неоткуда.
+              transform: zoom === 1 ? undefined : `scale(${zoom})`,
+              transformOrigin: 'center center',
+            }}
           />
 
           {layers.map((layer) => (
@@ -561,6 +640,50 @@ export function StoryEditor({
             aria-label="Размер подписи"
             className="w-full accent-white"
           />
+        )}
+
+        {/* Срок жизни — здесь, а не на предыдущем шаге.
+            Он был в шторке выбора снимка, то есть решался до того, как человек
+            увидел, что собирает. «Шесть часов или сутки» — вопрос про
+            содержание кадра, а не про файл: снимок с ужина живёт вечером,
+            разбор — до завтра. Спрашивать его надо, когда кадр уже перед
+            глазами. */}
+        {!editing && (
+          <div className="flex items-center gap-2">
+            <span className="flex-none text-[12.5px] text-white/60">Видна</span>
+            <div className="flex flex-1 gap-1.5">
+              {HOURS.map((value) => {
+                const on = hours === value;
+                return (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => {
+                      haptic();
+                      setHours(value);
+                    }}
+                    className="flex-1 rounded-full py-1.5 text-[12.5px] font-medium transition-colors"
+                    style={
+                      on
+                        ? { background: '#fff', color: '#111' }
+                        : { background: 'rgba(255,255,255,0.16)', color: '#fff' }
+                    }
+                  >
+                    {value} ч
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Ошибка — здесь же, а не всплывающим окном.
+            Отправка идёт из этого экрана, и уводить с него ради сообщения
+            значило бы потерять собранный кадр. */}
+        {error && (
+          <p className="px-1 text-[13px] leading-snug" style={{ color: '#ff8a80' }}>
+            {error}
+          </p>
         )}
 
         <div className="flex items-center gap-2">
