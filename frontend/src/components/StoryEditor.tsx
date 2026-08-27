@@ -82,6 +82,21 @@ export function StoryEditor({
 }) {
   const frameRef = useRef<HTMLDivElement>(null);
   const [layers, setLayers] = useState<TextLayer[]>([]);
+
+  /**
+   * Куда сдвинут снимок внутри кадра, в долях от свободного хода.
+   *
+   * Снимок обрезан по большей стороне, и та сторона, что не влезла, даёт
+   * запас: у вертикального кадра это высота, у горизонтального — ширина. Сдвиг
+   * ходит по этому запасу и дальше не идёт — за краем пустота, тянуть туда
+   * нечего.
+   *
+   * В долях, а не в пикселях, потому что кадр на экране и кадр в готовой
+   * картинке разного размера: на телефоне около трёхсот шестидесяти точек, в
+   * файле тысяча восемьдесят. Доля переносится между ними без пересчёта.
+   */
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const panFrom = useRef<{ x: number; y: number; fromX: number; fromY: number } | null>(null);
   const [active, setActive] = useState<string | null>(null);
   const [editing, setEditing] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -247,10 +262,23 @@ export function StoryEditor({
     const drawWidth = image.naturalWidth * scale;
     const drawHeight = image.naturalHeight * scale;
 
+    /**
+     * Сдвиг повторяем ровно так же, как его показывает object-position.
+     *
+     * У браузера позиция задана в процентах и означает «какая точка снимка
+     * совмещается с той же точкой кадра»; в пикселях это доля от того, что не
+     * влезло. Наш pan ходит от -1 до 1 вокруг центра, отсюда половина запаса.
+     *
+     * Любое расхождение здесь — расхождение между тем, что человек видел, и
+     * тем, что отправил. Худший вид ошибки: заметен уже после отправки.
+     */
+    const slackX = canvas.width - drawWidth;
+    const slackY = canvas.height - drawHeight;
+
     context.drawImage(
       image,
-      (canvas.width - drawWidth) / 2,
-      (canvas.height - drawHeight) / 2,
+      slackX / 2 + (pan.x * slackX) / 2,
+      slackY / 2 + (pan.y * slackY) / 2,
       drawWidth,
       drawHeight
     );
@@ -322,13 +350,50 @@ export function StoryEditor({
         <div
           ref={frameRef}
           className="relative h-full w-full"
-          style={{ maxWidth: 'calc(100dvh * 9 / 16)' }}
-          onPointerDown={() => {
+          onPointerDown={(event) => {
             // Нажатие мимо подписи снимает выделение: пока подпись выбрана,
             // панель внизу относится к ней, и непонятно, к чему относится
             // «удалить», если выбрано ничего.
             if (!editing) setActive(null);
+
+            // И начинает сдвиг снимка. Один и тот же жест: пока подпись не
+            // выбрана, тянуть можно только фон, и разбираться, что именно
+            // тянут, не приходится.
+            if (editing) return;
+            panFrom.current = {
+              x: event.clientX,
+              y: event.clientY,
+              fromX: pan.x,
+              fromY: pan.y,
+            };
+            (event.currentTarget as HTMLElement).setPointerCapture?.(event.pointerId);
           }}
+          onPointerMove={(event) => {
+            const start = panFrom.current;
+            const frame = frameRef.current;
+            if (!start || !frame) return;
+
+            const box = frame.getBoundingClientRect();
+            // Палец прошёл долю кадра — снимок проходит ту же долю запаса.
+            // Множитель два, потому что доля ходит от -1 до 1, то есть её
+            // полный размах вдвое больше половины кадра.
+            const nextX = start.fromX + ((event.clientX - start.x) / box.width) * 2;
+            const nextY = start.fromY + ((event.clientY - start.y) / box.height) * 2;
+
+            setPan({
+              x: Math.max(-1, Math.min(1, nextX)),
+              y: Math.max(-1, Math.min(1, nextY)),
+            });
+          }}
+          onPointerUp={() => {
+            panFrom.current = null;
+          }}
+          onPointerCancel={() => {
+            panFrom.current = null;
+          }}
+          // Жест целиком наш: без этого браузер забирает вертикаль себе и
+          // снимок за пальцем вверх-вниз не идёт.
+          style={{ maxWidth: 'calc(100dvh * 9 / 16)', touchAction: 'none' }}
         >
           {/* object-cover, а не contain: ровно так снимок ляжет в готовую
               историю (см. flatten). Показывать вписанным, а склеивать
@@ -339,7 +404,17 @@ export function StoryEditor({
               который человек только что выбрал, — оптимизатору его не отдать,
               да и незачем. */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={src} alt="" className="h-full w-full object-cover" draggable={false} />
+          <img
+            src={src}
+            alt=""
+            className="h-full w-full object-cover"
+            draggable={false}
+            // object-position, а не transform: object-cover уже посчитал, как
+            // снимок ложится в кадр, и позиция двигает его внутри этого
+            // расчёта. transform поверх сдвинул бы снимок вместе с обрезкой и
+            // открыл пустоту у края.
+            style={{ objectPosition: `${50 + pan.x * 50}% ${50 + pan.y * 50}%` }}
+          />
 
           {layers.map((layer) => (
             <div
@@ -415,16 +490,38 @@ export function StoryEditor({
               />
             ))}
 
+            {/* Значок, а не слово.
+                «Подложка» — термин вёрстки, и человеку он ничего не говорит:
+                понять, что кнопка делает, можно было только нажав. Буква A в
+                рамке показывает результат прямо на себе, и её же ставит
+                Telegram в том же месте и с тем же смыслом. Нажатие меняет саму
+                кнопку — то есть подсказка и есть состояние. */}
             <button
               type="button"
               onClick={() => update(activeLayer.id, { boxed: !activeLayer.boxed })}
-              className="ml-1 flex-none rounded-full px-3 py-1.5 text-[12.5px] font-medium"
+              aria-label="Подложка под текстом"
+              aria-pressed={activeLayer.boxed}
+              className="ml-1 flex h-8 w-8 flex-none items-center justify-center rounded-full transition-colors"
               style={{
                 background: activeLayer.boxed ? '#fff' : 'rgba(255,255,255,0.16)',
                 color: activeLayer.boxed ? '#111' : '#fff',
               }}
             >
-              Подложка
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                {/* Рамка — та самая подложка, буква внутри — текст на ней.
+                    В выключенном виде рамка пунктирная: место под неё есть, а
+                    самой её нет. */}
+                <rect
+                  x="3.5"
+                  y="3.5"
+                  width="17"
+                  height="17"
+                  rx="4.5"
+                  strokeWidth="1.6"
+                  strokeDasharray={activeLayer.boxed ? undefined : '3 2.5'}
+                />
+                <path d="M8.6 16.2 12 7.8l3.4 8.4M9.9 13.6h4.2" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
             </button>
 
             <button
