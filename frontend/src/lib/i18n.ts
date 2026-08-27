@@ -315,6 +315,23 @@ const DICTIONARY = {
     'common.delete': 'Удалить',
     'common.sent': 'Отправлено',
     'story.replyPlaceholder': 'Ответить сообщением…',
+    'invite.title': 'Приглашения',
+    'invite.hint': 'Ваш код. Один на всех, кого позовёте',
+    'invite.link': 'Ссылка',
+    'invite.copied': 'Скопировано',
+    'invite.copyFailed': 'Не удалось скопировать — код можно переписать вручную',
+
+    'notify.votePost': 'проголосовал за запись',
+    'notify.voteComment': 'проголосовал за комментарий',
+    'notify.reply': 'ответил',
+    'notify.comment': 'прокомментировал',
+    'notify.follow': 'подписался',
+    'notify.mention': 'упомянул вас',
+    'notify.repost': 'поделился записью',
+    'notify.empty': 'Пока тихо.',
+
+    'rules.title': 'Правила',
+    'support.title': 'Поддержка',
   },
 
   en: {
@@ -603,6 +620,23 @@ const DICTIONARY = {
     'common.delete': 'Delete',
     'common.sent': 'Sent',
     'story.replyPlaceholder': 'Reply with a message…',
+    'invite.title': 'Invites',
+    'invite.hint': 'Your code. One for everyone you bring',
+    'invite.link': 'Link',
+    'invite.copied': 'Copied',
+    'invite.copyFailed': 'Could not copy — the code can be typed by hand',
+
+    'notify.votePost': 'voted on your post',
+    'notify.voteComment': 'voted on your comment',
+    'notify.reply': 'replied',
+    'notify.comment': 'commented',
+    'notify.follow': 'followed you',
+    'notify.mention': 'mentioned you',
+    'notify.repost': 'shared your post',
+    'notify.empty': 'Quiet so far.',
+
+    'rules.title': 'Rules',
+    'support.title': 'Support',
   },
 
   es: {
@@ -891,6 +925,23 @@ const DICTIONARY = {
     'common.delete': 'Eliminar',
     'common.sent': 'Enviado',
     'story.replyPlaceholder': 'Responder con un mensaje…',
+    'invite.title': 'Invitaciones',
+    'invite.hint': 'Tu código. Uno para todos los que traigas',
+    'invite.link': 'Enlace',
+    'invite.copied': 'Copiado',
+    'invite.copyFailed': 'No se pudo copiar: el código se puede escribir a mano',
+
+    'notify.votePost': 'votó tu publicación',
+    'notify.voteComment': 'votó tu comentario',
+    'notify.reply': 'respondió',
+    'notify.comment': 'comentó',
+    'notify.follow': 'te siguió',
+    'notify.mention': 'te mencionó',
+    'notify.repost': 'compartió tu publicación',
+    'notify.empty': 'Todo tranquilo por ahora.',
+
+    'rules.title': 'Reglas',
+    'support.title': 'Soporte',
   },
 } as const;
 

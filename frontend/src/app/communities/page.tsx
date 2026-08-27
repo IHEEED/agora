@@ -203,17 +203,24 @@ export default function CommunitiesPage() {
                 </span>
               </button>
 
-              {/* Аватар заходит на шапку, как в готовом профиле сообщества. */}
+              {/* Аватар стоит внутри обложки, а не свисает из неё.
+                  Приём «заходит на шапку» взят из готового профиля клуба, где
+                  под обложкой есть сама страница и свисать есть куда. В форме
+                  создания под обложкой сразу поле имени: аватар налезал на него
+                  и торчал за кромку шторки, а на узком экране ещё и обрезался.
+
+                  Внутри он выглядит ровно тем, чем является здесь, — кнопкой
+                  «выбрать значок», а не элементом будущей страницы. */}
               <button
                 type="button"
                 onClick={() => avatarInputRef.current?.click()}
-                className="absolute -bottom-6 left-4 rounded-full"
+                className="absolute bottom-3 left-4 rounded-full"
                 style={{ background: 'var(--surface)', padding: 3 }}
                 aria-label={t('communities.addAvatar')}
               >
                 {avatar ? (
                   <span
-                    className="block h-16 w-16 overflow-hidden rounded-full"
+                    className="block h-14 w-14 overflow-hidden rounded-full"
                     style={{
                       backgroundImage: `url(${avatar})`,
                       backgroundSize: `${avatarFit.zoom * 100}%`,
@@ -222,7 +229,7 @@ export default function CommunitiesPage() {
                     }}
                   />
                 ) : (
-                  <CommunityAvatar name={name || '?'} size={64} />
+                  <CommunityAvatar name={name || '?'} size={56} />
                 )}
               </button>
             </div>

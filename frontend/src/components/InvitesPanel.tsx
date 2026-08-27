@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useApiData } from '@/lib/useApiData';
 import { haptic } from '@/lib/haptics';
+import { useT } from '@/lib/i18n';
 
 /**
  * Приглашение: один код и навсегда.
@@ -28,6 +29,7 @@ function origin(): string {
 
 export function InvitesPanel() {
   const { data, loading } = useApiData<{ code: string }>('/invites/mine');
+  const { t } = useT();
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -44,7 +46,7 @@ export function InvitesPanel() {
       // Буфер недоступен (небезопасное соединение, отказ в разрешении). Код
       // виден на экране и переписывается руками — ронять из-за этого экран
       // незачем, достаточно сказать.
-      setError('Не удалось скопировать — код можно переписать вручную');
+      setError(t('invite.copyFailed'));
     }
   }
 
@@ -69,7 +71,7 @@ export function InvitesPanel() {
             {loading ? '••••••' : (code ?? '—')}
           </span>
           <span className="text-[12.5px] leading-snug text-[var(--text-muted)]">
-            {error ?? 'Ваш код. Один на всех, кого позовёте'}
+            {error ?? t('invite.hint')}
           </span>
         </div>
       </div>
@@ -81,7 +83,7 @@ export function InvitesPanel() {
           className="flex-none rounded-full px-4 py-1.5 text-[13px] font-medium"
           style={{ background: 'var(--surface-2)', color: 'var(--text)' }}
         >
-          {copied ? 'Скопировано' : 'Ссылка'}
+          {copied ? t('invite.copied') : t('invite.link')}
         </button>
       )}
     </div>

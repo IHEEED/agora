@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { BottomSheet } from '@/components/BottomSheet';
+import { useT } from '@/lib/i18n';
 
 /**
  * Куда писать в поддержку.
@@ -48,8 +49,9 @@ const RULES = [
 ];
 
 export function RulesSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { t } = useT();
   return (
-    <BottomSheet open={open} onClose={onClose} title="Правила" height="auto">
+    <BottomSheet open={open} onClose={onClose} title={t('rules.title')} height="auto">
       <div
         className="flex flex-col gap-4"
         style={{ paddingBottom: 'calc(18px + env(safe-area-inset-bottom))' }}
@@ -70,8 +72,9 @@ export function RulesSheet({ open, onClose }: { open: boolean; onClose: () => vo
 }
 
 export function SupportSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { t } = useT();
   return (
-    <BottomSheet open={open} onClose={onClose} title="Поддержка" height="auto">
+    <BottomSheet open={open} onClose={onClose} title={t('support.title')} height="auto">
       <div
         className="flex flex-col gap-4"
         style={{ paddingBottom: 'calc(18px + env(safe-area-inset-bottom))' }}

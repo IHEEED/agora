@@ -7,7 +7,7 @@ import { ScreenTitle } from '@/components/ScreenTitle';
 import { ProfileAvatar } from '@/components/ProfileAvatar';
 import { apiFetch } from '@/lib/api';
 import { invalidate, useApiData } from '@/lib/useApiData';
-import { useT } from '@/lib/i18n';
+import { useT, TranslationKey } from '@/lib/i18n';
 
 /**
  * Уведомления.
@@ -38,18 +38,18 @@ type Notification = {
  * комментарий — записи, которую он мог написать полгода назад. «Вам ответили»
  * на второе обещало бы разговор, которого нет.
  */
-const WHAT: Record<Notification['kind'], string> = {
-  reply: 'ответил вам',
-  comment: 'прокомментировал запись',
+const WHAT: Record<Notification['kind'], TranslationKey> = {
+  reply: 'notify.reply',
+  comment: 'notify.comment',
   // «Проголосовал за», а не «поддержал».
   //
   // Поддержка — это про согласие, а голос в приложении устроен иначе: минус
   // здесь тоже участие, и о нём приходит такое же уведомление. Слово
   // «поддержал» уже занято смыслом, которого у половины голосов нет.
-  vote_post: 'проголосовал за запись',
-  vote_comment: 'проголосовал за комментарий',
-  follow: 'подписался на вас',
-  repost: 'поделился записью',
+  vote_post: 'notify.votePost',
+  vote_comment: 'notify.voteComment',
+  follow: 'notify.follow',
+  repost: 'notify.repost',
 };
 
 /** Куда ведёт нажатие. Подписка — к человеку, остальное — к записи. */
@@ -142,7 +142,7 @@ export default function NotificationsPage() {
                   <div className="flex min-w-0 flex-1 flex-col">
                     <span className="truncate text-[14.5px] text-[var(--text)]">
                       <span className="font-medium">{item.actor?.username ?? 'кто-то'}</span>{' '}
-                      {WHAT[item.kind]}
+                      {t(WHAT[item.kind])}
                     </span>
                     {context && (
                       <span className="truncate text-[13px] text-[var(--text-muted)]">

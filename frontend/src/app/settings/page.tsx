@@ -51,6 +51,11 @@ const SECTIONS = [
   ['notifications', 'settings.notifications', 'M18 8a6 6 0 1 0-12 0c0 7-3 8-3 8h18s-3-1-3-8 M13.7 21a2 2 0 0 1-3.4 0'],
   ['privacy', 'settings.privacy', 'M12 3 4 6v6c0 5 3.4 8.4 8 9.5 4.6-1.1 8-4.5 8-9.5V6l-8-3Z'],
   ['content', 'settings.content', 'M4 6h16 M4 12h16 M4 18h10'],
+  // Язык — свой раздел, а не строка внутри оформления. Оформление про то, как
+  // приложение выглядит; язык — про то, на чём оно говорит. Соседство было
+  // случайным: и то и другое «настройки вида», но выбирают их по разным
+  // поводам и с разной частотой.
+  ['language', 'settings.language', 'M4 6h11 M9 3v3 M12.5 18 16 9l3.5 9 M13.6 15.6h4.8 M11 6c0 5-3 8-7 9'],
   ['about', 'settings.about', 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z M12 11v5 M12 8h.01'],
 ] as const satisfies ReadonlyArray<readonly [string, TranslationKey, string]>;
 
@@ -94,12 +99,13 @@ type SectionId = (typeof SECTIONS)[number][0];
  * одинаковых квадрата подряд не различают ничего.
  */
 const SECTION_TINT: Record<SectionId, string> = {
-  account: 'var(--tint-blue)',
-  privacy: 'var(--tint-teal)',
+  account: 'var(--tint-green)',
+  privacy: 'var(--tint-blue)',
   // Красный — единственное место, где он уместен: работа над чужими границами.
-  moderation: 'var(--tint-red)',
-  notifications: 'var(--tint-orange)',
-  content: 'var(--tint-green)',
+  moderation: 'var(--tint-pink)',
+  notifications: 'var(--tint-red)',
+  content: 'var(--tint-orange)',
+  language: 'var(--tint-teal)',
   appearance: 'var(--tint-purple)',
   // Серый — тоже решение, а не отсутствие решения: «о приложении» открывают
   // реже всего, и выделяться ему незачем.
@@ -119,7 +125,7 @@ const SECTION_TINT: Record<SectionId, string> = {
  */
 const GROUPS: ReadonlyArray<ReadonlyArray<SectionId>> = [
   ['account', 'privacy', 'moderation'],
-  ['notifications', 'content', 'appearance'],
+  ['notifications', 'content', 'appearance', 'language'],
   ['about'],
 ];
 
@@ -504,30 +510,6 @@ export default function SettingsPage() {
             </div>
 
 
-            <div className="mt-4 flex flex-col gap-2 border-t border-[var(--border)] pt-4">
-              <span className="text-[15px] text-[var(--text)]">{t('settings.language')}</span>
-              {/* Та же дорожка-заливка, что у SegmentedControl выше: обведённая
-                  таблетка рядом с необведённой выглядела бы недоделкой. */}
-              <div
-                className="flex gap-1 rounded-full p-1"
-                style={{ background: 'var(--surface-2)' }}
-              >
-                {LOCALES.map((option) => (
-                  <button
-                    key={option.id}
-                    onClick={() => chooseLocale(option.id)}
-                    className="flex-1 whitespace-nowrap rounded-full px-3 py-1.5 text-[13px] font-medium transition-colors"
-                    style={
-                      locale === option.id
-                        ? { background: 'var(--accent)', color: 'var(--accent-contrast)' }
-                        : { color: 'var(--text-muted)' }
-                    }
-                  >
-                    {option.label}
-                  </button>
-                ))}
-              </div>
-            </div>
           </section>
           )}
 
@@ -582,6 +564,30 @@ export default function SettingsPage() {
                 Открыть
               </Link>
             </Row>
+          </Section>
+          )}
+
+          {section === 'language' && (
+          <Section>
+            {/* Строки, а не дорожка из трёх таблеток. Языков может стать
+                больше, и таблетки при этом сожмутся до нечитаемых; строка со
+                значком выбора растёт вниз и остаётся собой. Так же это
+                устроено в iOS. */}
+            {LOCALES.map((option) => (
+              <button
+                key={option.id}
+                type="button"
+                onClick={() => chooseLocale(option.id)}
+                className="ios-row flex w-full items-center gap-3 text-left transition-colors active:bg-[var(--surface-2)]"
+              >
+                <span className="flex-1 text-[16px] text-[var(--text)]">{option.label}</span>
+                {locale === option.id && (
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" className="flex-none">
+                    <path d="M4 12.5 9 17.5 20 6.5" />
+                  </svg>
+                )}
+              </button>
+            ))}
           </Section>
           )}
 

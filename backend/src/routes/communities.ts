@@ -7,7 +7,17 @@ const router = Router();
 router.get('/', optionalAuth, async (req, res) => {
   const { data, error } = await supabase
     .from('communities')
-    .select('*, creator:users(username)')
+    .select(
+      // Имя связи обязательно.
+      //
+      // С миграции 023 между клубом и людьми две дороги: создатель
+      // (communities.created_by) и участники (community_members). PostgREST
+      // отказывается выбирать сам и роняет запрос целиком — ошибка PGRST201, а
+      // на экране «не удалось выполнить запрос». Причём сломалось это не в тот
+      // день, когда писали этот запрос, а в тот, когда завели подписку на клуб:
+      // добавленная связь ломает существующую выборку, ничего о ней не зная.
+      '*, creator:users!communities_created_by_fkey(username)'
+    )
     .order('created_at', { ascending: false });
 
   if (error) {
@@ -73,7 +83,17 @@ router.post('/', requireAuth, async (req, res) => {
   const { data, error } = await supabase
     .from('communities')
     .insert({ name, description, created_by })
-    .select('*, creator:users(username)')
+    .select(
+      // Имя связи обязательно.
+      //
+      // С миграции 023 между клубом и людьми две дороги: создатель
+      // (communities.created_by) и участники (community_members). PostgREST
+      // отказывается выбирать сам и роняет запрос целиком — ошибка PGRST201, а
+      // на экране «не удалось выполнить запрос». Причём сломалось это не в тот
+      // день, когда писали этот запрос, а в тот, когда завели подписку на клуб:
+      // добавленная связь ломает существующую выборку, ничего о ней не зная.
+      '*, creator:users!communities_created_by_fkey(username)'
+    )
     .single();
 
   if (error) {
