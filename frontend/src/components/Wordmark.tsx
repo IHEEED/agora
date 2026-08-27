@@ -1,6 +1,6 @@
 'use client';
 
-import { useSyncExternalStore } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import { isFetching, subscribeFetching } from '@/lib/useApiData';
 
 /**
@@ -20,6 +20,9 @@ import { isFetching, subscribeFetching } from '@/lib/useApiData';
  * том, что он читается с одного взгляда, а значит нужны ровные линии без
  * украшений. Шрифт берём тот же, которым набран интерфейс.
  */
+/** Длительность одного моргания. То же число стоит в keyframes. */
+const BLINK_MS = 1600;
+
 export function Wordmark({ size = 27 }: { size?: number }) {
   /**
    * Пока лента перечитывается — знак моргает.
@@ -37,11 +40,33 @@ export function Wordmark({ size = 27 }: { size?: number }) {
    * человек увидит ровно один кивок — этого хватает, чтобы понять, что его
    * услышали.
    */
-  const busy = useSyncExternalStore(
+  const fetching = useSyncExternalStore(
     subscribeFetching,
     () => isFetching('/posts'),
     () => false
   );
+
+  /**
+   * Моргание доигрывает до конца, даже если ответ пришёл раньше.
+   *
+   * Механика была верной, а срок — нет. Лента с кешем отвечает за две-три сотни
+   * миллисекунд, моргание длится полторы секунды, и класс снимали раньше, чем
+   * анимация успевала дойти до первого закрытого глаза. Со стороны это выглядит
+   * как «анимации нет вовсе» — что и было сказано.
+   *
+   * Держим до конца цикла. Показать начатое движение до конца важнее, чем точно
+   * совпасть с длиной запроса: человек смотрит на знак, а не на секундомер.
+   */
+  const [blinking, setBlinking] = useState(false);
+
+  useEffect(() => {
+    if (!fetching) return;
+    setBlinking(true);
+    const timer = window.setTimeout(() => setBlinking(false), BLINK_MS);
+    return () => window.clearTimeout(timer);
+  }, [fetching]);
+
+  const busy = fetching || blinking;
 
   return (
     <span

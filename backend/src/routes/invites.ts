@@ -23,23 +23,23 @@ const USERNAME = /^[a-zA-Z0-9._-]{3,24}$/;
 router.get('/mine', requireAuth, async (req, res) => {
   const me = req.user!.id;
 
-  const [{ data: user, error: userError }, { data: invites, error: invitesError }] =
-    await Promise.all([
-      supabase.from('users').select('invites_left').eq('id', me).maybeSingle(),
-      supabase
-        .from('invites')
-        .select('code, used_at, expires_at, created_at, used:users!invites_used_by_fkey (id, username)')
-        .eq('issued_by', me)
-        .order('created_at', { ascending: false })
-        .limit(50),
-    ]);
+  // Запрос теперь один. Раньше их было два, и второй спрашивал invites_left —
+  // с миграции 026 запас безлимитный, спрашивать нечего.
+  const { data: invites, error: invitesError } = await supabase
+    .from('invites')
+    .select('code, expires_at, created_at, uses:invite_uses (user_id, used_at, user:users (id, username))')
+    .eq('issued_by', me)
+    .order('created_at', { ascending: false })
+    .limit(50);
 
-  if (userError || invitesError) {
-    console.error('invites: list failed', userError ?? invitesError);
+  if (invitesError) {
+    console.error('invites: list failed', invitesError);
     return res.status(500).json({ error: 'Не удалось загрузить приглашения' });
   }
 
-  res.json({ invitesLeft: user?.invites_left ?? 0, invites });
+  // invitesLeft оставлен в ответе ради выложенного клиента, который его ещё
+  // читает: null там означает «ограничения нет».
+  res.json({ invitesLeft: null, invites });
 });
 
 /** Выдать код. Запас проверяет триггер — здесь ловим его отказ. */
@@ -51,9 +51,9 @@ router.post('/', requireAuth, requireNotBanned, async (req, res) => {
     .single();
 
   if (error) {
-    if (error.message?.includes('NO_INVITES_LEFT')) {
-      return res.status(409).json({ error: 'Приглашения закончились' });
-    }
+    // Ветки «приглашения закончились» здесь больше нет: списывать нечего,
+    // триггер снят миграцией 026. Проверка на её текст осталась бы ложью,
+    // которую однажды пришлось бы разгадывать.
     console.error('invites: create failed', error);
     return res.status(500).json({ error: 'Не удалось создать приглашение' });
   }
@@ -142,7 +142,9 @@ router.post('/register', async (req, res) => {
     return res.status(500).json({ error: 'Не удалось проверить код' });
   }
   if (!invite) return res.status(404).json({ error: 'Такого кода нет' });
-  if (invite.used_at) return res.status(409).json({ error: 'Код уже использован' });
+  // Использованность больше не проверяем: с миграции 026 код многоразовый.
+  // Ограничивает его только срок — и он же остаётся единственным способом
+  // закрыть код, который разошёлся дальше, чем хотелось.
   if (new Date(invite.expires_at).getTime() < Date.now()) {
     return res.status(410).json({ error: 'Срок кода истёк' });
   }
@@ -216,22 +218,24 @@ router.post('/register', async (req, res) => {
     return res.status(500).json({ error: 'Не удалось создать профиль' });
   }
 
-  const { data: claimed, error: claimError } = await supabase
-    .from('invites')
-    .update({ used_by: userId, used_at: new Date().toISOString() })
-    .eq('code', code)
-    .is('used_by', null)
-    .select('code');
+  /**
+   * Отмечаем приход, а не «расходуем код».
+   *
+   * Раньше здесь был update с условием `used_by is null` — гонка решалась тем,
+   * что побеждал первый: второму, дошедшему одновременно, отвечали «код только
+   * что использовал кто-то другой». С безлимитным кодом гонки нет вовсе:
+   * приходят все, и запись о каждом ложится своей строкой.
+   *
+   * Ошибку не глушим, но и регистрацию из-за неё не откатываем: человек уже
+   * создан и войти может. Потерянная строка в списке приведённых — цена
+   * несравнимо меньшая, чем «зарегистрировался и тут же исчез».
+   */
+  const { error: claimError } = await supabase
+    .from('invite_uses')
+    .insert({ code, user_id: userId });
 
   if (claimError) {
-    await cleanup();
-    console.error('invites: claim failed', claimError);
-    return res.status(500).json({ error: 'Не удалось использовать код' });
-  }
-
-  if (!claimed.length) {
-    await cleanup();
-    return res.status(409).json({ error: 'Код только что использовал кто-то другой' });
+    console.error('invites: use record failed', claimError);
   }
 
   // Пароль в ответ не возвращаем и сессию здесь не открываем: клиент входит

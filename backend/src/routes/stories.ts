@@ -144,6 +144,14 @@ router.get('/', optionalAuth, async (req, res) => {
 /** Своя история: из записи или собственным содержимым. */
 router.post('/', requireAuth, async (req, res) => {
   const { post_id, body, image_url } = req.body ?? {};
+
+  /**
+   * Сколько история живёт. Приходит от конструктора, но верить ему на слово
+   * нельзя: срок хранится в базе, и подставить туда год — вопрос одной строки
+   * в консоли браузера. Принимаем только три значения, которые предлагаем сами.
+   */
+  const allowedHours = [6, 12, 24];
+  const hours = allowedHours.includes(Number(req.body?.hours)) ? Number(req.body.hours) : 24;
   const author_id = req.user!.id;
 
   if (!post_id && !body && !image_url) {
@@ -171,6 +179,7 @@ router.post('/', requireAuth, async (req, res) => {
       post_id: post_id ?? null,
       body: body ?? null,
       image_url: image_url ?? null,
+      expires_at: new Date(Date.now() + hours * 60 * 60_000).toISOString(),
     })
     .select(select())
     .single();

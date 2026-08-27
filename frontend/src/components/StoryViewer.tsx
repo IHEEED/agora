@@ -637,26 +637,27 @@ export function StoryViewer({
             </div>
           )}
 
-          {item.postId && (
-            <>
-              <StoryAction
-                label="За"
-                active={vote === 1}
-                tint={vote === 1 ? 'var(--up)' : undefined}
-                onClick={() => castVote(item.postId!, 1)}
-              >
-                <path d="M12 5v14M6 11l6-6 6 6" />
-              </StoryAction>
+          {/* Одна стрелка, вверх, справа от строки ответа.
+              Здесь она работает тем же, чем в других приложениях работает
+              сердце или огонёк: одним движением сказать «да». Пара стрелок
+              внизу кадра была честнее по смыслу — у нас голос двусторонний, —
+              но в историях это лишний выбор: их смотрят по секунде на кадр, и
+              решать «за или против» за эту секунду никто не станет. «Против»
+              никуда не делось, оно под тремя точками, где и место редкому.
 
-              <StoryAction
-                label="Против"
-                active={vote === -1}
-                tint={vote === -1 ? 'var(--down)' : undefined}
-                onClick={() => castVote(item.postId!, -1)}
-              >
-                <path d="M12 19V5M6 13l6 6 6-6" />
-              </StoryAction>
-            </>
+              Показываем только у историй из записи: голос идёт записи, а у
+              истории, заведённой с нуля, голосовать не за что. Рисовать
+              неработающую стрелку ради симметрии — обещание, которого не
+              сдержим. */}
+          {item.postId && (
+            <StoryAction
+              label="За"
+              active={vote === 1}
+              tint={vote === 1 ? 'var(--up)' : undefined}
+              onClick={() => castVote(item.postId!, 1)}
+            >
+              <path d="M12 5v14M6 11l6-6 6 6" />
+            </StoryAction>
           )}
         </div>
       </div>
@@ -666,6 +667,15 @@ export function StoryViewer({
         open={menuOpen}
         onClose={() => setMenuOpen(false)}
         postId={item.postId}
+        onDownvote={
+          item.postId
+            ? () => {
+                setMenuOpen(false);
+                castVote(item.postId!, -1);
+              }
+            : undefined
+        }
+        downvoted={vote === -1}
         onRepost={
           item.postId && onCompose
             ? () => {
@@ -749,6 +759,8 @@ function StoryMenu({
   open,
   onClose,
   postId,
+  onDownvote,
+  downvoted,
   onRepost,
   onOpenPost,
   hidden,
@@ -758,6 +770,9 @@ function StoryMenu({
   onClose: () => void;
   /** Есть только у историй, сделанных из записи: делиться иначе нечем. */
   postId: string | null;
+  /** Голос «против» записи. Внизу кадра его нет — там только «за». */
+  onDownvote?: () => void;
+  downvoted?: boolean;
   /** Репост в свою историю. Нет — если истории не из записи или редактор не подключён. */
   onRepost?: () => void;
   /** Перейти к записи, из которой сделана история. */
@@ -770,6 +785,12 @@ function StoryMenu({
 
   // Порядок — по частоте, а не по важности: сверху то, за чем сюда заходят.
   const rows = [
+    onDownvote && {
+      key: 'downvote',
+      label: downvoted ? 'Убрать голос против' : 'Проголосовать против',
+      tint: downvoted ? 'var(--down)' : undefined,
+      onSelect: onDownvote,
+    },
     onRepost && {
       key: 'repost',
       // Репост не публикует сразу, а открывает редактор истории. Мгновенная

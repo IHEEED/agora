@@ -268,7 +268,13 @@ export function PostCard({
                 data-strip-image={position}
                 type="button"
                 onClick={() => setViewing(position)}
-                className="block w-full flex-none snap-center transition-transform active:scale-[0.995]"
+                // snap-always: одно движение — один кадр, как бы резко ни
+                // смахнули. Без него инерция уносит строку через два-три
+                // снимка, и человек, листнувший «на один», оказывается в конце
+                // альбома и не понимает, что пропустил. Свойство для этого и
+                // придумано: оно запрещает прокрутке проехать мимо точки
+                // притяжения, а не просто притягивает к ближайшей.
+                className="block w-full flex-none snap-center snap-always transition-transform active:scale-[0.995]"
               >
                 {/* eslint-disable-next-line @next/next/no-img-element -- источник картинок произвольный, next/image требует настройки доменов */}
                 <img

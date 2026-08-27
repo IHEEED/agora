@@ -17,6 +17,7 @@ import {
   readThemePreference,
 } from '@/lib/appearance';
 import { ScreenTitle } from '@/components/ScreenTitle';
+import { RulesSheet, SupportSheet } from '@/components/AboutSheets';
 import Link from 'next/link';
 import { InvitesPanel } from '@/components/InvitesPanel';
 import { useMe } from '@/lib/useMe';
@@ -305,6 +306,8 @@ export default function SettingsPage() {
   const [style, setStyle] = useState<StyleId | null>(null);
   /** Открытый раздел; null — список разделов. */
   const [section, setSection] = useState<SectionId | null>(null);
+  const [rules, setRules] = useState(false);
+  const [support, setSupport] = useState(false);
   // Образцы рисуются в той теме, что сейчас на экране, — иначе тёмный стиль
   // предлагался бы светлой плашкой и наоборот. «Системную» для этого
   // приходится разрешить в конкретное значение.
@@ -624,8 +627,37 @@ export default function SettingsPage() {
           {section === 'about' && (
           <Section>
             <Row label={t('settings.version')} hint={t('settings.versionHint')} />
-            <Row label={t('settings.rules')} hint={t('common.soon')} />
-            <Row label={t('settings.support')} hint={t('common.soon')} />
+            {/* Обе строки стояли с подписью «Скоро» — то есть приложение
+                признавалось, что правил у него нет, а спросить не у кого. Для
+                закрытой сети по приглашениям это хуже, чем кажется: человек
+                пришёл по чьему-то коду, и первое, что он хочет понять, — куда
+                попал и что здесь принято. */}
+            <button
+              type="button"
+              onClick={() => {
+                haptic();
+                setRules(true);
+              }}
+              className="ios-row flex w-full items-center gap-3 text-left transition-colors active:bg-[var(--surface-2)]"
+            >
+              <span className="flex-1 text-[16px] text-[var(--text)]">{t('settings.rules')}</span>
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-none">
+                <path d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                haptic();
+                setSupport(true);
+              }}
+              className="ios-row flex w-full items-center gap-3 text-left transition-colors active:bg-[var(--surface-2)]"
+            >
+              <span className="flex-1 text-[16px] text-[var(--text)]">{t('settings.support')}</span>
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-none">
+                <path d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
           </Section>
           )}
 
@@ -652,7 +684,10 @@ export default function SettingsPage() {
             </section>
           )}
 
-          {/* Оговорка про местное хранение — там, где рассказывают о приложении.
+          <RulesSheet open={rules} onClose={() => setRules(false)} />
+        <SupportSheet open={support} onClose={() => setSupport(false)} />
+
+        {/* Оговорка про местное хранение — там, где рассказывают о приложении.
               Под каждым разделом она была бы шестикратным повтором. */}
           {section === 'about' && (
             <>

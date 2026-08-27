@@ -30,12 +30,22 @@ const MEDIA_BUCKET = 'post-media';
 /** Столько же, сколько влезает в кадр истории, не превращаясь в стену текста. */
 const MAX_LENGTH = 280;
 
+/**
+ * Сколько история живёт, на выбор.
+ *
+ * Сутки были не правилом жанра, а значением по умолчанию, выданным за правило.
+ * Шесть часов — для того, что относится к этому вечеру; двенадцать — «до
+ * завтра»; сутки — прежнее поведение, оно и остаётся выбранным.
+ */
+const HOURS = [6, 12, 24] as const;
+
 export function NewStorySheet({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { session } = useSession();
   const [body, setBody] = useState('');
   const [photo, setPhoto] = useState<{ preview: string; url: string | null } | null>(null);
   const [cropping, setCropping] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+  const [hours, setHours] = useState<(typeof HOURS)[number]>(24);
   const [error, setError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -48,6 +58,7 @@ export function NewStorySheet({ open, onClose }: { open: boolean; onClose: () =>
       setBody('');
       setPhoto(null);
       setError(null);
+      setHours(24);
     }
   }
 
@@ -103,6 +114,7 @@ export function NewStorySheet({ open, onClose }: { open: boolean; onClose: () =>
         body: JSON.stringify({
           body: body.trim() || null,
           image_url: photo?.url ?? null,
+          hours,
         }),
       });
       // Полоса обязана показать новый кружок сразу: история живёт сутки, и
@@ -185,9 +197,38 @@ export function NewStorySheet({ open, onClose }: { open: boolean; onClose: () =>
             </p>
           )}
 
-          <p className="px-1 text-[12.5px] text-[var(--text-muted)]">
-            История видна сутки, потом исчезает сама.
-          </p>
+          {/* Срок вместо сообщения о сроке.
+              Надпись «видна сутки» ничего не решала — она объясняла правило,
+              на которое человек не мог повлиять. Но правило это не техническое:
+              снимок с ужина живёт вечером, а не сутки, и продлевать его до утра
+              незачем. Три значения, а не поле ввода: выбор из трёх — жест,
+              выбор из шестидесяти — работа. */}
+          <div className="flex items-center gap-2 px-1">
+            <span className="flex-none text-[12.5px] text-[var(--text-muted)]">Видна</span>
+            <div className="flex flex-1 gap-1.5">
+              {HOURS.map((value) => {
+                const on = hours === value;
+                return (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => {
+                      haptic();
+                      setHours(value);
+                    }}
+                    className="flex-1 rounded-full py-1.5 text-[12.5px] font-medium transition-colors"
+                    style={
+                      on
+                        ? { background: 'var(--accent)', color: 'var(--accent-contrast)' }
+                        : { background: 'var(--surface-2)', color: 'var(--text-muted)' }
+                    }
+                  >
+                    {value} ч
+                  </button>
+                );
+              })}
+            </div>
+          </div>
 
           <div className="flex gap-2">
             <button
