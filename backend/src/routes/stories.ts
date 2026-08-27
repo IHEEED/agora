@@ -226,4 +226,58 @@ router.delete('/:id', requireAuth, async (req, res) => {
   res.status(204).end();
 });
 
+/**
+ * Стрелка на кадре: отметить или снять отметку.
+ *
+ * Переключатель, а не два маршрута. Действие одно — «мне это», — и то, ставится
+ * оно или снимается, зависит только от того, стоит ли уже. Заставлять клиента
+ * помнить состояние и выбирать метод значило бы разложить одно решение по двум
+ * местам, которые обязаны совпадать.
+ */
+router.post('/:id/reaction', requireAuth, async (req, res) => {
+  const me = req.user!.id;
+  const storyId = String(req.params.id);
+
+  const { data: existing, error: readError } = await supabase
+    .from('story_reactions')
+    .select('story_id')
+    .eq('story_id', storyId)
+    .eq('user_id', me)
+    .maybeSingle();
+
+  if (readError) {
+    // Таблицы может ещё не быть (миграция 027). Стрелка — не тот повод, чтобы
+    // ронять просмотр историй.
+    if (/story_reactions/i.test(readError.message ?? '')) {
+      return res.status(503).json({ error: 'Реакции ещё не включены — нужна миграция 027' });
+    }
+    console.error('stories: reaction read failed', readError);
+    return res.status(500).json({ error: 'Не удалось поставить отметку' });
+  }
+
+  if (existing) {
+    const { error } = await supabase
+      .from('story_reactions')
+      .delete()
+      .eq('story_id', storyId)
+      .eq('user_id', me);
+    if (error) {
+      console.error('stories: reaction delete failed', error);
+      return res.status(500).json({ error: 'Не удалось снять отметку' });
+    }
+    return res.json({ reacted: false });
+  }
+
+  const { error } = await supabase
+    .from('story_reactions')
+    .insert({ story_id: storyId, user_id: me });
+
+  if (error) {
+    console.error('stories: reaction insert failed', error);
+    return res.status(500).json({ error: 'Не удалось поставить отметку' });
+  }
+
+  res.json({ reacted: true });
+});
+
 export default router;

@@ -207,6 +207,19 @@ export function StoryViewer({
   const [replyText, setReplyText] = useState('');
   const [replySent, setReplySent] = useState(false);
   const [replyBusy, setReplyBusy] = useState(false);
+
+  /**
+   * Отметил ли я этот кадр.
+   *
+   * Своё состояние, не общее с голосом за запись. Голос двусторонний, влияет на
+   * influence и живёт вечно; отметка на истории односторонняя, ничего не весит
+   * и исчезает вместе с кадром через сутки. Смешивать их значило бы дать способ
+   * набирать вес постингом историй вместо мыслей.
+   *
+   * По кадру, а не по истории целиком: у каждого свой ключ, иначе отметка на
+   * первом снимке появлялась бы и на пятом.
+   */
+  const [reacted, setReacted] = useState<Record<string, boolean>>({});
   const replyRef = useRef<HTMLInputElement>(null);
   /**
    * Голос, а не «нравится».
@@ -254,6 +267,24 @@ export function StoryViewer({
       // будут читать. Текст остаётся в поле, отправку можно повторить.
     } finally {
       setReplyBusy(false);
+    }
+  }
+
+  /**
+   * Поставить или снять отметку.
+   *
+   * Правим у себя сразу, не дожидаясь сервера: это ответ на нажатие, и увидеть
+   * его человек должен в тот же кадр. Ошибку откатываем — в отличие от мысли на
+   * сутки, здесь состояние видно на экране, и разойтись ему с сервером нельзя.
+   */
+  async function toggleReaction(storyItemId: string) {
+    const next = !reacted[storyItemId];
+    setReacted((prev) => ({ ...prev, [storyItemId]: next }));
+    haptic();
+    try {
+      await apiFetch(`/stories/${storyItemId}/reaction`, { method: 'POST' });
+    } catch {
+      setReacted((prev) => ({ ...prev, [storyItemId]: !next }));
     }
   }
 
@@ -649,16 +680,19 @@ export function StoryViewer({
               истории, заведённой с нуля, голосовать не за что. Рисовать
               неработающую стрелку ради симметрии — обещание, которого не
               сдержим. */}
-          {item.postId && (
-            <StoryAction
-              label="За"
-              active={vote === 1}
-              tint={vote === 1 ? 'var(--up)' : undefined}
-              onClick={() => castVote(item.postId!, 1)}
-            >
-              <path d="M12 5v14M6 11l6-6 6 6" />
-            </StoryAction>
-          )}
+          {/* Стрелка есть у любой истории, а не только у сделанной из записи.
+              Раньше она рисовалась при наличии postId — то есть половина
+              историй оставалась без единственного способа ответить одним
+              движением. Теперь отметка принадлежит самому кадру (миграция 027):
+              живёт сутки, исчезает вместе с ним и ничего не весит. */}
+          <StoryAction
+            label={reacted[item.id] ? 'Убрать отметку' : 'Отметить'}
+            active={reacted[item.id]}
+            tint={reacted[item.id] ? 'var(--up)' : undefined}
+            onClick={() => void toggleReaction(item.id)}
+          >
+            <path d="M12 5v14M6 11l6-6 6 6" />
+          </StoryAction>
         </div>
       </div>
     </div>

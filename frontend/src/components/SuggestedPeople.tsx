@@ -7,7 +7,6 @@ import { UserSummary } from '@/lib/types';
 import { AvatarFollow } from '@/components/AvatarFollow';
 import { useT } from '@/lib/i18n';
 import { useRouter } from 'next/navigation';
-import { holdBackdrop } from '@/lib/screenBackdrop';
 
 /** Ширина карточки в ленте и зазор между карточками — на них же считается сдвиг. */
 const CARD_WIDTH = 148;
@@ -204,7 +203,17 @@ export function SuggestedPeople({
                   браузер чинит по-своему, разрывая разметку. */}
               <div
                 onClick={() => {
-                  holdBackdrop();
+                  // Без holdBackdrop.
+                  //
+                  // Он снимает копию всего экрана — на ленте это десятки
+                  // карточек со снимками, — и делает это синхронно, прямо в
+                  // обработчике нажатия. Кадр, в который человек нажал,
+                  // уходил на клонирование целиком, и переход начинался с
+                  // пропущенного кадра: отсюда рваность.
+                  //
+                  // Снимок нужен там, где сверху ляжет прозрачная шторка и под
+                  // ней иначе будет пусто. Профиль — обычный вложенный экран,
+                  // он непрозрачен и въезжает сбоку своей анимацией.
                   router.push(`/u/${person.id}`);
                 }}
                 className="relative flex cursor-pointer flex-col items-center gap-2 rounded-2xl p-3 text-center"
