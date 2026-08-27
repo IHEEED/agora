@@ -5,8 +5,9 @@ import { apiFetch } from '@/lib/api';
 import { VerifiedMark } from '@/components/VerifiedMark';
 import { UserSummary } from '@/lib/types';
 import { AvatarFollow } from '@/components/AvatarFollow';
-import { OverlayLink } from '@/components/OverlayLink';
 import { useT } from '@/lib/i18n';
+import { useRouter } from 'next/navigation';
+import { holdBackdrop } from '@/lib/screenBackdrop';
 
 /** Ширина карточки в ленте и зазор между карточками — на них же считается сдвиг. */
 const CARD_WIDTH = 148;
@@ -49,6 +50,7 @@ export function SuggestedPeople({
   const [people, setPeople] = useState<UserSummary[]>([]);
   // Кого сейчас убирают: карточка ещё в разметке, но уже схлопывается.
   const { t } = useT();
+  const router = useRouter();
   const [hiding, setHiding] = useState<string[]>([]);
   const timers = useRef<Array<ReturnType<typeof setTimeout>>>([]);
 
@@ -189,13 +191,34 @@ export function SuggestedPeople({
                   не поднимает над страницей, а вот углы пачкает.
                   Поверхность вместо тени: плитка отличается от фона тоном, и
                   этого хватает, чтобы её увидеть. */}
+              {/* Вся карточка ведёт на профиль.
+                  Ссылка была только на имени — и это оказалось ошибкой ровно
+                  того рода, о которой я тогда и рассуждал. Промахов боялся не
+                  тот: крестик и плюс сами останавливают событие, а вот
+                  оставшиеся девять десятых карточки — лицо, число, пустое поле
+                  — не делали ничего. Человек жмёт на лицо, потому что лицо и
+                  есть человек, и получает в ответ тишину.
+
+                  div, а не ссылка-обёртка: внутри уже живут две кнопки, а
+                  кнопка внутри ссылки — недопустимая вложенность, которую
+                  браузер чинит по-своему, разрывая разметку. */}
               <div
-                className="relative flex flex-col items-center gap-2 rounded-2xl p-3 text-center"
+                onClick={() => {
+                  holdBackdrop();
+                  router.push(`/u/${person.id}`);
+                }}
+                className="relative flex cursor-pointer flex-col items-center gap-2 rounded-2xl p-3 text-center"
                 style={{ width: CARD_WIDTH, background: 'var(--surface-2)' }}
               >
                 <button
                   type="button"
-                  onClick={() => dismissPerson(person.id)}
+                  onClick={(event) => {
+                    // Карточка целиком ведёт на профиль — крестик обязан
+                    // остановить событие, иначе «убрать» открывало бы того,
+                    // кого только что убрали.
+                    event.stopPropagation();
+                    dismissPerson(person.id);
+                  }}
                   aria-label={`Убрать ${person.username}`}
                   className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full text-[var(--text-muted)] transition-transform active:scale-90"
                 >
@@ -218,13 +241,10 @@ export function SuggestedPeople({
                     Ссылка на имени, а не на всей карточке: на карточке уже
                     живут кнопка подписки и крестик, и обёртка вокруг них
                     ловила бы промахи по ним как переход. */}
-                <OverlayLink
-                  href={`/u/${person.id}`}
-                  className="w-full truncate text-[13.5px] font-medium text-[var(--text)]"
-                >
+                <span className="flex w-full items-center justify-center gap-1 truncate text-[13.5px] font-medium text-[var(--text)]">
                   {person.username}
                   <VerifiedMark verified={person.verified_at} size={14} />
-                </OverlayLink>
+                </span>
                 <span className="text-[11.5px] text-[var(--text-muted)]">
                   <span className="font-num">{person.karma}</span> {t('profile.stat.influence')}
                 </span>

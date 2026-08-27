@@ -582,16 +582,20 @@ function CreatePost() {
 
           {error && <p style={{ color: 'var(--down)' }}>{error}</p>}
 
+          {/* Пусто — одной строкой, а не абзацем с кнопкой под ним.
+              Двухэтажная плашка обещала историю, которой нет: сказать тут надо
+              ровно одно — клубов пока нет, вот куда идти. Текст и вход в одной
+              строке читаются одним движением глаз, а не тремя. */}
           {communities.length === 0 ? (
-            <div className="glass flex flex-col items-center gap-3 rounded-2xl p-6 text-center">
-              <p className="text-[14px] text-[var(--text-muted)]">
-                Сначала нужно создать сообщество — пост всегда публикуется в одном из них.
+            <div className="glass flex items-center gap-3 rounded-2xl px-4 py-3">
+              <p className="min-w-0 flex-1 text-[13.5px] leading-snug text-[var(--text-muted)]">
+                {t('create.noCommunities')}
               </p>
               <Link
                 href="/communities"
-                className="rounded-full bg-[var(--accent)] px-5 py-2.5 text-[14px] font-medium text-[var(--accent-contrast)]"
+                className="flex-none rounded-full bg-[var(--accent)] px-4 py-2 text-[13.5px] font-medium text-[var(--accent-contrast)]"
               >
-                К сообществам
+                {t('create.toCommunities')}
               </Link>
             </div>
           ) : (

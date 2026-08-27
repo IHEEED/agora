@@ -113,7 +113,8 @@ const DICTIONARY = {
     'create.communityHint': 'Писать можно в любой клуб, где это разрешено его создателями. Быть админом для этого не нужно.',
     'create.image': 'Изображение',
     'create.camera': 'Снять на камеру',
-    'create.noCommunities': 'Сначала нужно создать клуб — пост всегда публикуется в одном из них.',
+    'create.noCommunities': 'Клубов пока нет, а запись всегда живёт в одном из них.',
+    'create.toCommunities': 'К клубам',
 
     'poll.noVotes': 'Голосов пока нет',
     'poll.votes': 'голосов',
@@ -233,7 +234,7 @@ const DICTIONARY = {
     'settings.about': 'О приложении',
     'settings.version': 'Версия',
     'settings.versionHint': 'PARAFRAZ, сборка для разработки',
-    'settings.rules': 'Правила сообщества',
+    'settings.rules': 'Правила',
     'settings.support': 'Поддержка',
     'settings.signOut': 'Выйти из аккаунта',
     'settings.localOnly':
@@ -409,7 +410,8 @@ const DICTIONARY = {
     'create.communityHint': 'You can post in any community that allows it — being an admin is not required.',
     'create.image': 'Image',
     'create.camera': 'Take a photo',
-    'create.noCommunities': 'Create a community first — every post belongs to one.',
+    'create.noCommunities': 'No clubs yet, and every post lives in one.',
+    'create.toCommunities': 'To clubs',
 
     'poll.noVotes': 'No votes yet',
     'poll.votes': 'votes',
@@ -696,7 +698,8 @@ const DICTIONARY = {
     'create.communityHint': 'Puedes publicar en cualquier comunidad que lo permita; no hace falta ser administrador.',
     'create.image': 'Imagen',
     'create.camera': 'Tomar foto',
-    'create.noCommunities': 'Primero crea una comunidad: cada publicación pertenece a una.',
+    'create.noCommunities': 'Aún no hay clubes, y cada publicación vive en uno.',
+    'create.toCommunities': 'A los clubes',
 
     'poll.noVotes': 'Aún no hay votos',
     'poll.votes': 'votos',

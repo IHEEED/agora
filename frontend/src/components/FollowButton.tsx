@@ -44,7 +44,11 @@ export function FollowButton({
   const [following, setFollowing] = useState(initiallyFollowing);
   const [busy, setBusy] = useState(false);
 
-  async function toggle() {
+  async function toggle(event: React.MouseEvent) {
+    // Кнопка живёт внутри карточек, которые сами куда-то ведут: в
+    // рекомендациях вся плитка открывает профиль. Подписка обязана остановить
+    // событие у себя, иначе нажатие на плюс уводило бы с экрана.
+    event.stopPropagation();
     if (busy) return;
     const next = !following;
     setFollowing(next);

@@ -70,7 +70,10 @@ export function InvitesPanel() {
         <span
           aria-hidden
           className="flex h-[29px] w-[29px] flex-none items-center justify-center rounded-[8px]"
-          style={{ background: 'var(--accent)', color: '#fff' }}
+          // Розовый из той же палитры, что и остальные плитки настроек. Акцент
+          // темы здесь не годился: он совпадал с «оформлением», а в тёмной теме
+          // приглушался до неразличимого.
+          style={{ background: 'var(--tint-pink)', color: '#fff' }}
         >
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="9" cy="9" r="3.5" />
