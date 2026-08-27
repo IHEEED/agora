@@ -8,7 +8,6 @@ import { OverlayLink } from '@/components/OverlayLink';
 import { useNavHiddenRequest } from '@/lib/navVisibility';
 import { useT } from '@/lib/i18n';
 import { useUnreadMessages } from '@/lib/useUnreadNotifications';
-import { setFoldOrigin } from '@/lib/foldOrigin';
 
 /**
  * Нижняя навигация по образцу таб-бара iOS.
@@ -175,17 +174,6 @@ export function BottomNav() {
               // уходит в ту же точку, из которой открылся (см. useScreenLeave).
               // Раньше ею была кнопка в шапке, теперь — эта вкладка.
               {...(slot.href === '/messages' ? { 'data-messages-button': '' } : null)}
-              onClick={(event) => {
-                // Экран мессенджера разворачивается из той точки, по которой
-                // нажали, и складывается обратно в неё же. Рамку запоминаем до
-                // перехода: на монтировании экрана мерить уже поздно.
-                //
-                // Без этого разворот шёл из левого верхнего угла — оттуда, где
-                // кнопка стояла раньше, когда мессенджер жил в шапке.
-                if (slot.href === '/messages') {
-                  setFoldOrigin(event.currentTarget.getBoundingClientRect());
-                }
-              }}
               ref={(node) => {
                 slotRefs.current[index] = node;
               }}

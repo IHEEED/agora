@@ -377,8 +377,16 @@ export function StoryEditor({
             // Палец прошёл долю кадра — снимок проходит ту же долю запаса.
             // Множитель два, потому что доля ходит от -1 до 1, то есть её
             // полный размах вдвое больше половины кадра.
-            const nextX = start.fromX + ((event.clientX - start.x) / box.width) * 2;
-            const nextY = start.fromY + ((event.clientY - start.y) / box.height) * 2;
+            // Знак минус — не описка.
+            //
+            // object-position говорит, какая точка СНИМКА совмещается с той же
+            // точкой кадра. Увеличить процент значит подтянуть к окну более
+            // правую часть снимка, то есть сдвинуть картинку влево. Палец же
+            // тянет саму картинку: ведёшь вправо — она должна идти вправо.
+            // Направления противоположны по построению, и без этого минуса
+            // снимок ехал ровно навстречу руке.
+            const nextX = start.fromX - ((event.clientX - start.x) / box.width) * 2;
+            const nextY = start.fromY - ((event.clientY - start.y) / box.height) * 2;
 
             setPan({
               x: Math.max(-1, Math.min(1, nextX)),

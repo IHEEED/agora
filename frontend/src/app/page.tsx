@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import { useApiData } from '@/lib/useApiData';
+import { invalidate, load, useApiData } from '@/lib/useApiData';
 import { useSession } from '@/lib/useSession';
 import { Post, PostSort, StoryGroup } from '@/lib/types';
 import { SegmentedControl } from '@/components/SegmentedControl';
@@ -16,6 +16,7 @@ import { useHiddenStorytellers } from '@/lib/hiddenStories';
 import { SkeletonList, SkeletonPost } from '@/components/Skeleton';
 import { OverlayLink } from '@/components/OverlayLink';
 import { useT } from '@/lib/i18n';
+import { PullToRefresh } from '@/components/PullToRefresh';
 
 /**
  * Чем лента отсортирована.
@@ -75,7 +76,21 @@ export default function FeedPage() {
     [storyGroups, blocked, hiddenStories]
   );
 
+  /**
+   * Перечитать ленту и истории.
+   *
+   * Сбрасываем кеш и ждём, пока данные приедут заново: натяжение снимается по
+   * этому обещанию, и без ожидания оно снялось бы мгновенно — то есть человек
+   * отпустил бы и увидел, что ничего не произошло.
+   */
+  async function refresh() {
+    invalidate('/posts');
+    invalidate('/stories');
+    await load(`/posts?sort=${sort}`);
+  }
+
   return (
+    <PullToRefresh onRefresh={refresh}>
     <div className="flex flex-1 flex-col items-center">
       <main className="below-header flex w-full max-w-2xl flex-col gap-4 px-4 pb-8">
         <StoriesBar
@@ -145,5 +160,6 @@ export default function FeedPage() {
         </div>
       </main>
     </div>
+    </PullToRefresh>
   );
 }

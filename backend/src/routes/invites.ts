@@ -19,46 +19,64 @@ const router = Router();
 /** Те же правила, что при смене имени: см. users.ts. */
 const USERNAME = /^[a-zA-Z0-9._-]{3,24}$/;
 
-/** Мои коды и сколько осталось. */
+/**
+ * Мой код.
+ *
+ * Один и навсегда. Кодов было несколько, они создавались кнопкой и истекали
+ * через месяц — то есть человек должен был помнить, что его приглашение
+ * протухло, и завести новое. Приглашать при этом он мог кого угодно и когда
+ * угодно, так что срок ничего не охранял: он просто требовал обслуживания.
+ *
+ * Теперь код заводится сам при первом обращении и живёт, пока живёт аккаунт.
+ * Отозвать его нечем — и это осознанно: отзыв нужен, когда код утёк, а утёкший
+ * код в закрытой сети по приглашениям означает, что кто-то привёл человека,
+ * которого не звали. С этим разбирается модерация, а не смена строки.
+ *
+ * Кого привели — не отдаём. Раньше список приведённых лежал в ответе и
+ * показывался в настройках: «пришёл такой-то». Знать, кто кого позвал, никому
+ * не нужно, а вот превратить это в иерархию — «я привёл десятерых» — очень
+ * легко. Связь в базе остаётся (по ней работает модерация), наружу не выходит.
+ */
 router.get('/mine', requireAuth, async (req, res) => {
   const me = req.user!.id;
 
-  // Запрос теперь один. Раньше их было два, и второй спрашивал invites_left —
-  // с миграции 026 запас безлимитный, спрашивать нечего.
-  const { data: invites, error: invitesError } = await supabase
+  const { data: existing, error: readError } = await supabase
     .from('invites')
-    .select('code, expires_at, created_at, uses:invite_uses (user_id, used_at, user:users (id, username))')
+    .select('code')
     .eq('issued_by', me)
-    .order('created_at', { ascending: false })
-    .limit(50);
+    .order('created_at', { ascending: true })
+    .limit(1)
+    .maybeSingle();
 
-  if (invitesError) {
-    console.error('invites: list failed', invitesError);
-    return res.status(500).json({ error: 'Не удалось загрузить приглашения' });
+  if (readError) {
+    console.error('invites: read failed', readError);
+    return res.status(500).json({ error: 'Не удалось загрузить приглашение' });
   }
 
-  // invitesLeft оставлен в ответе ради выложенного клиента, который его ещё
-  // читает: null там означает «ограничения нет».
-  res.json({ invitesLeft: null, invites });
-});
+  if (existing) return res.json({ code: existing.code });
 
-/** Выдать код. Запас проверяет триггер — здесь ловим его отказ. */
-router.post('/', requireAuth, requireNotBanned, async (req, res) => {
-  const { data, error } = await supabase
+  /**
+   * Кода ещё нет — заводим.
+   *
+   * Срок ставим заведомо далёкий, а не убираем колонку: not null в схеме, и
+   * снимать его миграцией ради того, что и так никогда не наступит, — лишний
+   * повод сломать выложенный код.
+   */
+  const { data: made, error: makeError } = await supabase
     .from('invites')
-    .insert({ issued_by: req.user!.id })
-    .select('code, expires_at')
+    .insert({
+      issued_by: me,
+      expires_at: new Date('2999-01-01T00:00:00Z').toISOString(),
+    })
+    .select('code')
     .single();
 
-  if (error) {
-    // Ветки «приглашения закончились» здесь больше нет: списывать нечего,
-    // триггер снят миграцией 026. Проверка на её текст осталась бы ложью,
-    // которую однажды пришлось бы разгадывать.
-    console.error('invites: create failed', error);
+  if (makeError) {
+    console.error('invites: create failed', makeError);
     return res.status(500).json({ error: 'Не удалось создать приглашение' });
   }
 
-  res.status(201).json(data);
+  res.json({ code: made.code });
 });
 
 /**

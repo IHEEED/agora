@@ -21,7 +21,7 @@ export type ThemePreference = Theme | 'system';
  * он есть, потому что применяется и сохраняется тем же способом, что
  * остальные; нет его только в STYLES, откуда строится список выбора.
  */
-export type StyleId = 'chronicle' | 'clarity' | 'atelier' | 'midnight' | 'garden' | 'signal' | 'glam';
+export type StyleId = 'chronicle' | 'atelier' | 'midnight' | 'garden' | 'signal' | 'glam';
 
 /**
  * Обои переписки — фон одного экрана, не всего приложения.
@@ -67,14 +67,6 @@ export const STYLES: ReadonlyArray<{
     swatch: ['#faf7f2', '#fffdf9', '#bf5b38'],
     swatchDark: ['#16140f', '#1f1c16', '#e08a5f'],
     serif: true,
-  },
-  {
-    id: 'clarity',
-    label: 'Чистота',
-    hint: 'Ничего своего — чтобы стекло на iPhone осталось стеклом',
-    swatch: ['#ffffff', '#f2f2f7', '#007aff'],
-    swatchDark: ['#000000', '#1c1c1e', '#0a84ff'],
-    serif: false,
   },
   {
     id: 'atelier',

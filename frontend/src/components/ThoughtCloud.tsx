@@ -134,7 +134,10 @@ export function ThoughtCloud({
       }
       style={mine && !text ? { color: 'var(--text-muted)' } : undefined}
     >
-      {text || t('note.empty')}
+      {/* Текст отдельным узлом: обрезка по строкам живёт на нём, а сам пузырь
+          выравнивает его по центру. Совместить то и другое на одном элементе
+          нельзя — -webkit-box отменяет flex. */}
+      <span>{text || t('note.empty')}</span>
     </span>
   );
 }

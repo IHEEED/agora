@@ -72,7 +72,7 @@ export function subscribeFetching(watcher: () => void) {
   };
 }
 
-function load<T>(path: string): Promise<T> {
+export function load<T>(path: string): Promise<T> {
   const existing = inFlight.get(path);
   if (existing) return existing as Promise<T>;
 

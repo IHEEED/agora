@@ -838,7 +838,14 @@ function StoryMenu({
   }[];
 
   return (
-    <BottomSheet open={open} onClose={onClose} title="История" height="auto">
+    // layer={4}: просмотрщик историй лежит на z-96, а шторка по умолчанию на
+    // z-60 — то есть меню открывалось ЗА историей и было не видно вовсе. Со
+    // стороны это выглядело как «три точки не работают»: нажатие проходило,
+    // состояние менялось, а на экране ничего.
+    //
+    // Слой считается как 60 + layer * 10, поэтому четвёртый даёт сотню — выше
+    // и самой истории, и просмотра изображения под ней.
+    <BottomSheet open={open} onClose={onClose} title="История" height="auto" layer={4}>
       <div
         className="flex flex-col py-1"
         style={{ paddingBottom: 'calc(18px + env(safe-area-inset-bottom))' }}

@@ -294,8 +294,6 @@ const DICTIONARY = {
     // ─── Оформления ─────────────────────────────────────────────────────────
     'style.chronicle': 'Хроника',
     'style.chronicle.hint': 'Тёплая бумага, терракота, газетная антиква',
-    'style.clarity': 'Чистота',
-    'style.clarity.hint': 'Ничего своего — чтобы стекло на iPhone осталось стеклом',
     'style.atelier': 'Ателье',
     'style.atelier.hint': 'Чернила на бумаге, без единого лишнего цвета',
     'style.midnight': 'Полночь',
@@ -586,8 +584,6 @@ const DICTIONARY = {
 
     'style.chronicle': 'Chronicle',
     'style.chronicle.hint': 'Warm paper, terracotta, newspaper serif',
-    'style.clarity': 'Clarity',
-    'style.clarity.hint': 'Nothing of its own, so the glass on iPhone stays glass',
     'style.atelier': 'Atelier',
     'style.atelier.hint': 'Ink on paper, not one colour more',
     'style.midnight': 'Midnight',
@@ -876,8 +872,6 @@ const DICTIONARY = {
 
     'style.chronicle': 'Crónica',
     'style.chronicle.hint': 'Papel cálido, terracota, serif de periódico',
-    'style.clarity': 'Claridad',
-    'style.clarity.hint': 'Nada propio, para que el cristal del iPhone siga siendo cristal',
     'style.atelier': 'Atelier',
     'style.atelier.hint': 'Tinta sobre papel, ni un color de más',
     'style.midnight': 'Medianoche',
