@@ -62,7 +62,8 @@ export function AvatarFollow({
         }}
       >
         <Svg width={glyph} height={glyph} viewBox="0 0 24 24" fill="none" stroke={following ? palette.textMuted : palette.accentContrast} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round">
-          {following ? <Path d="m5 12 5 5 9-11" /> : <><Path d="M5 12h14" /><Path d="M12 5v14" /></>}
+          {/* Подписан — минус (отписаться), не подписан — плюс, как в вебе. */}
+          {following ? <Path d="M5 12h14" /> : <><Path d="M5 12h14" /><Path d="M12 5v14" /></>}
         </Svg>
       </Pressable>
     </View>

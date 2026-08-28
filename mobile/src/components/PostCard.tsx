@@ -7,6 +7,7 @@ import { apiFetch } from '../lib/api';
 import { useSession } from '../lib/useSession';
 import { formatCompactAge } from '../lib/formatDate';
 import { Avatar } from './Avatar';
+import { AvatarFollow } from './AvatarFollow';
 import { VerifiedMark } from './VerifiedMark';
 import { VoteBlock } from './VoteBlock';
 import { PostMenuSheet } from './PostMenuSheet';
@@ -115,9 +116,21 @@ export function PostCard({ post }: { post: Post }) {
 
       {/* Автор: лицо, ник, галочка, возраст. Три точки справа. */}
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-        <Pressable onPress={openAuthor}>
-          <Avatar name={post.author.username} uri={post.author.avatar_url} size={38} />
-        </Pressable>
+        {post.author.id && !isMine ? (
+          // Значок подписки на самой аватарке — приём из Threads, как в вебе:
+          // видно лицо, имя и маленький плюс/минус на лице.
+          <AvatarFollow
+            userId={post.author.id}
+            username={post.author.username}
+            avatar={post.author.avatar_url}
+            initiallyFollowing={post.author.isFollowing}
+            size={38}
+          />
+        ) : (
+          <Pressable onPress={openAuthor}>
+            <Avatar name={post.author.username} uri={post.author.avatar_url} size={38} />
+          </Pressable>
+        )}
         <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
           <Pressable onPress={openAuthor} style={{ flexShrink: 1 }}>
             <Text numberOfLines={1} style={{ fontSize: 14, fontWeight: '600', color: palette.text }}>
