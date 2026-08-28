@@ -104,6 +104,11 @@ export interface Thread {
   };
 }
 
+/** Комментарий вместе с записью, под которой оставлен — для вкладки профиля. */
+export interface CommentWithPost extends Comment {
+  post: { id: string; title: string } | null;
+}
+
 /** Профиль человека — то, что отдаёт /users/:id. */
 export interface UserProfile {
   id: string;

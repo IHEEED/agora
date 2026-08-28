@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Dimensions, Image, Pressable, ScrollView, Text, View } from 'react-native';
+import { useRef, useState } from 'react';
+import { Animated, Dimensions, Image, Pressable, ScrollView, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Post, postImages } from '../lib/types';
@@ -47,6 +47,7 @@ export function PostCard({ post }: { post: Post }) {
   const [reposted, setReposted] = useState(Boolean(post.myRepost));
   const [repostCount, setRepostCount] = useState(post.repostCount ?? 0);
   const [commentCount] = useState(post.commentCount);
+  const spin = useRef(new Animated.Value(0)).current;
 
   const images = postImages(post);
   const hasChain = (post.chain?.length ?? 0) > 0;
@@ -55,6 +56,10 @@ export function PostCard({ post }: { post: Post }) {
     const next = !reposted;
     setReposted(next);
     setRepostCount((count) => (next ? count + 1 : count - 1));
+    // Один оборот стрелок — репост уносит запись дальше, движение это и
+    // показывает. Крутим при любом переключении, и при откате тоже.
+    spin.setValue(0);
+    Animated.timing(spin, { toValue: 1, duration: 420, useNativeDriver: true }).start();
     try {
       await apiFetch(`/posts/${post.id}/repost`, { method: next ? 'POST' : 'DELETE' });
     } catch {
@@ -143,7 +148,15 @@ export function PostCard({ post }: { post: Post }) {
             </View>
           ) : null}
           <Pressable onPress={handleRepost} hitSlop={4} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 10 }}>
-            <RepostIcon size={22} color={reposted ? palette.repost : palette.control} />
+            <Animated.View
+              style={{
+                transform: [
+                  { rotate: spin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] }) },
+                ],
+              }}
+            >
+              <RepostIcon size={22} color={reposted ? palette.repost : palette.control} />
+            </Animated.View>
             <Text style={{ fontSize: 15, color: reposted ? palette.repost : palette.control }}>{repostCount}</Text>
           </Pressable>
           <Pressable hitSlop={4} style={{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center' }}>
