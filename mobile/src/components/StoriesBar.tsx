@@ -5,6 +5,7 @@ import { apiFetch } from '../lib/api';
 import { StoryGroup } from '../lib/types';
 import { Avatar } from './Avatar';
 import { StoryViewer } from './StoryViewer';
+import { SegmentRing } from './SegmentRing';
 import { usePalette } from '../theme';
 
 /**
@@ -65,9 +66,10 @@ export function StoriesBar() {
 
         {groups.map((group, index) => (
           <Pressable key={group.author.id} onPress={() => setViewing(index)} style={{ alignItems: 'center', gap: 4, width: 72 }}>
-            <Ring color={group.unseen > 0 ? palette.accent : palette.border}>
+            <View style={{ width: 68, height: 68, alignItems: 'center', justifyContent: 'center' }}>
+              <SegmentRing size={68} segments={group.items.length} viewed={group.unseen === 0} />
               <Avatar name={group.author.username} uri={group.author.avatar_url} size={56} />
-            </Ring>
+            </View>
             <Text numberOfLines={1} style={{ fontSize: 11.5, color: palette.text }}>{group.author.username}</Text>
           </Pressable>
         ))}

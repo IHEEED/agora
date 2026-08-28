@@ -47,7 +47,7 @@ export function RootNavigator() {
         component={ChatScreen}
         options={({ route }) => ({ title: route.params.username })}
       />
-      <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ title: 'Уведомления' }} />
+      <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ headerShown: false }} />
       <Stack.Screen name="User" component={UserScreen} options={{ title: 'Профиль' }} />
       <Stack.Screen name="Search" component={SearchScreen} options={{ headerShown: false }} />
       <Stack.Screen name="Settings" component={SettingsScreen} options={{ headerShown: false }} />
