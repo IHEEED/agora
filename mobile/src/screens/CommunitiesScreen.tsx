@@ -1,5 +1,5 @@
-import { useCallback, useState } from 'react';
-import { FlatList, Pressable, Text, View } from 'react-native';
+import { useCallback, useMemo, useState } from 'react';
+import { FlatList, Pressable, Text, TextInput, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
@@ -33,8 +33,15 @@ export function CommunitiesScreen() {
   const { session } = useSession();
 
   const [communities, setCommunities] = useState<Community[]>([]);
+  const [query, setQuery] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const visible = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return communities;
+    return communities.filter((c) => c.name.toLowerCase().includes(q) || c.description?.toLowerCase().includes(q));
+  }, [communities, query]);
 
   useFocusEffect(
     useCallback(() => {
@@ -80,12 +87,32 @@ export function CommunitiesScreen() {
       {error ? <Text style={{ paddingHorizontal: 16, color: palette.down }}>{error}</Text> : null}
 
       <FlatList
-        data={communities}
+        data={visible}
         keyExtractor={(item) => item.id}
+        keyboardShouldPersistTaps="handled"
         contentContainerStyle={{ paddingHorizontal: 10, paddingBottom: insets.bottom + 80, gap: 10 }}
+        ListHeaderComponent={
+          communities.length > 0 ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginHorizontal: 6, marginBottom: 12, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 14, backgroundColor: palette.surface2 }}>
+              <Svg width={17} height={17} viewBox="0 0 24 24" fill="none" stroke={palette.textMuted} strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round">
+                <Path d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14Z" />
+                <Path d="m20 20-4.3-4.3" />
+              </Svg>
+              <TextInput
+                value={query}
+                onChangeText={setQuery}
+                placeholder="Поиск"
+                placeholderTextColor={palette.textMuted}
+                style={{ flex: 1, fontSize: 15, color: palette.text, paddingVertical: 2 }}
+              />
+            </View>
+          ) : null
+        }
         ListEmptyComponent={
           !loading && !error ? (
-            <Text style={{ color: palette.textMuted, textAlign: 'center', marginTop: 40 }}>Клубов пока нет.</Text>
+            <Text style={{ color: palette.textMuted, textAlign: 'center', marginTop: 40 }}>
+              {query ? 'Ничего не нашлось.' : 'Клубов пока нет.'}
+            </Text>
           ) : null
         }
         renderItem={({ item }) => (
@@ -94,14 +121,15 @@ export function CommunitiesScreen() {
               const parent = navigation.getParent<NativeStackNavigationProp<RootStackParamList>>();
               (parent ?? navigation).navigate('Community', { community: item });
             }}
-            style={{
+            style={({ pressed }) => ({
               flexDirection: 'row',
               alignItems: 'center',
               gap: 14,
               borderRadius: 16,
               padding: 16,
               backgroundColor: palette.surface2,
-            }}
+              transform: [{ scale: pressed ? 0.985 : 1 }],
+            })}
           >
             <Avatar name={item.name} size={52} />
             <View style={{ flex: 1, gap: 4 }}>
