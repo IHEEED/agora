@@ -9,6 +9,7 @@ import { PostCard } from '../components/PostCard';
 import { Avatar } from '../components/Avatar';
 import { StoriesBar } from '../components/StoriesBar';
 import { SuggestedPeople } from '../components/SuggestedPeople';
+import { BellIcon, SearchIcon } from '../components/icons';
 import { useSession } from '../lib/useSession';
 import { usePalette } from '../theme';
 import type { RootStackParamList } from '../navigation/types';
@@ -71,13 +72,13 @@ export function FeedScreen() {
         }}
       >
         <Pressable onPress={() => navigation.navigate('Notifications')} hitSlop={10}>
-          <Text style={{ fontSize: 22 }}>🔔</Text>
+          <BellIcon size={24} color={palette.control} />
         </Pressable>
         <Text style={{ fontSize: 22, fontWeight: '800', color: palette.text }}>
           :<Text style={{ color: palette.accent }}>P</Text>
         </Text>
         <Pressable hitSlop={10}>
-          <Text style={{ fontSize: 20 }}>🔍</Text>
+          <SearchIcon size={22} color={palette.control} />
         </Pressable>
       </View>
 

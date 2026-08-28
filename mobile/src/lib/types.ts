@@ -42,6 +42,22 @@ export interface Post {
   /** Показывать первой в ленте у всех (миграция 023). */
   pinned_global?: boolean;
   community?: { id: string; name: string } | null;
+  /** Обложка (до миграции 011) и список картинок (после). Читать через postImages(). */
+  image_url?: string | null;
+  image_urls?: string[] | null;
+  /** Запись опубликована от имени сообщества — стрелка и название акцентом. */
+  post_as_community?: boolean;
+  /** Продолжения записи («Вслед · N из M»), рисуются внутри начала цепочки. */
+  chain?: Post[];
+  /** Репосты: сколько всего и репостнул ли я. */
+  repostCount?: number;
+  myRepost?: boolean;
+}
+
+/** Картинки записи из двух источников: image_urls (после 011) или обложка image_url. */
+export function postImages(post: Pick<Post, 'image_url' | 'image_urls'>): string[] {
+  if (post.image_urls && post.image_urls.length > 0) return post.image_urls;
+  return post.image_url ? [post.image_url] : [];
 }
 
 export type PostSort = 'hot' | 'new' | 'top' | 'commented' | 'viewed';

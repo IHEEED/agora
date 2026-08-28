@@ -1,11 +1,22 @@
-import { Pressable, Text, View } from 'react-native';
+import { useState } from 'react';
+import { Dimensions, Image, Pressable, ScrollView, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { Post } from '../lib/types';
-import { useVote } from '../lib/useVote';
-import { formatRelativeDate } from '../lib/formatDate';
+import { Post, postImages } from '../lib/types';
+import { apiFetch } from '../lib/api';
+import { formatCompactAge } from '../lib/formatDate';
 import { Avatar } from './Avatar';
 import { VerifiedMark } from './VerifiedMark';
+import { VoteBlock } from './VoteBlock';
+import {
+  ChevronIcon,
+  CommentIcon,
+  MoreIcon,
+  PinIcon,
+  RepostIcon,
+  ShareIcon,
+  ViewIcon,
+} from './icons';
 import { usePalette } from '../theme';
 import type { RootStackParamList } from '../navigation/types';
 
@@ -22,26 +33,35 @@ function compactViews(value: number): string {
 /**
  * Карточка записи — один в один с вебом.
  *
- * Ни рамки, ни левой колонки голосов: пост отделяется от соседа полоской,
- * которую рисует список, и идёт во всю ширину. Сверху — автор с лицом, именем
- * и галочкой; заголовок газетной антиквой (на iOS это Georgia, тот же откат,
- * что в вебе); внизу — строка действий: голоса, комментарии, просмотры, репост,
- * поделиться.
+ * Ни рамки, ни фона: пост отделяется от соседа полоской, которую рисует список.
+ * Сверху — автор с лицом, ником, галочкой-розеткой и возрастом; заголовок
+ * газетной антиквой (на iOS это Georgia, тот же откат, что в вебе); при наличии
+ * картинок — прокручиваемая строка; цепочка продолжений внутри начала; внизу —
+ * две группы действий: слева голос и обсуждение, справа просмотры, репост и
+ * «поделиться». Все значки — те же контуры SVG, что в вебе.
  */
 export function PostCard({ post }: { post: Post }) {
   const palette = usePalette();
-  const { score, myVote, vote, error } = useVote(post.id, post.score, post.myVote);
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
-  const authorName = post.author.display_name || post.author.username;
+  const [reposted, setReposted] = useState(Boolean(post.myRepost));
+  const [repostCount, setRepostCount] = useState(post.repostCount ?? 0);
+  const [commentCount] = useState(post.commentCount);
 
-  const iconBtn = {
-    flexDirection: 'row' as const,
-    alignItems: 'center' as const,
-    gap: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-  };
+  const images = postImages(post);
+  const hasChain = (post.chain?.length ?? 0) > 0;
+
+  async function handleRepost() {
+    const next = !reposted;
+    setReposted(next);
+    setRepostCount((count) => (next ? count + 1 : count - 1));
+    try {
+      await apiFetch(`/posts/${post.id}/repost`, { method: next ? 'POST' : 'DELETE' });
+    } catch {
+      setReposted(!next);
+      setRepostCount((count) => (next ? count - 1 : count + 1));
+    }
+  }
 
   return (
     <Pressable
@@ -49,7 +69,7 @@ export function PostCard({ post }: { post: Post }) {
       style={{
         flexDirection: 'column',
         gap: 8,
-        paddingVertical: 14,
+        paddingVertical: 16,
         paddingHorizontal: 16,
         borderBottomWidth: 1,
         borderBottomColor: palette.border,
@@ -57,81 +77,164 @@ export function PostCard({ post }: { post: Post }) {
       }}
     >
       {post.pinned_global ? (
-        <Text style={{ fontSize: 12.5, fontWeight: '600', color: palette.accent }}>📌 Закреплено</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <PinIcon size={14} color={palette.accent} />
+          <Text style={{ fontSize: 12.5, fontWeight: '600', color: palette.accent }}>Закреплено</Text>
+        </View>
       ) : null}
 
-      {/* Автор: лицо, имя, галочка, время. Три точки справа. */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-        <Avatar name={authorName} uri={post.author.avatar_url} size={38} />
+      {/* Автор: лицо, ник, галочка, возраст. Три точки справа. */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+        <Avatar name={post.author.username} uri={post.author.avatar_url} size={38} />
         <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-          <Text numberOfLines={1} style={{ fontSize: 14, fontWeight: '600', color: palette.text }}>
-            {authorName}
+          <Text numberOfLines={1} style={{ flexShrink: 1, fontSize: 14, fontWeight: '600', color: palette.text }}>
+            {post.author.username}
           </Text>
-          <VerifiedMark verified={post.author.verified_at} size={14} />
+          <VerifiedMark verified={post.author.verified_at} size={17} />
           <Text style={{ fontSize: 13, color: palette.textMuted }}>
-            {formatRelativeDate(post.created_at)}
+            {formatCompactAge(post.created_at)}
           </Text>
+          {post.post_as_community && post.community ? (
+            <>
+              <ChevronIcon size={14} color={palette.textMuted} />
+              <Text numberOfLines={1} style={{ flexShrink: 1, fontSize: 14, fontWeight: '600', color: palette.accent }}>
+                {post.community.name}
+              </Text>
+            </>
+          ) : null}
         </View>
-        <Text style={{ fontSize: 20, color: palette.textMuted, marginTop: -6 }}>⋯</Text>
+        <Pressable hitSlop={8} style={{ width: 32, height: 32, alignItems: 'center', justifyContent: 'center', marginRight: -8 }}>
+          <MoreIcon size={18} color={palette.control} />
+        </Pressable>
       </View>
 
-      {/* Заголовок антиквой, текст обычной гарнитурой. */}
-      <View style={{ gap: 4 }}>
-        <Text style={{ fontFamily: 'Georgia', fontSize: 18, color: palette.text, lineHeight: 23 }}>
+      {/* Заголовок антиквой, тело обычной гарнитурой. */}
+      <View style={{ gap: 6 }}>
+        <Text style={{ fontFamily: 'Georgia', fontSize: 16, color: palette.text, lineHeight: 22 }}>
           {post.title}
         </Text>
-        {post.community ? (
-          <Text style={{ fontSize: 13, fontWeight: '600', color: palette.accent }}>
-            {post.community.name}
-          </Text>
-        ) : null}
         {post.body ? (
-          <Text style={{ fontSize: 14, color: palette.text, lineHeight: 20 }} numberOfLines={5}>
+          <Text style={{ fontSize: 13.5, color: palette.text, lineHeight: 22 }} numberOfLines={8}>
             {post.body}
           </Text>
         ) : null}
       </View>
 
-      {error ? <Text style={{ fontSize: 12, color: palette.down }}>{error}</Text> : null}
+      {hasChain ? <ChainTail chain={post.chain!} total={post.chain!.length + 1} /> : null}
+
+      {images.length > 0 ? <ImageStrip images={images} /> : null}
 
       {/* Строка действий: слева голоса и комментарии, справа просмотры, репост,
           поделиться. */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 2 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          {/* Голоса горизонтально: вверх, счёт, вниз. */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingRight: 4 }}>
-            <Pressable onPress={() => vote(1)} hitSlop={8}>
-              <Text style={{ fontSize: 17, color: myVote === 1 ? palette.up : palette.textMuted }}>▲</Text>
-            </Pressable>
-            <Text style={{ fontSize: 14, fontWeight: '700', color: palette.text }}>{score}</Text>
-            <Pressable onPress={() => vote(-1)} hitSlop={8}>
-              <Text style={{ fontSize: 17, color: myVote === -1 ? palette.down : palette.textMuted }}>▼</Text>
-            </Pressable>
-          </View>
-
-          <View style={iconBtn}>
-            <Text style={{ fontSize: 16 }}>💬</Text>
-            <Text style={{ fontSize: 14, color: palette.textMuted }}>
-              {post.commentCount}
-            </Text>
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginLeft: -4 }}>
+          <VoteBlock id={post.id} score={post.score} myVote={post.myVote} />
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 10 }}>
+            <CommentIcon size={22} color={palette.control} />
+            <Text style={{ fontSize: 15, color: palette.control }}>{commentCount}</Text>
           </View>
         </View>
 
-        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: -4 }}>
           {post.views > 0 ? (
-            <View style={{ ...iconBtn, gap: 4 }}>
-              <Text style={{ fontSize: 13 }}>👁</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 10 }}>
+              <ViewIcon size={17} color={palette.textMuted} />
               <Text style={{ fontSize: 13, color: palette.textMuted }}>{compactViews(post.views)}</Text>
             </View>
           ) : null}
-          <View style={iconBtn}>
-            <Text style={{ fontSize: 15, color: palette.textMuted }}>↻</Text>
-          </View>
-          <View style={iconBtn}>
-            <Text style={{ fontSize: 15, color: palette.textMuted }}>↑</Text>
-          </View>
+          <Pressable onPress={handleRepost} hitSlop={4} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 10 }}>
+            <RepostIcon size={22} color={reposted ? palette.repost : palette.control} />
+            <Text style={{ fontSize: 15, color: reposted ? palette.repost : palette.control }}>{repostCount}</Text>
+          </Pressable>
+          <Pressable hitSlop={4} style={{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center' }}>
+            <ShareIcon size={22} color={palette.control} />
+          </Pressable>
         </View>
       </View>
     </Pressable>
+  );
+}
+
+/**
+ * Прокручиваемая строка снимков — как в вебе. Одно движение — один кадр;
+ * счётчик «2/5» и точки внизу показывают, где мы в альбоме.
+ */
+function ImageStrip({ images }: { images: string[] }) {
+  const width = Dimensions.get('window').width - 32;
+  const [shown, setShown] = useState(0);
+
+  return (
+    <View style={{ borderRadius: 16, overflow: 'hidden' }}>
+      <ScrollView
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        onMomentumScrollEnd={(e) => setShown(Math.round(e.nativeEvent.contentOffset.x / width))}
+      >
+        {images.map((src, index) => (
+          <Image key={`${src}-${index}`} source={{ uri: src }} style={{ width, height: 340 }} resizeMode="cover" />
+        ))}
+      </ScrollView>
+
+      {images.length > 1 ? (
+        <>
+          <View style={{ position: 'absolute', right: 12, top: 12, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2, backgroundColor: 'rgba(0,0,0,0.45)' }}>
+            <Text style={{ fontSize: 12, fontWeight: '600', color: '#fff' }}>{shown + 1}/{images.length}</Text>
+          </View>
+          <View style={{ position: 'absolute', left: 0, right: 0, bottom: 10, flexDirection: 'row', justifyContent: 'center', gap: 6 }}>
+            {images.map((src, index) => (
+              <View
+                key={`dot-${src}-${index}`}
+                style={{
+                  height: 6,
+                  width: index === shown ? 16 : 6,
+                  borderRadius: 999,
+                  backgroundColor: index === shown ? 'rgba(255,255,255,0.95)' : 'rgba(255,255,255,0.45)',
+                }}
+              />
+            ))}
+          </View>
+        </>
+      ) : null}
+    </View>
+  );
+}
+
+/**
+ * Продолжения записи — «Вслед · N из M». Рисуются внутри начала цепочки, слева
+ * волосяная линия принадлежности, как у ветки ответов в комментариях.
+ */
+function ChainTail({ chain, total }: { chain: Post[]; total: number }) {
+  const palette = usePalette();
+  return (
+    <View style={{ marginTop: 4, paddingLeft: 19, gap: 12, position: 'relative' }}>
+      <View
+        style={{
+          position: 'absolute',
+          left: 0,
+          top: -4,
+          bottom: 8,
+          width: 1.5,
+          borderRadius: 999,
+          backgroundColor: palette.border,
+        }}
+      />
+      {chain.map((part, index) => (
+        <View key={part.id} style={{ gap: 4 }}>
+          <Text style={{ fontSize: 11.5, fontWeight: '600', color: palette.textMuted }}>
+            Вслед · {index + 2} из {total}
+          </Text>
+          <Text style={{ fontFamily: 'Georgia', fontSize: 15, color: palette.text, lineHeight: 20 }}>
+            {part.title}
+          </Text>
+          {part.body ? (
+            <Text style={{ fontSize: 13.5, color: palette.text, lineHeight: 22 }}>{part.body}</Text>
+          ) : null}
+          {part.image_url ? (
+            <Image source={{ uri: part.image_url }} style={{ width: '100%', height: 220, borderRadius: 12, marginTop: 2 }} resizeMode="cover" />
+          ) : null}
+        </View>
+      ))}
+    </View>
   );
 }

@@ -1,26 +1,30 @@
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
+import Svg, { Path } from 'react-native-svg';
 import { apiFetch } from '../lib/api';
-import { Avatar } from './Avatar';
+import { AvatarFollow } from './AvatarFollow';
 import { VerifiedMark } from './VerifiedMark';
 import { usePalette } from '../theme';
 
 /**
- * «Кого почитать» — горизонтальная лента плиток, как в вебе.
+ * «Кого почитать» — горизонтальная лента карточек, как в вебе.
  *
- * Плитки плоские, отличаются от фона тоном, а не тенью: тень, рассчитанная на
- * панель размером с экран, на квадратике собирается в углах в грязные скобки
- * (та же причина, что и в вебе).
+ * Карточка ужата до лица, имени и счёта influence: подписка живёт значком на
+ * самой аватарке (AvatarFollow), а не отдельной кнопкой-пилюлей под именем.
+ * В углу крестик — убрать одного человека из подсказок. Плитки плоские,
+ * отличаются от фона тоном, а не тенью.
  */
 
 type Person = {
   id: string;
   username: string;
-  display_name?: string | null;
   avatar_url?: string | null;
   verified_at?: string | null;
+  isFollowing?: boolean;
   karma: number;
 };
+
+const CARD_WIDTH = 148;
 
 export function SuggestedPeople() {
   const palette = usePalette();
@@ -32,52 +36,56 @@ export function SuggestedPeople() {
       .catch(() => {});
   }, []);
 
+  function dismiss(id: string) {
+    setPeople((prev) => prev.filter((person) => person.id !== id));
+  }
+
   if (people.length === 0) return null;
 
   return (
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
-      contentContainerStyle={{ gap: 10, paddingHorizontal: 16, paddingVertical: 12 }}
+      contentContainerStyle={{ gap: 8, paddingHorizontal: 16, paddingVertical: 4 }}
     >
-      {people.map((person) => {
-        const name = person.display_name || person.username;
-        return (
-          <View
-            key={person.id}
-            style={{
-              width: 130,
-              borderRadius: 16,
-              padding: 12,
-              alignItems: 'center',
-              gap: 8,
-              backgroundColor: palette.surface2,
-            }}
+      {people.map((person) => (
+        <View
+          key={person.id}
+          style={{
+            width: CARD_WIDTH,
+            borderRadius: 16,
+            padding: 12,
+            alignItems: 'center',
+            gap: 8,
+            backgroundColor: palette.surface2,
+          }}
+        >
+          <Pressable
+            onPress={() => dismiss(person.id)}
+            hitSlop={10}
+            style={{ position: 'absolute', right: 6, top: 6, width: 24, height: 24, alignItems: 'center', justifyContent: 'center', zIndex: 1 }}
           >
-            <Avatar name={name} uri={person.avatar_url} size={56} />
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-              <Text numberOfLines={1} style={{ fontSize: 13, fontWeight: '600', color: palette.text }}>
-                {name}
-              </Text>
-              <VerifiedMark verified={person.verified_at} size={12} />
-            </View>
-            <Text style={{ fontSize: 12, color: palette.textMuted }}>{person.karma} influence</Text>
-            <Pressable
-              style={{
-                marginTop: 2,
-                borderRadius: 999,
-                paddingHorizontal: 16,
-                paddingVertical: 6,
-                backgroundColor: palette.accent,
-              }}
-            >
-              <Text style={{ fontSize: 12.5, fontWeight: '600', color: palette.accentContrast }}>
-                Подписаться
-              </Text>
-            </Pressable>
+            <Svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke={palette.textMuted} strokeWidth={2.2} strokeLinecap="round">
+              <Path d="M6 6l12 12M18 6 6 18" />
+            </Svg>
+          </Pressable>
+
+          <AvatarFollow
+            userId={person.id}
+            username={person.username}
+            avatar={person.avatar_url}
+            initiallyFollowing={person.isFollowing}
+            size={60}
+          />
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, maxWidth: '100%' }}>
+            <Text numberOfLines={1} style={{ flexShrink: 1, fontSize: 13.5, fontWeight: '600', color: palette.text }}>
+              {person.username}
+            </Text>
+            <VerifiedMark verified={person.verified_at} size={14} />
           </View>
-        );
-      })}
+          <Text style={{ fontSize: 11.5, color: palette.textMuted }}>{person.karma} influence</Text>
+        </View>
+      ))}
     </ScrollView>
   );
 }

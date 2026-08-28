@@ -31,6 +31,10 @@ export type Palette = {
   accentContrast: string;
   up: string;
   down: string;
+  /** Цвет иконок-действий в покое: --control из веба (text 82% + bg 18%). */
+  control: string;
+  /** Активный репост: --repost из веба. */
+  repost: string;
 };
 
 /** «Хроника» — то же оформление по умолчанию, что и в вебе. */
@@ -45,6 +49,8 @@ const CHRONICLE_LIGHT: Palette = {
   accentContrast: '#fffaf4',
   up: '#1f9d55',
   down: '#c8453d',
+  control: '#484540',
+  repost: '#c98a06',
 };
 
 const CHRONICLE_DARK: Palette = {
@@ -58,6 +64,8 @@ const CHRONICLE_DARK: Palette = {
   accentContrast: '#16140f',
   up: '#43d489',
   down: '#ff7a70',
+  control: '#c9c4bb',
+  repost: '#f0b429',
 };
 
 export function usePalette(): Palette {
