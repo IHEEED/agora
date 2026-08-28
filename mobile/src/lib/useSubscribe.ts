@@ -15,7 +15,7 @@ export function useSubscribe(communityId: string, initialSubscribed: boolean, in
     setSubscriberCount((c) => c + (nextSubscribed ? 1 : -1));
 
     try {
-      await apiFetch(`/communities/${communityId}/subscribe`, {
+      await apiFetch(`/communities/${communityId}/join`, {
         method: nextSubscribed ? 'POST' : 'DELETE',
       });
     } catch (err) {

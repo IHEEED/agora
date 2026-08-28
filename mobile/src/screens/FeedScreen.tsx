@@ -21,7 +21,7 @@ export function FeedScreen() {
   const [loading, setLoading] = useState(true);
 
   const loadPosts = useCallback(() => {
-    apiFetch<Post[]>(`/posts/feed?sort=${sort}`)
+    apiFetch<Post[]>(`/posts?sort=${sort}`)
       .then(setPosts)
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
