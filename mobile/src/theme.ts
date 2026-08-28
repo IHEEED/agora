@@ -35,6 +35,9 @@ export type Palette = {
   control: string;
   /** Активный репост: --repost из веба. */
   repost: string;
+  /** Подложка аватарки-заглушки (--avatar-bg) и цвет силуэта на ней. */
+  avatarBg: string;
+  avatarInk: string;
 };
 
 /**
@@ -55,6 +58,8 @@ const CHRONICLE_LIGHT: Palette = {
   down: '#c8453d',
   control: '#564a3e',
   repost: '#c98a06',
+  avatarBg: '#e5d2bf',
+  avatarInk: '#8e5f45',
 };
 
 const CHRONICLE_DARK: Palette = {
@@ -70,6 +75,8 @@ const CHRONICLE_DARK: Palette = {
   down: '#ff7a70',
   control: '#c7c2ba',
   repost: '#f0b429',
+  avatarBg: '#392b20',
+  avatarInk: '#b3947c',
 };
 
 export function usePalette(): Palette {

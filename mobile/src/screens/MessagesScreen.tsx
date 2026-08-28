@@ -7,7 +7,7 @@ import { apiFetch } from '../lib/api';
 import { Thread } from '../lib/types';
 import { Avatar } from '../components/Avatar';
 import { VerifiedMark } from '../components/VerifiedMark';
-import { TopBar } from '../components/TopBar';
+import { TopBar, useTopBarInset } from '../components/TopBar';
 import { usePalette } from '../theme';
 import { formatRelativeDate } from '../lib/formatDate';
 import type { RootStackParamList } from '../navigation/types';
@@ -26,6 +26,7 @@ import type { RootStackParamList } from '../navigation/types';
 export function MessagesScreen() {
   const palette = usePalette();
   const insets = useSafeAreaInsets();
+  const topInset = useTopBarInset();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
   const [threads, setThreads] = useState<Thread[]>([]);
@@ -48,26 +49,26 @@ export function MessagesScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: palette.bg }}>
       <TopBar right="search" />
-      <View style={{ paddingHorizontal: 16, paddingBottom: 8 }}>
-        <Text style={{ fontFamily: 'Georgia', fontSize: 30, color: palette.text }}>
-          Сообщения<Text style={{ color: palette.accent }}>.</Text>
-        </Text>
-      </View>
-      {loading ? (
-        <Text style={{ padding: 16, color: palette.textMuted }}>Загрузка…</Text>
-      ) : null}
-      {error ? <Text style={{ padding: 16, color: palette.down }}>{error}</Text> : null}
-
-      {!loading && !error && threads.length === 0 ? (
-        <Text style={{ padding: 16, color: palette.textMuted }}>
-          Переписок пока нет. Напишите кому-нибудь из профиля.
-        </Text>
-      ) : null}
 
       <FlatList
         data={threads}
         keyExtractor={(thread) => thread.user.id}
-        contentContainerStyle={{ paddingVertical: 4, paddingBottom: insets.bottom + 80 }}
+        contentContainerStyle={{ paddingTop: topInset, paddingBottom: insets.bottom + 80 }}
+        scrollIndicatorInsets={{ top: topInset }}
+        ListHeaderComponent={
+          <View style={{ paddingHorizontal: 16, paddingBottom: 8 }}>
+            <Text style={{ fontFamily: 'Georgia', fontSize: 30, color: palette.text }}>
+              Сообщения<Text style={{ color: palette.accent }}>.</Text>
+            </Text>
+            {loading ? <Text style={{ paddingVertical: 8, color: palette.textMuted }}>Загрузка…</Text> : null}
+            {error ? <Text style={{ paddingVertical: 8, color: palette.down }}>{error}</Text> : null}
+            {!loading && !error && threads.length === 0 ? (
+              <Text style={{ paddingVertical: 8, color: palette.textMuted }}>
+                Переписок пока нет. Напишите кому-нибудь из профиля.
+              </Text>
+            ) : null}
+          </View>
+        }
         renderItem={({ item }) => {
           const name = item.user.display_name || item.user.username;
           return (

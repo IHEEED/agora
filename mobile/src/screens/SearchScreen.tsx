@@ -124,7 +124,7 @@ export function SearchScreen() {
                     onPress={() => navigation.navigate('Community', { community })}
                     style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 10 }}
                   >
-                    <Avatar name={community.name} size={44} />
+                    <Avatar name={community.name} size={44} kind="community" />
                     <View style={{ flex: 1 }}>
                       <Text numberOfLines={1} style={{ fontSize: 15, fontWeight: '600', color: palette.text }}>{community.name}</Text>
                       {community.description ? (

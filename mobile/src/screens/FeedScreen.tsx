@@ -9,7 +9,7 @@ import { PostCard } from '../components/PostCard';
 import { Avatar } from '../components/Avatar';
 import { StoriesBar } from '../components/StoriesBar';
 import { SuggestedPeople } from '../components/SuggestedPeople';
-import { TopBar } from '../components/TopBar';
+import { TopBar, useTopBarInset } from '../components/TopBar';
 import { useSession } from '../lib/useSession';
 import { usePalette } from '../theme';
 import type { RootStackParamList } from '../navigation/types';
@@ -30,6 +30,7 @@ const SORTS: { value: PostSort; label: string }[] = [
 export function FeedScreen() {
   const palette = usePalette();
   const insets = useSafeAreaInsets();
+  const topInset = useTopBarInset();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { session } = useSession();
 
@@ -64,7 +65,8 @@ export function FeedScreen() {
       <FlatList
         data={posts}
         keyExtractor={(post) => post.id}
-        contentContainerStyle={{ paddingBottom: insets.bottom + 72 }}
+        contentContainerStyle={{ paddingTop: topInset, paddingBottom: insets.bottom + 72 }}
+        scrollIndicatorInsets={{ top: topInset }}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}

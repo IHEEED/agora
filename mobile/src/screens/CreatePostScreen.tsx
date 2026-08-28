@@ -134,7 +134,7 @@ export function CreatePostScreen({ navigation, route }: Props) {
                 onPress={() => choose({ kind: 'community', id: community.id, name: community.name })}
                 style={{ flexDirection: 'row', alignItems: 'center', gap: 14, borderRadius: 16, padding: 16, backgroundColor: palette.surface }}
               >
-                <Avatar name={community.name} size={48} />
+                <Avatar name={community.name} size={48} kind="community" />
                 <View style={{ flex: 1, gap: 2 }}>
                   <Text numberOfLines={1} style={{ fontSize: 15, fontWeight: '600', color: palette.text }}>{community.name}</Text>
                   {community.description ? (

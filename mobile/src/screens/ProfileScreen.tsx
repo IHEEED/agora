@@ -13,7 +13,7 @@ import { Avatar } from '../components/Avatar';
 import { VerifiedMark } from '../components/VerifiedMark';
 import { VoteBlock } from '../components/VoteBlock';
 import { PostCard } from '../components/PostCard';
-import { TopBar } from '../components/TopBar';
+import { TopBar, useTopBarInset } from '../components/TopBar';
 import { CommentIcon, ChevronIcon } from '../components/icons';
 import { usePalette } from '../theme';
 import type { RootStackParamList, TabParamList } from '../navigation/types';
@@ -42,6 +42,7 @@ const TABS: { value: Tab; label: string }[] = [
 export function ProfileScreen() {
   const palette = usePalette();
   const insets = useSafeAreaInsets();
+  const topInset = useTopBarInset();
   const navigation = useNavigation<Nav>();
   const { session, loading } = useSession();
 
@@ -170,7 +171,8 @@ export function ProfileScreen() {
         <FlatList
           data={comments}
           keyExtractor={(item) => item.id}
-          contentContainerStyle={{ paddingBottom: insets.bottom + 80 }}
+          contentContainerStyle={{ paddingTop: topInset, paddingBottom: insets.bottom + 80 }}
+          scrollIndicatorInsets={{ top: topInset }}
           ListHeaderComponent={header}
           ListEmptyComponent={<Text style={{ paddingHorizontal: 16, color: palette.textMuted }}>{emptyText}</Text>}
           renderItem={({ item }) => (
@@ -205,7 +207,8 @@ export function ProfileScreen() {
       <FlatList
         data={list}
         keyExtractor={(post) => post.id}
-        contentContainerStyle={{ paddingBottom: insets.bottom + 80 }}
+        contentContainerStyle={{ paddingTop: topInset, paddingBottom: insets.bottom + 80 }}
+          scrollIndicatorInsets={{ top: topInset }}
         ListHeaderComponent={header}
         ListEmptyComponent={<Text style={{ paddingHorizontal: 16, color: palette.textMuted }}>{emptyText}</Text>}
         renderItem={({ item }) => <PostCard post={item} />}
