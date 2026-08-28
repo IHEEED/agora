@@ -1,8 +1,18 @@
 export type BadgeType = 'verified' | 'developer';
 
 export interface Author {
+  id?: string;
   username: string;
-  badge: BadgeType | null;
+  /** Показываемое имя, если задано. */
+  display_name?: string | null;
+  /** Адрес лица. Пусто — рисуем кружок с буквой. */
+  avatar_url?: string | null;
+  /** Дата подтверждения подлинности. Пусто — галочки нет. */
+  verified_at?: string | null;
+  /** Подписан ли я на автора — для кнопки в ленте. */
+  isFollowing?: boolean;
+  /** Старое поле, бэкенд его больше не шлёт; оставлено для совместимости. */
+  badge?: BadgeType | null;
 }
 
 export interface Community {
@@ -29,11 +39,12 @@ export interface Post {
   commentCount: number;
   author: Author;
   views: number;
-  // присутствует только в ответе GET /posts/feed
-  community?: { name: string; badge: BadgeType | null };
+  /** Показывать первой в ленте у всех (миграция 023). */
+  pinned_global?: boolean;
+  community?: { id: string; name: string } | null;
 }
 
-export type PostSort = 'hot' | 'new' | 'top' | 'commented';
+export type PostSort = 'hot' | 'new' | 'top' | 'commented' | 'viewed';
 export type CommentSort = 'best' | 'new';
 
 export interface Comment {
@@ -47,4 +58,45 @@ export interface Comment {
   myVote: 1 | -1 | null;
   replies: Comment[];
   author: Author;
+}
+
+/**
+ * Собеседник в списке переписок и в самой переписке.
+ *
+ * Форма ровно та, что отдаёт бэкенд (routes/messages.ts): ник, лицо и, если
+ * человек подтверждён, дата галочки. display_name — показываемое имя, если
+ * задано.
+ */
+export interface ChatUser {
+  id: string;
+  username: string;
+  display_name?: string | null;
+  avatar_url?: string | null;
+  verified_at?: string | null;
+}
+
+/** Одна строка в списке переписок. */
+export interface Thread {
+  user: ChatUser;
+  unread: number;
+  pinned: boolean;
+  muted: boolean;
+  lastMessage: {
+    body: string;
+    created_at: string;
+    mine: boolean;
+  };
+}
+
+/** Одно письмо внутри переписки. */
+export interface Message {
+  id: string;
+  sender_id: string;
+  recipient_id: string;
+  body: string | null;
+  image_url?: string | null;
+  created_at: string;
+  read_at?: string | null;
+  edited_at?: string | null;
+  forwardedFrom?: { id: string; username: string } | null;
 }

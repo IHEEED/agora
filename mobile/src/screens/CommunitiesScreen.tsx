@@ -1,7 +1,7 @@
 import { useCallback, useLayoutEffect, useState } from 'react';
 import { FlatList, Pressable, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
-import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import type { CompositeNavigationProp } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -42,7 +42,11 @@ function HeaderRight() {
 
 export function CommunitiesScreen() {
   const navigation = useNavigation<Nav>();
-  const tabBarHeight = useBottomTabBarHeight();
+  // Нативный таб-бар считает свою высоту сам, а useBottomTabBarHeight с ним
+  // падает. Берём нижнюю безопасную зону и добавляем высоту бара, чтобы
+  // список не уходил под него.
+  const insets = useSafeAreaInsets();
+  const tabBarHeight = insets.bottom + 64;
   const [communities, setCommunities] = useState<Community[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);

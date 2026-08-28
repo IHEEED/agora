@@ -7,10 +7,14 @@ export type RootStackParamList = {
   Login: undefined;
   CreateCommunity: undefined;
   CreatePost: { communityId: string };
+  Messages: undefined;
+  Chat: { userId: string; username: string };
+  Notifications: undefined;
 };
 
 export type TabParamList = {
-  Communities: undefined;
   Feed: undefined;
+  Communities: undefined;
+  MessagesTab: undefined;
   Profile: undefined;
 };

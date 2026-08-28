@@ -5,6 +5,9 @@ import { PostScreen } from '../screens/PostScreen';
 import { LoginScreen } from '../screens/LoginScreen';
 import { CreateCommunityScreen } from '../screens/CreateCommunityScreen';
 import { CreatePostScreen } from '../screens/CreatePostScreen';
+import { MessagesScreen } from '../screens/MessagesScreen';
+import { ChatScreen } from '../screens/ChatScreen';
+import { NotificationsScreen } from '../screens/NotificationsScreen';
 import { usePalette } from '../theme';
 import type { RootStackParamList } from './types';
 
@@ -32,6 +35,14 @@ export function RootNavigator() {
       <Stack.Screen name="MainTabs" component={MainTabs} options={{ headerShown: false }} />
       <Stack.Screen name="Community" component={CommunityScreen} />
       <Stack.Screen name="Post" component={PostScreen} options={{ title: 'Пост' }} />
+      <Stack.Screen name="Messages" component={MessagesScreen} options={{ title: 'Мессенджер' }} />
+      {/* Заголовок ставит сам экран из имени собеседника — см. навигацию. */}
+      <Stack.Screen
+        name="Chat"
+        component={ChatScreen}
+        options={({ route }) => ({ title: route.params.username })}
+      />
+      <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ title: 'Уведомления' }} />
       <Stack.Screen name="Login" component={LoginScreen} options={{ title: 'Вход' }} />
       <Stack.Screen
         name="CreateCommunity"
