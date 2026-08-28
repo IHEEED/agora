@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Animated, Dimensions, Image, Pressable, ScrollView, Text, View } from 'react-native';
+import { Animated, Dimensions, Image, Pressable, ScrollView, Share, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Post, postImages } from '../lib/types';
@@ -184,7 +184,11 @@ export function PostCard({ post }: { post: Post }) {
             </Animated.View>
             <Text style={{ fontSize: 15, color: reposted ? palette.repost : palette.control }}>{repostCount}</Text>
           </Pressable>
-          <Pressable hitSlop={4} style={{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center' }}>
+          <Pressable
+            onPress={() => Share.share({ message: post.title }).catch(() => {})}
+            hitSlop={4}
+            style={{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center' }}
+          >
             <ShareIcon size={22} color={palette.control} />
           </Pressable>
         </View>

@@ -77,7 +77,7 @@ export function FeedScreen() {
         <Text style={{ fontSize: 22, fontWeight: '800', color: palette.text }}>
           :<Text style={{ color: palette.accent }}>P</Text>
         </Text>
-        <Pressable hitSlop={10}>
+        <Pressable onPress={() => navigation.navigate('Search')} hitSlop={10}>
           <SearchIcon size={22} color={palette.control} />
         </Pressable>
       </View>
@@ -162,31 +162,6 @@ export function FeedScreen() {
         }
         renderItem={({ item }) => <PostCard post={item} />}
       />
-
-      {/* Плавающая «+» — создание записи. В вебе плюс по центру бара, но
-          нативный таб-бар не даёт вставить туда действие вместо экрана, поэтому
-          здесь кнопка над баром справа. */}
-      <Pressable
-        onPress={() => navigation.navigate('CreatePost', { communityId: '' })}
-        style={{
-          position: 'absolute',
-          right: 20,
-          bottom: insets.bottom + 80,
-          width: 56,
-          height: 56,
-          borderRadius: 28,
-          backgroundColor: palette.accent,
-          alignItems: 'center',
-          justifyContent: 'center',
-          shadowColor: '#000',
-          shadowOpacity: 0.2,
-          shadowRadius: 8,
-          shadowOffset: { width: 0, height: 3 },
-          elevation: 4,
-        }}
-      >
-        <Text style={{ fontSize: 30, lineHeight: 34, color: palette.accentContrast }}>+</Text>
-      </Pressable>
     </View>
   );
 }
