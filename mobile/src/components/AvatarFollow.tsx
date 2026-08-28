@@ -44,28 +44,33 @@ export function AvatarFollow({
   return (
     <View style={{ width: size, height: size }}>
       <Avatar name={username} uri={avatar} size={size} />
-      <Pressable
-        onPress={toggle}
-        hitSlop={12}
-        style={{
-          position: 'absolute',
-          right: -2,
-          bottom: -2,
-          width: badge,
-          height: badge,
-          borderRadius: badge / 2,
-          backgroundColor: following ? palette.surface2 : palette.accent,
-          borderWidth: 1.5,
-          borderColor: palette.bg,
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <Svg width={glyph} height={glyph} viewBox="0 0 24 24" fill="none" stroke={following ? palette.textMuted : palette.accentContrast} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round">
-          {/* Подписан — минус (отписаться), не подписан — плюс, как в вебе. */}
-          {following ? <Path d="M5 12h14" /> : <><Path d="M5 12h14" /><Path d="M12 5v14" /></>}
-        </Svg>
-      </Pressable>
+      {/* Значок только чтобы подписаться: плюс есть, пока не подписан, и
+          исчезает после подписки. Отписываются со страницы человека, а не с
+          его лица в ленте — минуса на аватарке нет. */}
+      {following ? null : (
+        <Pressable
+          onPress={toggle}
+          hitSlop={12}
+          style={{
+            position: 'absolute',
+            right: -2,
+            bottom: -2,
+            width: badge,
+            height: badge,
+            borderRadius: badge / 2,
+            backgroundColor: palette.accent,
+            borderWidth: 1.5,
+            borderColor: palette.bg,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Svg width={glyph} height={glyph} viewBox="0 0 24 24" fill="none" stroke={palette.accentContrast} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round">
+            <Path d="M5 12h14" />
+            <Path d="M12 5v14" />
+          </Svg>
+        </Pressable>
+      )}
     </View>
   );
 }
