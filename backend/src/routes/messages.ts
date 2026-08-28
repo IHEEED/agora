@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { supabase } from '../config/supabase';
 import { hiddenUserIds, isBlockedBetween } from '../lib/blocks';
+import { isUuid } from '../lib/uuid';
 import { requireAuth, requirePhoneVerified } from '../middleware/auth';
 import { userColumns } from '../config/schema';
 
@@ -229,6 +230,11 @@ router.delete('/thread/:peerId', requireAuth, async (req, res) => {
   const me = req.user!.id;
   const peerId = String(req.params.peerId);
 
+  // peerId уходит в текст фильтра удаления. Не UUID — попытка расширить область
+  // удаления на чужие сообщения. Отказ, а не пустое удаление: удалять и молча
+  // ничего не удалить — разные истории, и вторая скрывает атаку.
+  if (!isUuid(peerId)) return res.status(400).json({ error: 'Некорректный адрес' });
+
   const { error } = await supabase
     .from('messages')
     .delete()
@@ -389,6 +395,11 @@ async function reactionsByMessageId(ids: string[]) {
 router.get('/:userId', requireAuth, async (req, res) => {
   const me = req.user!.id;
   const other = String(req.params.userId);
+
+  // other уходит в текст .or()-фильтра, а не в параметр. Не UUID здесь — это
+  // попытка разорвать фильтр и вытащить чужую переписку, а не опечатка: пустая
+  // выдача честнее ошибки.
+  if (!isUuid(other)) return res.json([]);
 
   const { data, error } = await supabase
     .from('messages')
