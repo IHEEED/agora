@@ -8,6 +8,7 @@ import { useSubscribe } from '../lib/useSubscribe';
 import { Post, PostSort } from '../lib/types';
 import { PostCard } from '../components/PostCard';
 import { Badge } from '../components/Badge';
+import { usePalette } from '../theme';
 import type { RootStackParamList } from '../navigation/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Community'>;
@@ -21,6 +22,7 @@ const SORT_OPTIONS: { value: PostSort; label: string }[] = [
 
 export function CommunityScreen({ navigation, route }: Props) {
   const { community } = route.params;
+  const palette = usePalette();
   const { session } = useSession();
   const { isSubscribed, subscriberCount, toggle, error: subscribeError } = useSubscribe(
     community.id,
@@ -38,11 +40,11 @@ export function CommunityScreen({ navigation, route }: Props) {
       headerRight: () =>
         session ? (
           <Pressable onPress={() => navigation.navigate('CreatePost', { communityId: community.id })} hitSlop={8}>
-            <Text style={{ fontSize: 20, fontWeight: '700', color: '#111' }}>+</Text>
+            <Text style={{ fontSize: 24, fontWeight: '400', color: palette.accent }}>+</Text>
           </Pressable>
         ) : null,
     });
-  }, [navigation, community.name, community.id, session]);
+  }, [navigation, community.name, community.id, session, palette.accent]);
 
   const loadPosts = useCallback(() => {
     apiFetch<Post[]>(`/posts/community/${community.id}?sort=${sort}`)
@@ -58,11 +60,11 @@ export function CommunityScreen({ navigation, route }: Props) {
   );
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#fafafa' }}>
+    <View style={{ flex: 1, backgroundColor: palette.bg }}>
       <View style={{ paddingHorizontal: 16, paddingTop: 12, gap: 6 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1 }}>
-            <Text style={{ fontSize: 12, color: '#666' }}>
+            <Text style={{ fontSize: 13, color: palette.textMuted }}>
               {subscriberCount} {subscriberCount === 1 ? 'подписчик' : 'подписчиков'}
             </Text>
             <Badge type={community.creator.badge} />
@@ -72,51 +74,54 @@ export function CommunityScreen({ navigation, route }: Props) {
             <Pressable
               onPress={toggle}
               style={{
-                paddingHorizontal: 14,
-                paddingVertical: 7,
+                paddingHorizontal: 16,
+                paddingVertical: 8,
                 borderRadius: 999,
-                backgroundColor: isSubscribed ? '#eee' : '#111',
+                backgroundColor: isSubscribed ? palette.surface2 : palette.accent,
               }}
             >
-              <Text style={{ fontSize: 12, fontWeight: '700', color: isSubscribed ? '#333' : '#fff' }}>
+              <Text style={{ fontSize: 13, fontWeight: '600', color: isSubscribed ? palette.text : palette.accentContrast }}>
                 {isSubscribed ? 'Вы подписаны' : 'Подписаться'}
               </Text>
             </Pressable>
           ) : null}
         </View>
-        {subscribeError ? <Text style={{ fontSize: 12, color: '#dc2626' }}>{subscribeError}</Text> : null}
+        {subscribeError ? <Text style={{ fontSize: 12, color: palette.down }}>{subscribeError}</Text> : null}
       </View>
 
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, padding: 12 }}>
-        {SORT_OPTIONS.map((option) => (
-          <Pressable
-            key={option.value}
-            onPress={() => setSort(option.value)}
-            style={{
-              paddingHorizontal: 12,
-              paddingVertical: 6,
-              borderRadius: 999,
-              backgroundColor: sort === option.value ? '#111' : '#eee',
-            }}
-          >
-            <Text style={{ fontSize: 12, fontWeight: '600', color: sort === option.value ? '#fff' : '#444' }}>
-              {option.label}
-            </Text>
-          </Pressable>
-        ))}
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, padding: 12 }}>
+        {SORT_OPTIONS.map((option) => {
+          const on = sort === option.value;
+          return (
+            <Pressable
+              key={option.value}
+              onPress={() => setSort(option.value)}
+              style={{
+                paddingHorizontal: 14,
+                paddingVertical: 7,
+                borderRadius: 999,
+                backgroundColor: on ? palette.accent : palette.surface2,
+              }}
+            >
+              <Text style={{ fontSize: 13, fontWeight: '600', color: on ? palette.accentContrast : palette.textMuted }}>
+                {option.label}
+              </Text>
+            </Pressable>
+          );
+        })}
       </View>
 
-      {loading ? <Text style={{ paddingHorizontal: 16, color: '#666' }}>Загрузка…</Text> : null}
-      {error ? <Text style={{ paddingHorizontal: 16, color: '#dc2626' }}>{error}</Text> : null}
+      {loading ? <Text style={{ paddingHorizontal: 16, color: palette.textMuted }}>Загрузка…</Text> : null}
+      {error ? <Text style={{ paddingHorizontal: 16, color: palette.down }}>{error}</Text> : null}
 
       <FlatList
         data={posts}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={{ padding: 16, paddingTop: 4, gap: 10 }}
+        contentContainerStyle={{ paddingBottom: 24 }}
         ListEmptyComponent={
           !loading && !error ? (
-            <Text style={{ color: '#666', textAlign: 'center', marginTop: 40 }}>
-              В этом сообществе пока нет постов.
+            <Text style={{ color: palette.textMuted, textAlign: 'center', marginTop: 40 }}>
+              В этом клубе пока нет записей.
             </Text>
           ) : null
         }

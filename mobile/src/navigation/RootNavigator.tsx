@@ -20,13 +20,10 @@ export function RootNavigator() {
     <Stack.Navigator
       initialRouteName="MainTabs"
       screenOptions={{
-        // Заголовок отдан системе целиком: headerTransparent + прозрачный фон
-        // означают, что панель рисует UIKit, а на iOS 26 она сама получает
-        // Liquid Glass и сама решает, как преломлять уезжающий под неё
-        // контент. Любой собственный backgroundColor здесь вернул бы плоскую
-        // крашеную полосу.
-        headerTransparent: true,
-        headerStyle: { backgroundColor: 'transparent' },
+        // Панель НЕ прозрачная: при headerTransparent контент кладётся под неё
+        // от самого верха экрана — и все стек-экраны «съезжали» под часы и
+        // заголовок. Обычная панель (система сама рисует её полупрозрачным
+        // материалом, на iOS 26 — стеклом) отодвигает контент вниз, под себя.
         headerTintColor: palette.accent,
         headerTitleStyle: { color: palette.text },
         // Назад — только стрелка, без ярлыка «MainTabs»: имя предыдущего

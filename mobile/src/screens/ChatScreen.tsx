@@ -89,6 +89,7 @@ export function ChatScreen() {
         ref={listRef}
         data={reversed}
         inverted
+        keyboardShouldPersistTaps="handled"
         keyExtractor={(message) => message.id}
         contentContainerStyle={{ padding: 12, gap: 6 }}
         renderItem={({ item }) => {

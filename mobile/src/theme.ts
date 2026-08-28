@@ -37,26 +37,30 @@ export type Palette = {
   repost: string;
 };
 
-/** «Хроника» — то же оформление по умолчанию, что и в вебе. */
+/**
+ * «Хроника» — то же оформление по умолчанию, что и в вебе, значение в значение.
+ * Тёплая плотная бумага, терракота, коричневые чернила. Раньше здесь стояла
+ * старая, почти белая бумага — из-за этого темы клиентов расходились.
+ */
 const CHRONICLE_LIGHT: Palette = {
-  bg: '#faf7f2',
-  surface: '#fffdf9',
-  surface2: '#f1ebe0',
-  border: '#e6ddcf',
-  text: '#211e19',
-  textMuted: '#726b5f',
-  accent: '#bf5b38',
+  bg: '#f4ece0',
+  surface: '#fdf8f0',
+  surface2: '#eadfcd',
+  border: '#d8c8ae',
+  text: '#33261a',
+  textMuted: '#7a6551',
+  accent: '#b5522f',
   accentContrast: '#fffaf4',
   up: '#1f9d55',
   down: '#c8453d',
-  control: '#484540',
+  control: '#564a3e',
   repost: '#c98a06',
 };
 
 const CHRONICLE_DARK: Palette = {
-  bg: '#16140f',
-  surface: '#1f1c16',
-  surface2: '#2a261e',
+  bg: '#0d0b08',
+  surface: '#1a1712',
+  surface2: '#241f18',
   border: 'rgba(240, 228, 205, 0.12)',
   text: '#f0ebe1',
   textMuted: '#a09889',
@@ -64,7 +68,7 @@ const CHRONICLE_DARK: Palette = {
   accentContrast: '#16140f',
   up: '#43d489',
   down: '#ff7a70',
-  control: '#c9c4bb',
+  control: '#c7c2ba',
   repost: '#f0b429',
 };
 
