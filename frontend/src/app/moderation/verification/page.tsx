@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { ScreenTitle } from '@/components/ScreenTitle';
+import { BackTitle } from '@/components/BackTitle';
 import { VerifiedMark } from '@/components/VerifiedMark';
 import { apiFetch } from '@/lib/api';
 import { invalidate, useApiData } from '@/lib/useApiData';
@@ -105,7 +106,7 @@ export default function VerificationPage() {
   return (
     <div className="flex flex-1 flex-col items-center">
       <main className="below-header flex w-full max-w-2xl flex-col gap-5 px-4 pb-12">
-        <ScreenTitle>Подтверждение личности</ScreenTitle>
+        <BackTitle>Подтверждение личности</BackTitle>
 
         {/* ── Выдать по нику ───────────────────────────────────────────── */}
         <form onSubmit={submit} className="flex flex-col gap-2">

@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { ScreenTitle } from '@/components/ScreenTitle';
+import { BackTitle } from '@/components/BackTitle';
 import { useApiData } from '@/lib/useApiData';
 import { useMe } from '@/lib/useMe';
 
@@ -69,7 +70,7 @@ export default function StatsPage() {
   return (
     <div className="flex flex-1 flex-col items-center">
       <main className="below-header flex w-full max-w-2xl flex-col gap-5 px-4 pb-12">
-        <ScreenTitle>Статистика</ScreenTitle>
+        <BackTitle>Статистика</BackTitle>
 
         {loading && <p className="text-[14px] text-[var(--text-muted)]">Загрузка…</p>}
 

@@ -105,30 +105,30 @@ export function ProfileScreen() {
 
   const header = (
     <View style={{ paddingTop: 8 }}>
-      {/* Блок 1 — обложка, аватар и цифры, единой карточкой, как в вебе. */}
+      {/* Блок 1 — обложка, аватар и цифры, единой карточкой, как в вебе.
+          Обложка не отдельной полосой, а градиентом-размывом поверх карточки:
+          акцент вверху сходит на нет книзу, поэтому жёсткого стыка, где обложка
+          кончается, нет — она растворяется в карточке. */}
       <View style={{ marginHorizontal: 10, borderRadius: 18, overflow: 'hidden', backgroundColor: palette.surface }}>
-        {/* Обложка: пока фона нет — тёплый градиент акцента и кнопка «Добавить
-            фон профиля». Загрузка своей картинки ляжет вместе с аватаром. */}
-        <View style={{ height: 132 }}>
-          <LinearGradient
-            colors={[`${palette.accent}70`, `${palette.accent}22`, palette.surface]}
-            locations={[0, 0.55, 1]}
-            start={{ x: 0.1, y: 0 }}
-            end={{ x: 0.9, y: 1 }}
-            style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
-          />
-          <Pressable
-            onPress={openEdit}
-            style={{ position: 'absolute', top: 12, right: 12, flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 7, backgroundColor: 'rgba(0,0,0,0.32)' }}
-          >
-            <Svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2.1} strokeLinecap="round">
-              <Path d="M12 6v12M6 12h12" />
-            </Svg>
-            <Text style={{ fontSize: 12.5, fontWeight: '600', color: '#fff' }}>Добавить фон профиля</Text>
-          </Pressable>
-        </View>
+        <LinearGradient
+          colors={[`${palette.accent}66`, `${palette.accent}1f`, `${palette.accent}00`]}
+          locations={[0, 0.6, 1]}
+          start={{ x: 0.15, y: 0 }}
+          end={{ x: 0.85, y: 1 }}
+          style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 200 }}
+        />
 
-        <View style={{ paddingHorizontal: 16, paddingBottom: 16, gap: 12 }}>
+        <Pressable
+          onPress={openEdit}
+          style={{ position: 'absolute', top: 12, right: 12, zIndex: 2, flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 7, backgroundColor: 'rgba(0,0,0,0.32)' }}
+        >
+          <Svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2.1} strokeLinecap="round">
+            <Path d="M12 6v12M6 12h12" />
+          </Svg>
+          <Text style={{ fontSize: 12.5, fontWeight: '600', color: '#fff' }}>Добавить фон профиля</Text>
+        </Pressable>
+
+        <View style={{ paddingHorizontal: 16, paddingTop: 108, paddingBottom: 16, gap: 12 }}>
           {/* Аватар приподнят на обложку, вокруг — кольцо истории; облачко-мысль
               над ним. */}
           <View style={{ marginTop: -44, width: 96, height: 96 }}>
