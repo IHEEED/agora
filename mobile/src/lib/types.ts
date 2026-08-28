@@ -135,6 +135,7 @@ export interface UserProfile {
   avatar_url?: string | null;
   verified_at?: string | null;
   bio?: string | null;
+  cover_url?: string | null;
   karma: number;
   followers: number;
   following: number;

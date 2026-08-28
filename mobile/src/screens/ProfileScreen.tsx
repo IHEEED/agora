@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import { FlatList, Pressable, Text, View } from 'react-native';
+import { FlatList, Image, Modal, Pressable, Text, TextInput, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -55,6 +55,9 @@ export function ProfileScreen() {
   const [comments, setComments] = useState<CommentWithPost[]>([]);
   const [reposts, setReposts] = useState<Post[]>([]);
   const [tab, setTab] = useState<Tab>('posts');
+  const [note, setNote] = useState('');
+  const [noteEditing, setNoteEditing] = useState(false);
+  const [noteDraft, setNoteDraft] = useState('');
 
   const userId = session?.user.id;
 
@@ -65,8 +68,22 @@ export function ProfileScreen() {
       apiFetch<Post[]>(`/posts/user/${userId}?sort=new`).then(setPosts).catch(() => {});
       apiFetch<CommentWithPost[]>(`/comments/user/${userId}`).then(setComments).catch(() => {});
       apiFetch<Post[]>(`/posts/reposts/${userId}`).then(setReposts).catch(() => {});
+      apiFetch<{ author_id: string; body: string }[]>(`/notes?ids=${userId}`)
+        .then((rows) => setNote(rows.find((r) => r.author_id === userId)?.body ?? ''))
+        .catch(() => {});
     }, [userId])
   );
+
+  async function saveNote() {
+    const body = noteDraft.trim();
+    setNote(body);
+    setNoteEditing(false);
+    try {
+      await apiFetch('/notes', { method: 'PUT', body: JSON.stringify({ body }) });
+    } catch {
+      // молча — заметка необязательна
+    }
+  }
 
   const influence = useMemo(() => posts.reduce((sum, post) => sum + post.score, 0), [posts]);
 
@@ -111,13 +128,20 @@ export function ProfileScreen() {
           акцент вверху сходит на нет книзу, поэтому жёсткого стыка, где обложка
           кончается, нет — она растворяется в карточке. */}
       <View style={{ marginHorizontal: 10, borderRadius: 18, overflow: 'hidden', backgroundColor: palette.surface }}>
-        <LinearGradient
-          colors={[`${palette.accent}5c`, `${palette.accent}1a`, `${palette.accent}00`]}
-          locations={[0, 0.55, 0.9]}
-          start={{ x: 0.5, y: 0 }}
-          end={{ x: 0.5, y: 1 }}
-          style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 190 }}
-        />
+        {profile?.cover_url ? (
+          <View style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 150 }}>
+            <Image source={{ uri: profile.cover_url }} style={{ width: '100%', height: '100%' }} />
+            <LinearGradient colors={['transparent', palette.surface]} locations={[0.55, 1]} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
+          </View>
+        ) : (
+          <LinearGradient
+            colors={[`${palette.accent}5c`, `${palette.accent}1a`, `${palette.accent}00`]}
+            locations={[0, 0.55, 0.9]}
+            start={{ x: 0.5, y: 0 }}
+            end={{ x: 0.5, y: 1 }}
+            style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 190 }}
+          />
+        )}
 
         <Pressable
           onPress={openEdit}
@@ -137,8 +161,13 @@ export function ProfileScreen() {
               <SegmentRing size={96} segments={3} viewed={false} />
               <Avatar name={handle} uri={profile?.avatar_url} size={82} />
             </View>
-            <Pressable onPress={openEdit} style={{ position: 'absolute', left: 56, top: -20, backgroundColor: palette.surface2, borderRadius: 14, borderBottomLeftRadius: 4, paddingHorizontal: 12, paddingVertical: 7 }}>
-              <Text style={{ fontSize: 12.5, color: palette.textMuted }}>мысль…</Text>
+            <Pressable
+              onPress={() => { setNoteDraft(note); setNoteEditing(true); }}
+              style={{ position: 'absolute', left: 56, top: -20, maxWidth: 200, backgroundColor: palette.surface2, borderRadius: 14, borderBottomLeftRadius: 4, paddingHorizontal: 12, paddingVertical: 7 }}
+            >
+              <Text numberOfLines={2} style={{ fontSize: 12.5, color: note ? palette.text : palette.textMuted }}>
+                {note || 'мысль…'}
+              </Text>
             </Pressable>
           </View>
 
@@ -201,6 +230,28 @@ export function ProfileScreen() {
           );
         })}
       </View>
+
+      {/* Редактор заметки-облачка. */}
+      <Modal visible={noteEditing} transparent animationType="slide" onRequestClose={() => setNoteEditing(false)}>
+        <Pressable onPress={() => setNoteEditing(false)} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' }}>
+          <Pressable onPress={(e) => e.stopPropagation()} style={{ backgroundColor: palette.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, paddingBottom: 36, gap: 12 }}>
+            <View style={{ alignSelf: 'center', width: 40, height: 5, borderRadius: 3, backgroundColor: palette.border }} />
+            <Text style={{ fontSize: 17, fontWeight: '700', color: palette.text }}>Мысль дня</Text>
+            <TextInput
+              value={noteDraft}
+              onChangeText={setNoteDraft}
+              placeholder="Что у вас на уме?"
+              placeholderTextColor={palette.textMuted}
+              maxLength={80}
+              autoFocus
+              style={{ borderWidth: 1, borderColor: palette.border, borderRadius: 12, padding: 12, fontSize: 15, color: palette.text, backgroundColor: palette.surface }}
+            />
+            <Pressable onPress={saveNote} style={{ alignSelf: 'flex-start', backgroundColor: palette.accent, borderRadius: 999, paddingHorizontal: 20, paddingVertical: 11 }}>
+              <Text style={{ color: palette.accentContrast, fontWeight: '600', fontSize: 15 }}>Сохранить</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 
