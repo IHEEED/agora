@@ -11,6 +11,7 @@ export type RootStackParamList = {
   Chat: { userId: string; username: string };
   Notifications: undefined;
   Settings: undefined;
+  SettingsSection: { section: string; title: string };
   ProfileEdit: undefined;
 };
 

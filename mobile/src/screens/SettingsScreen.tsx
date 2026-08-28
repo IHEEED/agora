@@ -1,29 +1,29 @@
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
+import Svg, { Path } from 'react-native-svg';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { supabase } from '../lib/supabase';
 import { apiFetch } from '../lib/api';
-import { useSession } from '../lib/useSession';
 import { ChevronIcon } from '../components/icons';
+import { SETTINGS_GROUPS, SettingsSection } from '../lib/settingsSections';
 import { usePalette } from '../theme';
 import type { RootStackParamList } from '../navigation/types';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 /**
- * Настройки — хаб, как в вебе.
+ * Настройки — хаб, один в один с вебом.
  *
- * Разделы строками: профиль, аккаунт, оформление, модерация (только у
- * модераторов) и выход. Открывается шестерёнкой из шапки профиля. Оформление
- * пока следует за системной темой (светлая/тёмная) — ручной выбор стиля,
- * как на сайте, ляжет отдельным заходом, когда в мобильном будет больше одной
- * темы.
+ * Разделы сгруппированы карточками, у каждого — своя цветная плитка со значком
+ * (те же оттенки и контуры, что на сайте). Модерация видна только модераторам.
+ * Тап уводит в раздел. Крупный заголовок «Настройки.» рисуем сами, поэтому
+ * нативную панель на этом экране прячем (см. RootNavigator).
  */
 export function SettingsScreen() {
   const palette = usePalette();
+  const insets = useSafeAreaInsets();
   const navigation = useNavigation<Nav>();
-  const { session } = useSession();
   const [isModerator, setIsModerator] = useState(false);
 
   useEffect(() => {
@@ -33,76 +33,87 @@ export function SettingsScreen() {
   }, []);
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: palette.bg }} contentContainerStyle={{ padding: 16, gap: 20 }}>
-      <Group palette={palette} title="Профиль">
-        <Row palette={palette} label="Редактировать профиль" hint="Имя и подпись" onPress={() => navigation.navigate('ProfileEdit')} last />
-      </Group>
+    <ScrollView style={{ flex: 1, backgroundColor: palette.bg }} contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40, gap: 22 }}>
+      {/* Свой крупный заголовок с кружком-назад — как в вебе; нативная панель
+          на этом экране спрятана. */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, paddingTop: insets.top + 8, paddingBottom: 6 }}>
+        <Pressable
+          onPress={() => navigation.goBack()}
+          hitSlop={8}
+          style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: palette.surface, alignItems: 'center', justifyContent: 'center' }}
+        >
+          <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={palette.text} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+            <Path d="m15 6-6 6 6 6" />
+          </Svg>
+        </Pressable>
+        <Text style={{ fontFamily: 'Georgia', fontSize: 32, color: palette.text }}>
+          Настройки<Text style={{ color: palette.accent }}>.</Text>
+        </Text>
+      </View>
 
-      <Group palette={palette} title="Аккаунт">
-        <Row palette={palette} label="Email" hint={session?.user.email ?? ''} last />
-      </Group>
-
-      <Group palette={palette} title="Оформление">
-        <Row palette={palette} label="Тема" hint="Следует за системой" last />
-      </Group>
-
-      {isModerator ? (
-        <Group palette={palette} title="Модерация">
-          <Row palette={palette} label="Разбор жалоб" hint="Очередь и баны — пока в вебе" />
-          <Row palette={palette} label="Подтверждение личности" hint="Галочки и заявки — пока в вебе" />
-          <Row palette={palette} label="Статистика" hint="Люди и написанное — пока в вебе" last />
-        </Group>
-      ) : null}
-
-      <Pressable
-        onPress={() => supabase.auth.signOut()}
-        style={{ marginTop: 4, borderRadius: 14, paddingVertical: 14, alignItems: 'center', backgroundColor: palette.surface2 }}
-      >
-        <Text style={{ fontSize: 15, fontWeight: '600', color: palette.down }}>Выйти</Text>
-      </Pressable>
+      {SETTINGS_GROUPS.map((group, groupIndex) => {
+        const rows = group.filter((section) => !section.modOnly || isModerator);
+        if (rows.length === 0) return null;
+        return (
+          <View key={groupIndex} style={{ borderRadius: 16, backgroundColor: palette.surface, overflow: 'hidden' }}>
+            {rows.map((section, index) => (
+              <Row
+                key={section.id}
+                palette={palette}
+                section={section}
+                last={index === rows.length - 1}
+                onPress={() => navigation.navigate('SettingsSection', { section: section.id, title: section.label })}
+              />
+            ))}
+          </View>
+        );
+      })}
     </ScrollView>
-  );
-}
-
-function Group({ palette, title, children }: { palette: ReturnType<typeof usePalette>; title: string; children: React.ReactNode }) {
-  return (
-    <View style={{ gap: 8 }}>
-      <Text style={{ fontSize: 13, fontWeight: '600', color: palette.textMuted, marginLeft: 4 }}>{title}</Text>
-      <View style={{ borderRadius: 14, backgroundColor: palette.surface2, overflow: 'hidden' }}>{children}</View>
-    </View>
   );
 }
 
 function Row({
   palette,
-  label,
-  hint,
+  section,
+  last,
   onPress,
-  last = false,
 }: {
   palette: ReturnType<typeof usePalette>;
-  label: string;
-  hint?: string;
-  onPress?: () => void;
-  last?: boolean;
+  section: SettingsSection;
+  last: boolean;
+  onPress: () => void;
 }) {
   return (
     <Pressable
       onPress={onPress}
-      disabled={!onPress}
-      style={{
+      style={({ pressed }) => ({
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 8,
+        gap: 14,
         paddingHorizontal: 14,
-        paddingVertical: 14,
+        paddingVertical: 12,
         borderBottomWidth: last ? 0 : 1,
         borderBottomColor: palette.border,
-      }}
+        backgroundColor: pressed ? palette.surface2 : 'transparent',
+      })}
     >
-      <Text style={{ flex: 1, fontSize: 15, color: palette.text }}>{label}</Text>
-      {hint ? <Text style={{ fontSize: 14, color: palette.textMuted, maxWidth: '55%' }} numberOfLines={1}>{hint}</Text> : null}
-      {onPress ? <ChevronIcon size={16} color={palette.textMuted} /> : null}
+      <TintTile tint={section.tint} path={section.path} />
+      <Text style={{ flex: 1, fontSize: 16, color: palette.text }}>{section.label}</Text>
+      <ChevronIcon size={17} color={palette.textMuted} />
     </Pressable>
+  );
+}
+
+/** Цветная плитка со значком — путь разбит по « M», как в вебе. */
+function TintTile({ tint, path }: { tint: string; path: string }) {
+  const pieces = path.split(' M').map((piece, index) => (index === 0 ? piece : `M${piece}`));
+  return (
+    <View style={{ width: 34, height: 34, borderRadius: 9, backgroundColor: tint, alignItems: 'center', justifyContent: 'center' }}>
+      <Svg width={19} height={19} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+        {pieces.map((d, index) => (
+          <Path key={index} d={d} />
+        ))}
+      </Svg>
+    </View>
   );
 }
