@@ -7,6 +7,8 @@ import { apiFetch } from '../lib/api';
 import { Post, PostSort } from '../lib/types';
 import { PostCard } from '../components/PostCard';
 import { Avatar } from '../components/Avatar';
+import { StoriesBar } from '../components/StoriesBar';
+import { SuggestedPeople } from '../components/SuggestedPeople';
 import { useSession } from '../lib/useSession';
 import { usePalette } from '../theme';
 import type { RootStackParamList } from '../navigation/types';
@@ -74,8 +76,9 @@ export function FeedScreen() {
         <Text style={{ fontSize: 22, fontWeight: '800', color: palette.text }}>
           :<Text style={{ color: palette.accent }}>P</Text>
         </Text>
-        {/* Пустой блок той же ширины, чтобы знак стоял точно по центру. */}
-        <View style={{ width: 26 }} />
+        <Pressable hitSlop={10}>
+          <Text style={{ fontSize: 20 }}>🔍</Text>
+        </Pressable>
       </View>
 
       <FlatList
@@ -94,6 +97,8 @@ export function FeedScreen() {
         }
         ListHeaderComponent={
           <View>
+            <StoriesBar />
+
             {/* Строка «напишите пару фраз» — вход в создание записи, как в вебе. */}
             <Pressable
               onPress={() => navigation.navigate('CreatePost', { communityId: '' })}
@@ -139,6 +144,8 @@ export function FeedScreen() {
                 );
               })}
             </View>
+
+            <SuggestedPeople />
 
             {loading ? (
               <Text style={{ paddingHorizontal: 16, paddingVertical: 8, color: palette.textMuted }}>
