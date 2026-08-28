@@ -1,4 +1,5 @@
 import { useColorScheme } from 'react-native';
+import { useThemePreference } from './lib/appearance';
 
 /**
  * Палитра, перенесённая из веба один в один.
@@ -80,7 +81,10 @@ const CHRONICLE_DARK: Palette = {
 };
 
 export function usePalette(): Palette {
-  return useColorScheme() === 'dark' ? CHRONICLE_DARK : CHRONICLE_LIGHT;
+  const system = useColorScheme();
+  const preference = useThemePreference();
+  const dark = preference === 'dark' || (preference === 'system' && system === 'dark');
+  return dark ? CHRONICLE_DARK : CHRONICLE_LIGHT;
 }
 
 /**
