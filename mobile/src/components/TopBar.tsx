@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { Animated, Pressable, Text, useColorScheme, View } from 'react-native';
 import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -32,25 +33,41 @@ export function TopBar({ right = 'search' }: { right?: 'search' | 'settings' }) 
   const dark = useColorScheme() === 'dark';
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
-  const blink = useRef(new Animated.Value(0)).current;
+  // Две отдельные анимации, как в вебе: двоеточие моргает (сжимается по
+  // вертикали), а «P» — язык — коротко «облизывается» лёгким наклоном и
+  // возвратом. Запускаются с небольшим сдвигом.
+  const colon = useRef(new Animated.Value(0)).current;
+  const tongue = useRef(new Animated.Value(0)).current;
 
-  function doBlink() {
-    blink.setValue(0);
+  function play() {
+    colon.setValue(0);
+    tongue.setValue(0);
     Animated.sequence([
-      Animated.timing(blink, { toValue: 1, duration: 130, useNativeDriver: true }),
-      Animated.timing(blink, { toValue: 0, duration: 160, useNativeDriver: true }),
+      Animated.timing(colon, { toValue: 1, duration: 120, useNativeDriver: true }),
+      Animated.timing(colon, { toValue: 0, duration: 150, useNativeDriver: true }),
+    ]).start();
+    Animated.sequence([
+      Animated.delay(90),
+      Animated.timing(tongue, { toValue: 1, duration: 160, useNativeDriver: true }),
+      Animated.spring(tongue, { toValue: 0, friction: 4, tension: 120, useNativeDriver: true }),
     ]).start();
   }
 
   useEffect(() => {
-    doBlink();
+    play();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
     <View style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10 }}>
-      <BlurView tint={dark ? 'dark' : 'light'} intensity={40} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
-      <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: palette.bg, opacity: 0.6 }} />
+      <BlurView tint={dark ? 'dark' : 'light'} intensity={30} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
+      {/* Мягкий край: подложка плотная вверху и сходит на нет книзу, поэтому
+          резкой границы, где шапка кончается, больше нет. */}
+      <LinearGradient
+        colors={[palette.bg, `${palette.bg}00`]}
+        locations={[0.55, 1]}
+        style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
+      />
 
       <View
         style={{
@@ -66,16 +83,29 @@ export function TopBar({ right = 'search' }: { right?: 'search' | 'settings' }) 
           <BellIcon size={26} color={palette.control} />
         </Pressable>
 
-        <Pressable onPress={doBlink} hitSlop={10}>
+        <Pressable onPress={play} hitSlop={10} style={{ flexDirection: 'row', alignItems: 'center' }}>
           <Animated.Text
             style={{
               fontSize: 27,
-              fontWeight: '800',
+              fontWeight: '600',
               color: palette.text,
-              transform: [{ scaleY: blink.interpolate({ inputRange: [0, 1], outputRange: [1, 0.35] }) }],
+              transform: [{ scaleY: colon.interpolate({ inputRange: [0, 1], outputRange: [1, 0.2] }) }],
             }}
           >
-            :<Text style={{ color: palette.accent }}>P</Text>
+            :
+          </Animated.Text>
+          <Animated.Text
+            style={{
+              fontSize: 27,
+              fontWeight: '600',
+              color: palette.accent,
+              transform: [
+                { rotate: tongue.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '14deg'] }) },
+                { translateY: tongue.interpolate({ inputRange: [0, 1], outputRange: [0, 1.5] }) },
+              ],
+            }}
+          >
+            P
           </Animated.Text>
         </Pressable>
 
