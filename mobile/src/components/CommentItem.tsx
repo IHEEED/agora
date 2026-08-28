@@ -2,11 +2,20 @@ import { useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 import { apiFetch } from '../lib/api';
 import { useSession } from '../lib/useSession';
-import { useVote } from '../lib/useVote';
-import { formatRelativeDate } from '../lib/formatDate';
+import { formatCompactAge } from '../lib/formatDate';
 import { Comment } from '../lib/types';
-import { Badge } from './Badge';
+import { Avatar } from './Avatar';
+import { VerifiedMark } from './VerifiedMark';
+import { VoteBlock } from './VoteBlock';
+import { usePalette } from '../theme';
 
+/**
+ * Одна ветка комментариев — по образцу веба.
+ *
+ * Слева лицо автора, справа имя с галочкой, возраст, текст и голоса тем же
+ * блоком, что у постов (компактный размер). Вложенные ответы уходят вправо за
+ * волосяной линией принадлежности. Кнопки — акцентные, не чёрные плашки.
+ */
 export function CommentItem({
   comment,
   postId,
@@ -18,8 +27,8 @@ export function CommentItem({
   onAdded: () => void;
   depth?: number;
 }) {
+  const palette = usePalette();
   const { session } = useSession();
-  const { score, myVote, vote, error: voteError } = useVote(comment.id, comment.score, comment.myVote, 'comment');
 
   const [replying, setReplying] = useState(false);
   const [body, setBody] = useState('');
@@ -30,7 +39,6 @@ export function CommentItem({
     if (!body.trim()) return;
     setReplyError(null);
     setSubmitting(true);
-
     try {
       await apiFetch('/comments', {
         method: 'POST',
@@ -49,70 +57,66 @@ export function CommentItem({
   return (
     <View
       style={{
-        borderLeftWidth: depth > 0 ? 1 : 0,
-        borderLeftColor: '#e5e5e5',
-        paddingLeft: depth > 0 ? 10 : 0,
+        borderLeftWidth: depth > 0 ? 1.5 : 0,
+        borderLeftColor: palette.border,
+        paddingLeft: depth > 0 ? 12 : 0,
         gap: 6,
       }}
     >
-      <View style={{ flexDirection: 'row', gap: 8 }}>
-        <View style={{ alignItems: 'center', gap: 1, width: 24 }}>
-          <Pressable onPress={() => vote(1)} hitSlop={8}>
-            <Text style={{ fontSize: 13, color: myVote === 1 ? '#f97316' : '#999' }}>▲</Text>
-          </Pressable>
-          <Text style={{ fontSize: 11, fontWeight: '600' }}>{score}</Text>
-          <Pressable onPress={() => vote(-1)} hitSlop={8}>
-            <Text style={{ fontSize: 13, color: myVote === -1 ? '#3b82f6' : '#999' }}>▼</Text>
-          </Pressable>
-        </View>
-
+      <View style={{ flexDirection: 'row', gap: 10 }}>
+        <Avatar name={comment.author.username} uri={comment.author.avatar_url} size={30} />
         <View style={{ flex: 1, gap: 4 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
-            <Text style={{ fontSize: 12, fontWeight: '600', color: '#333' }}>{comment.author.username}</Text>
-            <Badge type={comment.author.badge} />
-            <Text style={{ fontSize: 12, color: '#888' }}> · {formatRelativeDate(comment.created_at)}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
+            <Text style={{ fontSize: 13, fontWeight: '600', color: palette.text }}>{comment.author.username}</Text>
+            <VerifiedMark verified={comment.author.verified_at} size={13} />
+            <Text style={{ fontSize: 12.5, color: palette.textMuted }}>· {formatCompactAge(comment.created_at)}</Text>
           </View>
-          <Text style={{ fontSize: 14, color: '#111' }}>{comment.body}</Text>
-          {voteError ? <Text style={{ fontSize: 11, color: '#dc2626' }}>{voteError}</Text> : null}
+          <Text style={{ fontSize: 14.5, lineHeight: 20, color: palette.text }}>{comment.body}</Text>
 
-          {session ? (
-            <Pressable onPress={() => setReplying((v) => !v)}>
-              <Text style={{ fontSize: 12, fontWeight: '600', color: '#666' }}>
-                {replying ? 'Отмена' : 'Ответить'}
-              </Text>
-            </Pressable>
-          ) : null}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginLeft: -8 }}>
+            <VoteBlock id={comment.id} score={comment.score} myVote={comment.myVote} kind="comment" compact />
+            {session ? (
+              <Pressable onPress={() => setReplying((v) => !v)} hitSlop={6}>
+                <Text style={{ fontSize: 13, fontWeight: '600', color: palette.textMuted }}>
+                  {replying ? 'Отмена' : 'Ответить'}
+                </Text>
+              </Pressable>
+            ) : null}
+          </View>
 
           {replying ? (
-            <View style={{ gap: 6 }}>
+            <View style={{ gap: 8, marginTop: 2 }}>
               <TextInput
                 value={body}
                 onChangeText={setBody}
                 placeholder="Ваш ответ…"
+                placeholderTextColor={palette.textMuted}
                 multiline
                 style={{
                   borderWidth: 1,
-                  borderColor: '#ddd',
-                  borderRadius: 6,
-                  padding: 8,
-                  fontSize: 13,
+                  borderColor: palette.border,
+                  borderRadius: 10,
+                  padding: 10,
+                  fontSize: 14,
                   minHeight: 50,
+                  color: palette.text,
+                  backgroundColor: palette.surface,
                 }}
               />
-              {replyError ? <Text style={{ fontSize: 11, color: '#dc2626' }}>{replyError}</Text> : null}
+              {replyError ? <Text style={{ fontSize: 12, color: palette.down }}>{replyError}</Text> : null}
               <Pressable
                 onPress={submitReply}
-                disabled={submitting}
+                disabled={submitting || !body.trim()}
                 style={{
                   alignSelf: 'flex-start',
-                  backgroundColor: '#111',
+                  backgroundColor: palette.accent,
                   borderRadius: 999,
-                  paddingHorizontal: 14,
-                  paddingVertical: 6,
-                  opacity: submitting ? 0.5 : 1,
+                  paddingHorizontal: 16,
+                  paddingVertical: 7,
+                  opacity: submitting || !body.trim() ? 0.4 : 1,
                 }}
               >
-                <Text style={{ color: '#fff', fontSize: 12, fontWeight: '600' }}>Отправить</Text>
+                <Text style={{ color: palette.accentContrast, fontSize: 13, fontWeight: '600' }}>Отправить</Text>
               </Pressable>
             </View>
           ) : null}
@@ -120,7 +124,7 @@ export function CommentItem({
       </View>
 
       {comment.replies.length > 0 ? (
-        <View style={{ gap: 10, marginTop: 2 }}>
+        <View style={{ gap: 12, marginTop: 2 }}>
           {comment.replies.map((reply) => (
             <CommentItem key={reply.id} comment={reply} postId={postId} onAdded={onAdded} depth={depth + 1} />
           ))}

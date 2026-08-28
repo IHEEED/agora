@@ -104,6 +104,19 @@ export interface Thread {
   };
 }
 
+/** Профиль человека — то, что отдаёт /users/:id. */
+export interface UserProfile {
+  id: string;
+  username: string;
+  display_name?: string | null;
+  avatar_url?: string | null;
+  verified_at?: string | null;
+  bio?: string | null;
+  karma: number;
+  followers: number;
+  following: number;
+}
+
 /** Одно письмо внутри переписки. */
 export interface Message {
   id: string;

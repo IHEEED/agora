@@ -29,6 +29,9 @@ export function RootNavigator() {
         headerStyle: { backgroundColor: 'transparent' },
         headerTintColor: palette.accent,
         headerTitleStyle: { color: palette.text },
+        // Назад — только стрелка, без ярлыка «MainTabs»: имя предыдущего
+        // маршрута рядом со стрелкой читалось служебной ошибкой.
+        headerBackButtonDisplayMode: 'minimal',
         contentStyle: { backgroundColor: palette.bg },
       }}
     >

@@ -1,9 +1,13 @@
 import { useCallback, useState } from 'react';
 import { FlatList, Pressable, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { apiFetch } from '../lib/api';
 import { Thread } from '../lib/types';
+import { Avatar } from '../components/Avatar';
+import { VerifiedMark } from '../components/VerifiedMark';
+import { ScreenHeader } from '../components/ScreenHeader';
 import { usePalette } from '../theme';
 import { formatRelativeDate } from '../lib/formatDate';
 import type { RootStackParamList } from '../navigation/types';
@@ -21,6 +25,7 @@ import type { RootStackParamList } from '../navigation/types';
  */
 export function MessagesScreen() {
   const palette = usePalette();
+  const insets = useSafeAreaInsets();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
   const [threads, setThreads] = useState<Thread[]>([]);
@@ -42,6 +47,7 @@ export function MessagesScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: palette.bg }}>
+      <ScreenHeader title="Сообщения" />
       {loading ? (
         <Text style={{ padding: 16, color: palette.textMuted }}>Загрузка…</Text>
       ) : null}
@@ -56,7 +62,7 @@ export function MessagesScreen() {
       <FlatList
         data={threads}
         keyExtractor={(thread) => thread.user.id}
-        contentContainerStyle={{ paddingVertical: 4 }}
+        contentContainerStyle={{ paddingVertical: 4, paddingBottom: insets.bottom + 80 }}
         renderItem={({ item }) => {
           const name = item.user.display_name || item.user.username;
           return (
@@ -76,21 +82,7 @@ export function MessagesScreen() {
                 backgroundColor: pressed ? palette.surface2 : 'transparent',
               })}
             >
-              {/* Кружок с буквой вместо пустой аватарки. */}
-              <View
-                style={{
-                  width: 48,
-                  height: 48,
-                  borderRadius: 24,
-                  backgroundColor: palette.surface2,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <Text style={{ fontSize: 18, fontWeight: '600', color: palette.textMuted }}>
-                  {name.slice(0, 1).toUpperCase()}
-                </Text>
-              </View>
+              <Avatar name={name} uri={item.user.avatar_url} size={48} />
 
               <View style={{ flex: 1, minWidth: 0 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
@@ -100,12 +92,7 @@ export function MessagesScreen() {
                   >
                     {name}
                   </Text>
-                  {item.user.verified_at ? (
-                    <Text style={{ color: '#1d9bf0', fontSize: 13 }}>✓</Text>
-                  ) : null}
-                  {item.muted ? (
-                    <Text style={{ color: palette.textMuted, fontSize: 12 }}>🔕</Text>
-                  ) : null}
+                  <VerifiedMark verified={item.user.verified_at} size={14} />
                 </View>
                 <Text numberOfLines={1} style={{ fontSize: 13, color: palette.textMuted }}>
                   {item.lastMessage.mine ? 'Вы: ' : ''}
