@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { Animated, Pressable, Text, useColorScheme, View } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
+import MaskedView from '@react-native-masked-view/masked-view';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -60,14 +61,19 @@ export function TopBar({ right = 'search' }: { right?: 'search' | 'settings' }) 
 
   return (
     <View style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10 }}>
-      <BlurView tint={dark ? 'dark' : 'light'} intensity={30} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
-      {/* Мягкий край: подложка плотная вверху и сходит на нет книзу, поэтому
-          резкой границы, где шапка кончается, больше нет. */}
-      <LinearGradient
-        colors={[palette.bg, `${palette.bg}00`]}
-        locations={[0.55, 1]}
-        style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
-      />
+      {/* Стеклянная вуаль как в вебе: блюр и лёгкий тон темы, и весь этот слой
+          погашен градиентом-маской книзу — поэтому нет ни пятнистости, ни
+          резкого края там, где шапка кончается, а размывается ровно. Свисает
+          на 20px ниже строки, как .app-header-veil. */}
+      <MaskedView
+        style={{ position: 'absolute', top: 0, left: 0, right: 0, height: insets.top + TOP_BAR_HEIGHT + 20 }}
+        maskElement={
+          <LinearGradient colors={['#000', '#000', 'transparent']} locations={[0, 0.45, 1]} style={{ flex: 1 }} />
+        }
+      >
+        <BlurView tint={dark ? 'dark' : 'light'} intensity={24} style={{ flex: 1 }} />
+        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: palette.bg, opacity: 0.5 }} />
+      </MaskedView>
 
       <View
         style={{
