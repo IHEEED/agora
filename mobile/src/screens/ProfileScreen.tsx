@@ -1,5 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import { FlatList, Pressable, Text, View } from 'react-native';
+import Svg, { Path } from 'react-native-svg';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { CompositeNavigationProp } from '@react-navigation/native';
@@ -14,6 +16,7 @@ import { VerifiedMark } from '../components/VerifiedMark';
 import { VoteBlock } from '../components/VoteBlock';
 import { PostCard } from '../components/PostCard';
 import { TopBar, useTopBarInset } from '../components/TopBar';
+import { SegmentRing } from '../components/SegmentRing';
 import { CommentIcon, ChevronIcon } from '../components/icons';
 import { usePalette } from '../theme';
 import type { RootStackParamList, TabParamList } from '../navigation/types';
@@ -26,8 +29,8 @@ type Nav = CompositeNavigationProp<
 type Tab = 'posts' | 'comments' | 'reposts';
 
 const TABS: { value: Tab; label: string }[] = [
-  { value: 'posts', label: 'Записи' },
-  { value: 'comments', label: 'Комментарии' },
+  { value: 'posts', label: 'Посты' },
+  { value: 'comments', label: 'Комменты' },
   { value: 'reposts', label: 'Репосты' },
 ];
 
@@ -97,48 +100,84 @@ export function ProfileScreen() {
   const displayName = profile?.display_name || profile?.username || handle;
   const bio = profile?.bio || '';
   const counts: Record<Tab, number> = { posts: posts.length, comments: comments.length, reposts: reposts.length };
+  const phoneVerified = Boolean((session.user as { phone_confirmed_at?: string }).phone_confirmed_at);
+  const openEdit = () => navigation.getParent<NativeStackNavigationProp<RootStackParamList>>()?.navigate('ProfileEdit');
 
   const header = (
-    <View>
-      <View style={{ paddingHorizontal: 16, paddingTop: 8, gap: 12 }}>
-        <Avatar name={handle} uri={profile?.avatar_url} size={88} />
-
-        <View style={{ gap: 2 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-            <Text style={{ fontSize: 20, fontWeight: '700', color: palette.text }}>{displayName}</Text>
-            <VerifiedMark verified={profile?.verified_at} size={19} />
-          </View>
-          <Text style={{ fontSize: 13, fontWeight: '600', color: palette.accent }}>@{handle}</Text>
-          {bio ? <Text style={{ marginTop: 4, fontSize: 14, lineHeight: 19, color: palette.text }}>{bio}</Text> : null}
+    <View style={{ paddingTop: 8 }}>
+      {/* Блок 1 — обложка, аватар и цифры, единой карточкой, как в вебе. */}
+      <View style={{ marginHorizontal: 10, borderRadius: 18, overflow: 'hidden', backgroundColor: palette.surface }}>
+        {/* Обложка: пока фона нет — тёплый градиент акцента и кнопка «Добавить
+            фон профиля». Загрузка своей картинки ляжет вместе с аватаром. */}
+        <View style={{ height: 132 }}>
+          <LinearGradient
+            colors={[`${palette.accent}70`, `${palette.accent}22`, palette.surface]}
+            locations={[0, 0.55, 1]}
+            start={{ x: 0.1, y: 0 }}
+            end={{ x: 0.9, y: 1 }}
+            style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
+          />
+          <Pressable
+            onPress={openEdit}
+            style={{ position: 'absolute', top: 12, right: 12, flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 7, backgroundColor: 'rgba(0,0,0,0.32)' }}
+          >
+            <Svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2.1} strokeLinecap="round">
+              <Path d="M12 6v12M6 12h12" />
+            </Svg>
+            <Text style={{ fontSize: 12.5, fontWeight: '600', color: '#fff' }}>Добавить фон профиля</Text>
+          </Pressable>
         </View>
 
-        <View style={{ flexDirection: 'row', gap: 16 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-            <Text style={{ fontSize: 15, fontWeight: '700', color: palette.text }}>{profile?.followers ?? 0}</Text>
-            <Text style={{ fontSize: 14, color: palette.textMuted }}>подписчиков</Text>
+        <View style={{ paddingHorizontal: 16, paddingBottom: 16, gap: 12 }}>
+          {/* Аватар приподнят на обложку, вокруг — кольцо истории; облачко-мысль
+              над ним. */}
+          <View style={{ marginTop: -44, width: 96, height: 96 }}>
+            <View style={{ position: 'absolute', left: 0, top: 0, width: 96, height: 96, alignItems: 'center', justifyContent: 'center' }}>
+              <SegmentRing size={96} segments={3} viewed={false} />
+              <Avatar name={handle} uri={profile?.avatar_url} size={82} />
+            </View>
+            <Pressable onPress={openEdit} style={{ position: 'absolute', left: 56, top: -20, backgroundColor: palette.surface2, borderRadius: 14, borderBottomLeftRadius: 4, paddingHorizontal: 12, paddingVertical: 7 }}>
+              <Text style={{ fontSize: 12.5, color: palette.textMuted }}>мысль…</Text>
+            </Pressable>
           </View>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-            <Text style={{ fontSize: 15, fontWeight: '700', color: palette.text }}>{profile?.following ?? 0}</Text>
-            <Text style={{ fontSize: 14, color: palette.textMuted }}>подписок</Text>
+
+          <View style={{ gap: 2 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+              <Text style={{ fontSize: 20, fontWeight: '700', color: palette.text }}>{displayName}</Text>
+              <VerifiedMark verified={profile?.verified_at} size={19} />
+            </View>
+            <Text style={{ fontSize: 13, fontWeight: '600', color: palette.accent }}>@{handle}</Text>
+            {bio ? <Text style={{ marginTop: 4, fontSize: 14, lineHeight: 19, color: palette.text }}>{bio}</Text> : null}
           </View>
-        </View>
 
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-          <Text style={{ fontSize: 13, color: palette.textMuted }}>
-            <Text style={{ color: palette.text }}>{posts.length}</Text> записей
-          </Text>
-          <Text style={{ color: palette.textMuted }}>·</Text>
-          <Text style={{ fontSize: 13, color: palette.textMuted }}>
-            <Text style={{ color: palette.text }}>{influence}</Text> influence
-          </Text>
-        </View>
+          <View style={{ flexDirection: 'row', gap: 16 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              <Text style={{ fontSize: 15, fontWeight: '700', color: palette.text }}>{profile?.followers ?? 0}</Text>
+              <Text style={{ fontSize: 14, color: palette.textMuted }}>подписчиков</Text>
+            </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              <Text style={{ fontSize: 15, fontWeight: '700', color: palette.text }}>{profile?.following ?? 0}</Text>
+              <Text style={{ fontSize: 14, color: palette.textMuted }}>подписок</Text>
+            </View>
+          </View>
 
-        <Pressable
-          onPress={() => navigation.getParent<NativeStackNavigationProp<RootStackParamList>>()?.navigate('ProfileEdit')}
-          style={{ borderWidth: 1, borderColor: palette.border, borderRadius: 999, paddingVertical: 10, alignItems: 'center' }}
-        >
-          <Text style={{ fontSize: 14, fontWeight: '600', color: palette.text }}>Редактировать профиль</Text>
-        </Pressable>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Text style={{ fontSize: 13, color: palette.textMuted }}>
+              <Text style={{ color: palette.text }}>{posts.length}</Text> постов
+            </Text>
+            <Text style={{ color: palette.textMuted }}>·</Text>
+            <Text style={{ fontSize: 13, color: palette.textMuted }}>
+              <Text style={{ color: palette.text }}>{influence}</Text> influence
+            </Text>
+          </View>
+
+          <Pressable
+            onPress={openEdit}
+            style={{ borderWidth: 1, borderColor: palette.border, borderRadius: 999, paddingVertical: 11, alignItems: 'center' }}
+          >
+            <Text style={{ fontSize: 14, fontWeight: '600', color: palette.text }}>Редактировать профиль</Text>
+          </Pressable>
+        </View>
       </View>
 
       {/* Переключатель вкладок: у выбранной — число рядом с подписью. */}
@@ -161,8 +200,26 @@ export function ProfileScreen() {
     </View>
   );
 
-  const emptyText =
-    tab === 'posts' ? 'Записей пока нет.' : tab === 'comments' ? 'Комментариев пока нет.' : 'Репостов пока нет.';
+  /** Пусто: у постов без подтверждённого телефона — призыв подтвердить. */
+  const renderEmpty = () => {
+    if (tab === 'posts' && !phoneVerified) {
+      return (
+        <View style={{ alignItems: 'center', gap: 14, paddingHorizontal: 32, paddingTop: 32 }}>
+          <Text style={{ textAlign: 'center', fontSize: 14.5, lineHeight: 21, color: palette.textMuted }}>
+            Чтобы публиковать посты и комментарии, подтвердите номер телефона.
+          </Text>
+          <Pressable
+            onPress={() => navigation.getParent<NativeStackNavigationProp<RootStackParamList>>()?.navigate('Settings')}
+            style={{ backgroundColor: palette.accent, borderRadius: 999, paddingHorizontal: 22, paddingVertical: 12 }}
+          >
+            <Text style={{ fontSize: 14, fontWeight: '600', color: palette.accentContrast }}>Подтвердить телефон</Text>
+          </Pressable>
+        </View>
+      );
+    }
+    const text = tab === 'posts' ? 'Постов пока нет.' : tab === 'comments' ? 'Комментариев пока нет.' : 'Репостов пока нет.';
+    return <Text style={{ paddingHorizontal: 16, color: palette.textMuted }}>{text}</Text>;
+  };
 
   if (tab === 'comments') {
     return (
@@ -174,7 +231,7 @@ export function ProfileScreen() {
           contentContainerStyle={{ paddingTop: topInset, paddingBottom: insets.bottom + 80 }}
           scrollIndicatorInsets={{ top: topInset }}
           ListHeaderComponent={header}
-          ListEmptyComponent={<Text style={{ paddingHorizontal: 16, color: palette.textMuted }}>{emptyText}</Text>}
+          ListEmptyComponent={renderEmpty()}
           renderItem={({ item }) => (
             <View style={{ gap: 8, paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: palette.border }}>
               {item.post ? (
@@ -210,7 +267,7 @@ export function ProfileScreen() {
         contentContainerStyle={{ paddingTop: topInset, paddingBottom: insets.bottom + 80 }}
           scrollIndicatorInsets={{ top: topInset }}
         ListHeaderComponent={header}
-        ListEmptyComponent={<Text style={{ paddingHorizontal: 16, color: palette.textMuted }}>{emptyText}</Text>}
+        ListEmptyComponent={renderEmpty()}
         renderItem={({ item }) => <PostCard post={item} />}
       />
     </View>
