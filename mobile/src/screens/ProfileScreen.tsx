@@ -203,9 +203,9 @@ export function ProfileScreen() {
 
           <Pressable
             onPress={openEdit}
-            style={{ borderWidth: 1, borderColor: palette.border, borderRadius: 999, paddingVertical: 11, alignItems: 'center' }}
+            style={{ borderWidth: 1, borderColor: palette.border, borderRadius: 999, paddingVertical: 9, alignItems: 'center' }}
           >
-            <Text style={{ fontSize: 14, fontWeight: '600', color: palette.text }}>Редактировать профиль</Text>
+            <Text style={{ fontSize: 14, fontWeight: '500', color: palette.text }}>Редактировать профиль</Text>
           </Pressable>
         </View>
       </View>
