@@ -15,6 +15,7 @@ import { Avatar } from '../components/Avatar';
 import { VerifiedMark } from '../components/VerifiedMark';
 import { VoteBlock } from '../components/VoteBlock';
 import { PostCard } from '../components/PostCard';
+import { SuggestedPeople } from '../components/SuggestedPeople';
 import { TopBar, useTopBarInset } from '../components/TopBar';
 import { SegmentRing } from '../components/SegmentRing';
 import { CommentIcon, ChevronIcon } from '../components/icons';
@@ -179,6 +180,9 @@ export function ProfileScreen() {
           </Pressable>
         </View>
       </View>
+
+      {/* «Кого почитать» — той же лентой, что и на главной, как в вебе. */}
+      <SuggestedPeople />
 
       {/* Переключатель вкладок: у выбранной — число рядом с подписью. */}
       <View style={{ flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingVertical: 12 }}>
