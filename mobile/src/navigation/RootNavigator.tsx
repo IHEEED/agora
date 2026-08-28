@@ -13,6 +13,9 @@ import { SearchScreen } from '../screens/SearchScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
 import { SettingsSectionScreen } from '../screens/SettingsSectionScreen';
 import { ProfileEditScreen } from '../screens/ProfileEditScreen';
+import { ModerationScreen } from '../screens/ModerationScreen';
+import { VerificationScreen } from '../screens/VerificationScreen';
+import { StatsScreen } from '../screens/StatsScreen';
 import { usePalette } from '../theme';
 import type { RootStackParamList } from './types';
 
@@ -57,6 +60,9 @@ export function RootNavigator() {
         options={({ route }) => ({ title: route.params.title })}
       />
       <Stack.Screen name="ProfileEdit" component={ProfileEditScreen} options={{ title: 'Профиль' }} />
+      <Stack.Screen name="Moderation" component={ModerationScreen} options={{ title: 'Разбор жалоб' }} />
+      <Stack.Screen name="Verification" component={VerificationScreen} options={{ title: 'Подтверждение личности' }} />
+      <Stack.Screen name="Stats" component={StatsScreen} options={{ title: 'Статистика' }} />
       <Stack.Screen name="Login" component={LoginScreen} options={{ title: 'Вход' }} />
       <Stack.Screen
         name="CreateCommunity"

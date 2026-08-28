@@ -154,15 +154,13 @@ export function SettingsSectionScreen({ route }: Props) {
   }
 
   if (section === 'moderation') {
-    const openMod = () => {};
     return (
       <Wrap palette={palette}>
         <Card palette={palette}>
-          <Line palette={palette} label="Разбор жалоб" hint="Очередь и баны" onPress={openMod} />
-          <Line palette={palette} label="Подтверждение личности" hint="Галочки и заявки" onPress={openMod} />
-          <Line palette={palette} label="Статистика" hint="Люди и написанное" onPress={openMod} last />
+          <Line palette={palette} label="Разбор жалоб" hint="Очередь и баны" onPress={() => navigation.navigate('Moderation')} />
+          <Line palette={palette} label="Подтверждение личности" hint="Галочки и заявки" onPress={() => navigation.navigate('Verification')} />
+          <Line palette={palette} label="Статистика" hint="Люди и написанное" onPress={() => navigation.navigate('Stats')} last />
         </Card>
-        <Note palette={palette}>Экраны модерации пока живут в веб-версии — перенесём их отдельным заходом.</Note>
       </Wrap>
     );
   }

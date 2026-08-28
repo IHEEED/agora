@@ -15,6 +15,9 @@ export type RootStackParamList = {
   Settings: undefined;
   SettingsSection: { section: string; title: string };
   ProfileEdit: undefined;
+  Moderation: undefined;
+  Verification: undefined;
+  Stats: undefined;
 };
 
 export type TabParamList = {
