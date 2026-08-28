@@ -9,7 +9,7 @@ import { PostCard } from '../components/PostCard';
 import { Avatar } from '../components/Avatar';
 import { StoriesBar } from '../components/StoriesBar';
 import { SuggestedPeople } from '../components/SuggestedPeople';
-import { BellIcon, SearchIcon } from '../components/icons';
+import { TopBar } from '../components/TopBar';
 import { useSession } from '../lib/useSession';
 import { usePalette } from '../theme';
 import type { RootStackParamList } from '../navigation/types';
@@ -59,28 +59,7 @@ export function FeedScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: palette.bg }}>
-      {/* Шапка: колокол уведомлений слева, знак :P по центру. Тот же расклад,
-          что в вебе, где уведомления переехали в шапку. */}
-      <View
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          paddingHorizontal: 16,
-          paddingTop: insets.top + 6,
-          paddingBottom: 10,
-        }}
-      >
-        <Pressable onPress={() => navigation.navigate('Notifications')} hitSlop={10}>
-          <BellIcon size={24} color={palette.control} />
-        </Pressable>
-        <Text style={{ fontSize: 22, fontWeight: '800', color: palette.text }}>
-          :<Text style={{ color: palette.accent }}>P</Text>
-        </Text>
-        <Pressable onPress={() => navigation.navigate('Search')} hitSlop={10}>
-          <SearchIcon size={22} color={palette.control} />
-        </Pressable>
-      </View>
+      <TopBar right="search" />
 
       <FlatList
         data={posts}
@@ -163,6 +142,30 @@ export function FeedScreen() {
         }
         renderItem={({ item }) => <PostCard post={item} />}
       />
+
+      {/* Создание записи — плавающая кнопка над стеклянным баром: нативная
+          панель не даёт вставить в себя действие вместо экрана. */}
+      <Pressable
+        onPress={() => navigation.navigate('CreatePost', { communityId: '' })}
+        style={{
+          position: 'absolute',
+          right: 20,
+          bottom: insets.bottom + 80,
+          width: 56,
+          height: 56,
+          borderRadius: 28,
+          backgroundColor: palette.accent,
+          alignItems: 'center',
+          justifyContent: 'center',
+          shadowColor: '#000',
+          shadowOpacity: 0.2,
+          shadowRadius: 8,
+          shadowOffset: { width: 0, height: 3 },
+          elevation: 4,
+        }}
+      >
+        <Text style={{ fontSize: 30, lineHeight: 34, color: palette.accentContrast }}>+</Text>
+      </Pressable>
     </View>
   );
 }

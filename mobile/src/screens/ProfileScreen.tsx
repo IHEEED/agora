@@ -13,7 +13,8 @@ import { Avatar } from '../components/Avatar';
 import { VerifiedMark } from '../components/VerifiedMark';
 import { VoteBlock } from '../components/VoteBlock';
 import { PostCard } from '../components/PostCard';
-import { CommentIcon, ChevronIcon, GearIcon } from '../components/icons';
+import { TopBar } from '../components/TopBar';
+import { CommentIcon, ChevronIcon } from '../components/icons';
 import { usePalette } from '../theme';
 import type { RootStackParamList, TabParamList } from '../navigation/types';
 
@@ -98,19 +99,7 @@ export function ProfileScreen() {
 
   const header = (
     <View>
-      {/* Шестерёнка справа сверху — вход в настройки, как в шапке веба на
-          экране профиля. */}
-      <View style={{ flexDirection: 'row', justifyContent: 'flex-end', paddingTop: insets.top + 8, paddingHorizontal: 16 }}>
-        <Pressable
-          onPress={() => navigation.getParent<NativeStackNavigationProp<RootStackParamList>>()?.navigate('Settings')}
-          hitSlop={10}
-          style={{ width: 40, height: 40, alignItems: 'center', justifyContent: 'center' }}
-        >
-          <GearIcon size={24} color={palette.control} />
-        </Pressable>
-      </View>
-
-      <View style={{ paddingHorizontal: 16, gap: 12 }}>
+      <View style={{ paddingHorizontal: 16, paddingTop: 8, gap: 12 }}>
         <Avatar name={handle} uri={profile?.avatar_url} size={88} />
 
         <View style={{ gap: 2 }}>
@@ -177,6 +166,7 @@ export function ProfileScreen() {
   if (tab === 'comments') {
     return (
       <View style={{ flex: 1, backgroundColor: palette.bg }}>
+        <TopBar right="settings" />
         <FlatList
           data={comments}
           keyExtractor={(item) => item.id}
@@ -211,6 +201,7 @@ export function ProfileScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: palette.bg }}>
+      <TopBar right="settings" />
       <FlatList
         data={list}
         keyExtractor={(post) => post.id}

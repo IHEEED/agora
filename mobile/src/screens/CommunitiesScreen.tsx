@@ -10,7 +10,7 @@ import { apiFetch } from '../lib/api';
 import { useSession } from '../lib/useSession';
 import { Community } from '../lib/types';
 import { Avatar } from '../components/Avatar';
-import { ScreenHeader } from '../components/ScreenHeader';
+import { TopBar } from '../components/TopBar';
 import { usePalette } from '../theme';
 import type { RootStackParamList, TabParamList } from '../navigation/types';
 
@@ -59,29 +59,25 @@ export function CommunitiesScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: palette.bg }}>
-      <ScreenHeader
-        title="Клубы"
-        right={
-          session ? (
-            <Pressable
-              onPress={openCreate}
-              hitSlop={8}
-              style={{
-                width: 40,
-                height: 40,
-                borderRadius: 20,
-                backgroundColor: palette.accent,
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <Svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke={palette.accentContrast} strokeWidth={2.3} strokeLinecap="round">
-                <Path d="M12 5v14M5 12h14" />
-              </Svg>
-            </Pressable>
-          ) : undefined
-        }
-      />
+      <TopBar right="search" />
+
+      {/* Крупный заголовок экрана и «плюс» — под общей шапкой, как в вебе. */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingBottom: 8 }}>
+        <Text style={{ fontFamily: 'Georgia', fontSize: 30, color: palette.text }}>
+          Клубы<Text style={{ color: palette.accent }}>.</Text>
+        </Text>
+        {session ? (
+          <Pressable
+            onPress={openCreate}
+            hitSlop={8}
+            style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: palette.accent, alignItems: 'center', justifyContent: 'center' }}
+          >
+            <Svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke={palette.accentContrast} strokeWidth={2.3} strokeLinecap="round">
+              <Path d="M12 5v14M5 12h14" />
+            </Svg>
+          </Pressable>
+        ) : null}
+      </View>
 
       {loading ? <Text style={{ paddingHorizontal: 16, color: palette.textMuted }}>Загрузка…</Text> : null}
       {error ? <Text style={{ paddingHorizontal: 16, color: palette.down }}>{error}</Text> : null}

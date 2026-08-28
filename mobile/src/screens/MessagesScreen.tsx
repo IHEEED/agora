@@ -7,7 +7,7 @@ import { apiFetch } from '../lib/api';
 import { Thread } from '../lib/types';
 import { Avatar } from '../components/Avatar';
 import { VerifiedMark } from '../components/VerifiedMark';
-import { ScreenHeader } from '../components/ScreenHeader';
+import { TopBar } from '../components/TopBar';
 import { usePalette } from '../theme';
 import { formatRelativeDate } from '../lib/formatDate';
 import type { RootStackParamList } from '../navigation/types';
@@ -47,7 +47,12 @@ export function MessagesScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: palette.bg }}>
-      <ScreenHeader title="Сообщения" />
+      <TopBar right="search" />
+      <View style={{ paddingHorizontal: 16, paddingBottom: 8 }}>
+        <Text style={{ fontFamily: 'Georgia', fontSize: 30, color: palette.text }}>
+          Сообщения<Text style={{ color: palette.accent }}>.</Text>
+        </Text>
+      </View>
       {loading ? (
         <Text style={{ padding: 16, color: palette.textMuted }}>Загрузка…</Text>
       ) : null}
