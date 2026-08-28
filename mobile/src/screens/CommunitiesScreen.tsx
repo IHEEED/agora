@@ -72,7 +72,7 @@ export function CommunitiesScreen() {
           <View>
             {/* Заголовок и «плюс» — уезжают под стеклянную шапку при прокрутке. */}
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 6, paddingBottom: 12 }}>
-              <Text style={{ fontFamily: 'Georgia', fontSize: 30, color: palette.text }}>
+              <Text style={{ fontFamily: palette.displayFamily, fontSize: 30, color: palette.text }}>
                 Клубы<Text style={{ color: palette.accent }}>.</Text>
               </Text>
               {session ? (

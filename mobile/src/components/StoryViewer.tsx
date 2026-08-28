@@ -89,7 +89,7 @@ export function StoryViewer({
           <Image source={{ uri: image }} style={{ position: 'absolute', width, height }} resizeMode="contain" />
         ) : (
           <View style={{ position: 'absolute', width, height, alignItems: 'center', justifyContent: 'center', padding: 32, backgroundColor: palette.surface2 }}>
-            <Text style={{ fontFamily: 'Georgia', fontSize: 24, lineHeight: 32, color: palette.text, textAlign: 'center' }}>
+            <Text style={{ fontFamily: palette.displayFamily, fontSize: 24, lineHeight: 32, color: palette.text, textAlign: 'center' }}>
               {item.title || item.body}
             </Text>
           </View>

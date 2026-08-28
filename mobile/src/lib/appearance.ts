@@ -10,29 +10,50 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
  * перерисовался у всех разом при смене.
  */
 export type ThemePreference = 'system' | 'light' | 'dark';
+export type StyleId = 'chronicle' | 'atelier' | 'midnight' | 'garden' | 'signal';
 
-const KEY = 'parafraz-theme';
-let current: ThemePreference = 'system';
+const THEME_KEY = 'parafraz-theme';
+const STYLE_KEY = 'parafraz-style';
+const STYLE_IDS: StyleId[] = ['chronicle', 'atelier', 'midnight', 'garden', 'signal'];
+
+let currentTheme: ThemePreference = 'system';
+let currentStyle: StyleId = 'chronicle';
 const listeners = new Set<() => void>();
+const emit = () => listeners.forEach((cb) => cb());
 
-// Читаем сохранённое один раз при старте; до этого стоит «системная».
-AsyncStorage.getItem(KEY)
+// Читаем сохранённое один раз при старте; до этого — умолчания.
+AsyncStorage.getItem(THEME_KEY)
   .then((value) => {
     if (value === 'light' || value === 'dark' || value === 'system') {
-      current = value;
-      listeners.forEach((cb) => cb());
+      currentTheme = value;
+      emit();
+    }
+  })
+  .catch(() => {});
+AsyncStorage.getItem(STYLE_KEY)
+  .then((value) => {
+    if (value && STYLE_IDS.includes(value as StyleId)) {
+      currentStyle = value as StyleId;
+      emit();
     }
   })
   .catch(() => {});
 
 export function getThemePreference(): ThemePreference {
-  return current;
+  return currentTheme;
 }
-
 export function setThemePreference(next: ThemePreference) {
-  current = next;
-  listeners.forEach((cb) => cb());
-  AsyncStorage.setItem(KEY, next).catch(() => {});
+  currentTheme = next;
+  emit();
+  AsyncStorage.setItem(THEME_KEY, next).catch(() => {});
+}
+export function getStylePreference(): StyleId {
+  return currentStyle;
+}
+export function setStylePreference(next: StyleId) {
+  currentStyle = next;
+  emit();
+  AsyncStorage.setItem(STYLE_KEY, next).catch(() => {});
 }
 
 function subscribe(cb: () => void) {
@@ -42,4 +63,7 @@ function subscribe(cb: () => void) {
 
 export function useThemePreference(): ThemePreference {
   return useSyncExternalStore(subscribe, getThemePreference, getThemePreference);
+}
+export function useStylePreference(): StyleId {
+  return useSyncExternalStore(subscribe, getStylePreference, getStylePreference);
 }

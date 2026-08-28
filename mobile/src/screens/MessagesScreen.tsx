@@ -57,7 +57,7 @@ export function MessagesScreen() {
         scrollIndicatorInsets={{ top: topInset }}
         ListHeaderComponent={
           <View style={{ paddingHorizontal: 16, paddingBottom: 8 }}>
-            <Text style={{ fontFamily: 'Georgia', fontSize: 30, color: palette.text }}>
+            <Text style={{ fontFamily: palette.displayFamily, fontSize: 30, color: palette.text }}>
               Сообщения<Text style={{ color: palette.accent }}>.</Text>
             </Text>
             {loading ? <Text style={{ paddingVertical: 8, color: palette.textMuted }}>Загрузка…</Text> : null}

@@ -46,7 +46,7 @@ export function SettingsScreen() {
             <Path d="m15 6-6 6 6 6" />
           </Svg>
         </Pressable>
-        <Text style={{ fontFamily: 'Georgia', fontSize: 32, color: palette.text }}>
+        <Text style={{ fontFamily: palette.displayFamily, fontSize: 32, color: palette.text }}>
           Настройки<Text style={{ color: palette.accent }}>.</Text>
         </Text>
       </View>

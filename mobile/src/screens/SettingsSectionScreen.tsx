@@ -8,11 +8,11 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '../lib/supabase';
 import { apiFetch } from '../lib/api';
 import { useSession } from '../lib/useSession';
-import { setThemePreference, ThemePreference, useThemePreference } from '../lib/appearance';
+import { setStylePreference, setThemePreference, StyleId, ThemePreference, useStylePreference, useThemePreference } from '../lib/appearance';
 import { LocalToggle } from '../components/LocalToggle';
 import { ChevronIcon } from '../components/icons';
 import { SettingsSectionId } from '../lib/settingsSections';
-import { usePalette } from '../theme';
+import { useIsDark, usePalette } from '../theme';
 import type { RootStackParamList } from '../navigation/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'SettingsSection'>;
@@ -26,12 +26,13 @@ const THEMES: { value: ThemePreference; label: string }[] = [
   { value: 'system', label: 'Системная' },
 ];
 
-const STYLES = [
-  { label: 'Хроника', hint: 'Тёплая бумага, терракота, газетная антиква', on: true },
-  { label: 'Ателье', hint: 'Чернила на бумаге, без единого лишнего цвета', on: false },
-  { label: 'Полночь', hint: 'Синий полумрак и ледяной акцент', on: false },
-  { label: 'Сад', hint: 'Приглушённая зелень и тёплый небелый', on: false },
-  { label: 'Сигнал', hint: 'Нейтральный холст и одна фиолетовая нота', on: false },
+/** Стили с превью-цветами из веба: [фон, поверхность, акцент] для свет/тьмы. */
+const STYLES: { id: StyleId; label: string; hint: string; serif: boolean; light: [string, string, string]; dark: [string, string, string] }[] = [
+  { id: 'chronicle', label: 'Хроника', hint: 'Тёплая бумага, терракота, газетная антиква', serif: true, light: ['#faf7f2', '#fffdf9', '#bf5b38'], dark: ['#16140f', '#1f1c16', '#e08a5f'] },
+  { id: 'atelier', label: 'Ателье', hint: 'Чернила на бумаге, без единого лишнего цвета', serif: true, light: ['#fbfbf9', '#ffffff', '#141412'], dark: ['#0b0b0a', '#141412', '#f5f4f0'] },
+  { id: 'midnight', label: 'Полночь', hint: 'Синий полумрак и ледяной акцент', serif: false, light: ['#f6f7f9', '#ffffff', '#3457d5'], dark: ['#090b10', '#12151c', '#86a8ff'] },
+  { id: 'garden', label: 'Сад', hint: 'Приглушённая зелень и тёплый небелый', serif: true, light: ['#f5f7f1', '#fdfefb', '#4a6b3a'], dark: ['#10130d', '#181c14', '#a3c47e'] },
+  { id: 'signal', label: 'Сигнал', hint: 'Нейтральный холст и одна фиолетовая нота', serif: false, light: ['#fbfbfd', '#ffffff', '#5b3ad6'], dark: ['#0d0d11', '#16161d', '#a88cff'] },
 ];
 
 const LOCALES = [
@@ -55,6 +56,8 @@ export function SettingsSectionScreen({ route }: Props) {
   const { session } = useSession();
   const section = route.params.section as SettingsSectionId;
   const themePref = useThemePreference();
+  const stylePref = useStylePreference();
+  const dark = useIsDark();
 
   const [sheet, setSheet] = useState<null | 'rules' | 'support'>(null);
   const [inviteCode, setInviteCode] = useState<string | null>(null);
@@ -87,21 +90,38 @@ export function SettingsSectionScreen({ route }: Props) {
         <Text style={{ fontSize: 12.5, lineHeight: 18, color: palette.textMuted, marginHorizontal: 4 }}>
           Фон, цвета, шрифт заголовков и фактура подобраны вместе — стиль меняется целиком.
         </Text>
-        <Card palette={palette}>
-          {STYLES.map((s, i) => (
-            <View
-              key={s.label}
-              style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, paddingVertical: 13, borderBottomWidth: i === STYLES.length - 1 ? 0 : 1, borderBottomColor: palette.border, opacity: s.on ? 1 : 0.5 }}
-            >
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 15, fontWeight: '600', color: s.on ? palette.accent : palette.text }}>{s.label}</Text>
-                <Text style={{ fontSize: 12, color: palette.textMuted }}>{s.hint}</Text>
-              </View>
-              {s.on ? <Check palette={palette} /> : <Text style={{ fontSize: 12, color: palette.textMuted }}>скоро</Text>}
-            </View>
-          ))}
-        </Card>
-        <Note palette={palette}>Остальные стили пока доступны в веб-версии — перенесём их отдельным заходом.</Note>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
+          {STYLES.map((s) => {
+            const swatch = dark ? s.dark : s.light;
+            const selected = stylePref === s.id;
+            return (
+              <Pressable key={s.id} onPress={() => setStylePreference(s.id)} style={{ width: '47%', gap: 6 }}>
+                {/* Превью: фон стиля, «Aa» акцентом его гарнитурой и ползунок. */}
+                <View
+                  style={{
+                    height: 96,
+                    borderRadius: 14,
+                    padding: 14,
+                    justifyContent: 'space-between',
+                    backgroundColor: swatch[0],
+                    borderWidth: selected ? 2 : 1,
+                    borderColor: selected ? palette.accent : palette.border,
+                  }}
+                >
+                  <Text style={{ fontFamily: s.serif ? 'Georgia' : 'System', fontSize: 20, fontWeight: '700', color: swatch[2] }}>Aa</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <View style={{ flex: 1, height: 4, borderRadius: 2, backgroundColor: `${swatch[2]}55` }} />
+                    <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: swatch[2] }} />
+                  </View>
+                </View>
+                <View style={{ paddingHorizontal: 2 }}>
+                  <Text style={{ fontSize: 13.5, fontWeight: '600', color: selected ? palette.accent : palette.text }}>{s.label}</Text>
+                  <Text style={{ fontSize: 11.5, lineHeight: 15, color: palette.textMuted }}>{s.hint}</Text>
+                </View>
+              </Pressable>
+            );
+          })}
+        </View>
       </Wrap>
     );
   }
@@ -134,19 +154,13 @@ export function SettingsSectionScreen({ route }: Props) {
   }
 
   if (section === 'moderation') {
-    const openMod = () => navigation.navigate('Settings');
+    const openMod = () => {};
     return (
       <Wrap palette={palette}>
         <Card palette={palette}>
-          <Line palette={palette} label="Разбор жалоб" hint="Очередь и баны">
-            <Pill palette={palette} label="Открыть" muted onPress={openMod} />
-          </Line>
-          <Line palette={palette} label="Подтверждение личности" hint="Галочки и заявки">
-            <Pill palette={palette} label="Открыть" muted onPress={openMod} />
-          </Line>
-          <Line palette={palette} label="Статистика" hint="Люди и написанное" last>
-            <Pill palette={palette} label="Открыть" muted onPress={openMod} />
-          </Line>
+          <Line palette={palette} label="Разбор жалоб" hint="Очередь и баны" onPress={openMod} />
+          <Line palette={palette} label="Подтверждение личности" hint="Галочки и заявки" onPress={openMod} />
+          <Line palette={palette} label="Статистика" hint="Люди и написанное" onPress={openMod} last />
         </Card>
         <Note palette={palette}>Экраны модерации пока живут в веб-версии — перенесём их отдельным заходом.</Note>
       </Wrap>

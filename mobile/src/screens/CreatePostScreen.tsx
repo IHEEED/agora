@@ -171,7 +171,7 @@ export function CreatePostScreen({ navigation, route }: Props) {
         onChangeText={setTitle}
         placeholder="Заголовок"
         placeholderTextColor={palette.textMuted}
-        style={{ fontFamily: 'Georgia', fontSize: 21, lineHeight: 27, color: palette.text, paddingVertical: 4 }}
+        style={{ fontFamily: palette.displayFamily, fontSize: 21, lineHeight: 27, color: palette.text, paddingVertical: 4 }}
       />
       <TextInput
         value={body}

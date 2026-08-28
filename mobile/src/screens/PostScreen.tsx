@@ -38,7 +38,7 @@ function PostDetail({ post }: { post: Post }) {
         </View>
       </View>
 
-      <Text style={{ fontFamily: 'Georgia', fontSize: 20, color: palette.text, lineHeight: 26 }}>{post.title}</Text>
+      <Text style={{ fontFamily: palette.displayFamily, fontSize: 20, color: palette.text, lineHeight: 26 }}>{post.title}</Text>
       {post.body ? <Text style={{ fontSize: 15, color: palette.text, lineHeight: 23 }}>{post.body}</Text> : null}
 
       <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4, marginLeft: -4 }}>

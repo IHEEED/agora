@@ -152,7 +152,7 @@ export function PostCard({ post }: { post: Post }) {
 
       {/* Заголовок антиквой, тело обычной гарнитурой. */}
       <View style={{ gap: 6 }}>
-        <Text style={{ fontFamily: 'Georgia', fontSize: 16, color: palette.text, lineHeight: 22 }}>
+        <Text style={{ fontFamily: palette.displayFamily, fontSize: 16, color: palette.text, lineHeight: 22 }}>
           {post.title}
         </Text>
         {post.body ? (
@@ -279,7 +279,7 @@ function ChainTail({ chain, total }: { chain: Post[]; total: number }) {
           <Text style={{ fontSize: 11.5, fontWeight: '600', color: palette.textMuted }}>
             Вслед · {index + 2} из {total}
           </Text>
-          <Text style={{ fontFamily: 'Georgia', fontSize: 15, color: palette.text, lineHeight: 20 }}>
+          <Text style={{ fontFamily: palette.displayFamily, fontSize: 15, color: palette.text, lineHeight: 20 }}>
             {part.title}
           </Text>
           {part.body ? (

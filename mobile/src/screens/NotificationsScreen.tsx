@@ -89,7 +89,7 @@ export function NotificationsScreen() {
                   <Path d="m15 6-6 6 6 6" />
                 </Svg>
               </Pressable>
-              <Text style={{ fontFamily: 'Georgia', fontSize: 30, color: palette.text }}>
+              <Text style={{ fontFamily: palette.displayFamily, fontSize: 30, color: palette.text }}>
                 Уведомления<Text style={{ color: palette.accent }}>.</Text>
               </Text>
             </View>

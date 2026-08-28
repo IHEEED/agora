@@ -34,7 +34,7 @@ export function ScreenHeader({
         paddingBottom: 10,
       }}
     >
-      <Text style={{ fontFamily: 'Georgia', fontSize: 30, lineHeight: 34, color: palette.text }}>
+      <Text style={{ fontFamily: palette.displayFamily, fontSize: 30, lineHeight: 34, color: palette.text }}>
         {trimmed}
         {needsDot ? <Text style={{ color: palette.accent }}>.</Text> : null}
       </Text>
