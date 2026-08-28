@@ -120,6 +120,8 @@ export interface UserProfile {
   karma: number;
   followers: number;
   following: number;
+  /** Подписан ли я на этого человека — для кнопки на чужом профиле. */
+  isFollowing?: boolean;
 }
 
 /** Одно письмо внутри переписки. */

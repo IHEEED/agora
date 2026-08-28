@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { apiFetch } from '../lib/api';
 import { useSession } from '../lib/useSession';
 import { formatCompactAge } from '../lib/formatDate';
@@ -8,6 +10,7 @@ import { Avatar } from './Avatar';
 import { VerifiedMark } from './VerifiedMark';
 import { VoteBlock } from './VoteBlock';
 import { usePalette } from '../theme';
+import type { RootStackParamList } from '../navigation/types';
 
 /**
  * Одна ветка комментариев — по образцу веба.
@@ -29,6 +32,7 @@ export function CommentItem({
 }) {
   const palette = usePalette();
   const { session } = useSession();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
   const [replying, setReplying] = useState(false);
   const [body, setBody] = useState('');
@@ -64,10 +68,14 @@ export function CommentItem({
       }}
     >
       <View style={{ flexDirection: 'row', gap: 10 }}>
-        <Avatar name={comment.author.username} uri={comment.author.avatar_url} size={30} />
+        <Pressable onPress={() => comment.author.id && navigation.navigate('User', { userId: comment.author.id })}>
+          <Avatar name={comment.author.username} uri={comment.author.avatar_url} size={30} />
+        </Pressable>
         <View style={{ flex: 1, gap: 4 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}>
-            <Text style={{ fontSize: 13, fontWeight: '600', color: palette.text }}>{comment.author.username}</Text>
+            <Pressable onPress={() => comment.author.id && navigation.navigate('User', { userId: comment.author.id })}>
+              <Text style={{ fontSize: 13, fontWeight: '600', color: palette.text }}>{comment.author.username}</Text>
+            </Pressable>
             <VerifiedMark verified={comment.author.verified_at} size={13} />
             <Text style={{ fontSize: 12.5, color: palette.textMuted }}>· {formatCompactAge(comment.created_at)}</Text>
           </View>

@@ -8,6 +8,7 @@ import { CreatePostScreen } from '../screens/CreatePostScreen';
 import { MessagesScreen } from '../screens/MessagesScreen';
 import { ChatScreen } from '../screens/ChatScreen';
 import { NotificationsScreen } from '../screens/NotificationsScreen';
+import { UserScreen } from '../screens/UserScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
 import { SettingsSectionScreen } from '../screens/SettingsSectionScreen';
 import { ProfileEditScreen } from '../screens/ProfileEditScreen';
@@ -46,6 +47,7 @@ export function RootNavigator() {
         options={({ route }) => ({ title: route.params.username })}
       />
       <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ title: 'Уведомления' }} />
+      <Stack.Screen name="User" component={UserScreen} options={{ title: 'Профиль' }} />
       <Stack.Screen name="Settings" component={SettingsScreen} options={{ headerShown: false }} />
       <Stack.Screen
         name="SettingsSection"

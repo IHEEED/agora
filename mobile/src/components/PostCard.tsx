@@ -4,10 +4,12 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Post, postImages } from '../lib/types';
 import { apiFetch } from '../lib/api';
+import { useSession } from '../lib/useSession';
 import { formatCompactAge } from '../lib/formatDate';
 import { Avatar } from './Avatar';
 import { VerifiedMark } from './VerifiedMark';
 import { VoteBlock } from './VoteBlock';
+import { PostMenuSheet } from './PostMenuSheet';
 import {
   ChevronIcon,
   CommentIcon,
@@ -43,14 +45,25 @@ function compactViews(value: number): string {
 export function PostCard({ post }: { post: Post }) {
   const palette = usePalette();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const { session } = useSession();
 
   const [reposted, setReposted] = useState(Boolean(post.myRepost));
   const [repostCount, setRepostCount] = useState(post.repostCount ?? 0);
   const [commentCount] = useState(post.commentCount);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [removed, setRemoved] = useState(false);
   const spin = useRef(new Animated.Value(0)).current;
 
   const images = postImages(post);
   const hasChain = (post.chain?.length ?? 0) > 0;
+  const isMine = Boolean(post.author.id) && post.author.id === session?.user.id;
+
+  /** Перейти в профиль автора, если у записи известен его id. */
+  function openAuthor() {
+    if (post.author.id) navigation.navigate('User', { userId: post.author.id });
+  }
+
+  if (removed) return null;
 
   async function handleRepost() {
     const next = !reposted;
@@ -90,11 +103,15 @@ export function PostCard({ post }: { post: Post }) {
 
       {/* Автор: лицо, ник, галочка, возраст. Три точки справа. */}
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-        <Avatar name={post.author.username} uri={post.author.avatar_url} size={38} />
+        <Pressable onPress={openAuthor}>
+          <Avatar name={post.author.username} uri={post.author.avatar_url} size={38} />
+        </Pressable>
         <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-          <Text numberOfLines={1} style={{ flexShrink: 1, fontSize: 14, fontWeight: '600', color: palette.text }}>
-            {post.author.username}
-          </Text>
+          <Pressable onPress={openAuthor} style={{ flexShrink: 1 }}>
+            <Text numberOfLines={1} style={{ fontSize: 14, fontWeight: '600', color: palette.text }}>
+              {post.author.username}
+            </Text>
+          </Pressable>
           <VerifiedMark verified={post.author.verified_at} size={17} />
           <Text style={{ fontSize: 13, color: palette.textMuted }}>
             {formatCompactAge(post.created_at)}
@@ -108,10 +125,19 @@ export function PostCard({ post }: { post: Post }) {
             </>
           ) : null}
         </View>
-        <Pressable hitSlop={8} style={{ width: 32, height: 32, alignItems: 'center', justifyContent: 'center', marginRight: -8 }}>
+        <Pressable onPress={() => setMenuOpen(true)} hitSlop={8} style={{ width: 32, height: 32, alignItems: 'center', justifyContent: 'center', marginRight: -8 }}>
           <MoreIcon size={18} color={palette.control} />
         </Pressable>
       </View>
+
+      <PostMenuSheet
+        open={menuOpen}
+        onClose={() => setMenuOpen(false)}
+        postId={post.id}
+        title={post.title}
+        isMine={isMine}
+        onDeleted={() => setRemoved(true)}
+      />
 
       {/* Заголовок антиквой, тело обычной гарнитурой. */}
       <View style={{ gap: 6 }}>

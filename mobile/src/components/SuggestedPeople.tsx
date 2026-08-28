@@ -1,10 +1,13 @@
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { apiFetch } from '../lib/api';
 import { AvatarFollow } from './AvatarFollow';
 import { VerifiedMark } from './VerifiedMark';
 import { usePalette } from '../theme';
+import type { RootStackParamList } from '../navigation/types';
 
 /**
  * «Кого почитать» — горизонтальная лента карточек, как в вебе.
@@ -28,6 +31,7 @@ const CARD_WIDTH = 148;
 
 export function SuggestedPeople() {
   const palette = usePalette();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [people, setPeople] = useState<Person[]>([]);
 
   useEffect(() => {
@@ -49,8 +53,9 @@ export function SuggestedPeople() {
       contentContainerStyle={{ gap: 8, paddingHorizontal: 16, paddingVertical: 4 }}
     >
       {people.map((person) => (
-        <View
+        <Pressable
           key={person.id}
+          onPress={() => navigation.navigate('User', { userId: person.id })}
           style={{
             width: CARD_WIDTH,
             borderRadius: 16,
@@ -84,7 +89,7 @@ export function SuggestedPeople() {
             <VerifiedMark verified={person.verified_at} size={14} />
           </View>
           <Text style={{ fontSize: 11.5, color: palette.textMuted }}>{person.karma} influence</Text>
-        </View>
+        </Pressable>
       ))}
     </ScrollView>
   );
