@@ -557,7 +557,7 @@ function CreatePost() {
             <div className="relative">
               {/* z-10: поле ниже стеклянное, его backdrop-filter размывает
                   всё, что нарисовано под ним, включая эту лупу. */}
-              <span className="pointer-events-none absolute left-4 top-1/2 z-10 flex -translate-y-1/2 items-center gap-1.5 text-[var(--text-muted)]">
+              <span className="pointer-events-none absolute left-4 top-1/2 z-10 flex -translate-y-1/2 items-center gap-1.5 whitespace-nowrap text-[var(--text-muted)]">
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
                   <circle cx="11" cy="11" r="6.5" />
                   <path d="m20 20-4.3-4.3" />
