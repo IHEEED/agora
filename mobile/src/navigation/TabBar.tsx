@@ -1,4 +1,5 @@
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, Text, useColorScheme, View } from 'react-native';
+import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -32,6 +33,7 @@ const LABELS: Record<string, string> = {
 export function TabBar({ state, navigation }: BottomTabBarProps) {
   const palette = usePalette();
   const insets = useSafeAreaInsets();
+  const dark = useColorScheme() === 'dark';
 
   // Порядок слотов: две вкладки, кнопка создания, ещё две.
   const left = state.routes.slice(0, 2);
@@ -48,7 +50,11 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
     const Icon = ICONS[route.name as keyof typeof ICONS];
     const color = focused ? palette.accent : palette.textMuted;
     return (
-      <Pressable key={route.key} onPress={() => go(route.name, index)} style={{ flex: 1, alignItems: 'center', gap: 3 }}>
+      <Pressable
+        key={route.key}
+        onPress={() => go(route.name, index)}
+        style={({ pressed }) => ({ flex: 1, alignItems: 'center', gap: 3, transform: [{ scale: pressed ? 0.88 : 1 }] })}
+      >
         {Icon ? <Icon active={focused} size={26} color={color} /> : null}
         <Text style={{ fontSize: 11, fontWeight: '600', color }}>{LABELS[route.name] ?? route.name}</Text>
       </Pressable>
@@ -67,7 +73,7 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
         paddingVertical: 8,
         paddingHorizontal: 6,
         borderRadius: 28,
-        backgroundColor: palette.surface,
+        overflow: 'hidden',
         shadowColor: '#000',
         shadowOpacity: 0.12,
         shadowRadius: 12,
@@ -75,6 +81,15 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
         elevation: 6,
       }}
     >
+      {/* Стекло: нативный системный блюр под баром размывает уезжающий контент,
+          поверх — полупрозрачная поверхность темы, чтобы значки читались. */}
+      <BlurView
+        tint={dark ? 'dark' : 'light'}
+        intensity={60}
+        style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }}
+      />
+      <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: palette.surface, opacity: 0.55 }} />
+
       {left.map((route) => renderTab(route, state.routes.indexOf(route)))}
 
       {/* Плюс по центру — уводит в создание записи на родительском стеке. */}
@@ -85,14 +100,15 @@ export function TabBar({ state, navigation }: BottomTabBarProps) {
               .getParent<NativeStackNavigationProp<RootStackParamList>>()
               ?.navigate('CreatePost', { communityId: '' })
           }
-          style={{
+          style={({ pressed }) => ({
             width: 46,
             height: 46,
             borderRadius: 16,
             backgroundColor: palette.accent,
             alignItems: 'center',
             justifyContent: 'center',
-          }}
+            transform: [{ scale: pressed ? 0.9 : 1 }],
+          })}
         >
           <CreateIcon size={26} color={palette.accentContrast} />
         </Pressable>

@@ -125,12 +125,13 @@ export function FeedScreen() {
                   <Pressable
                     key={option.value}
                     onPress={() => setSort(option.value)}
-                    style={{
+                    style={({ pressed }) => ({
                       paddingHorizontal: 14,
                       paddingVertical: 7,
                       borderRadius: 999,
                       backgroundColor: on ? palette.accent : palette.surface2,
-                    }}
+                      transform: [{ scale: pressed ? 0.94 : 1 }],
+                    })}
                   >
                     <Text
                       style={{

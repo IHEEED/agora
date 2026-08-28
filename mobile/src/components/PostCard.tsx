@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Animated, Dimensions, Image, Pressable, ScrollView, Share, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -53,6 +53,12 @@ export function PostCard({ post }: { post: Post }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [removed, setRemoved] = useState(false);
   const spin = useRef(new Animated.Value(0)).current;
+  // Мягкое появление карточки: проявляется и чуть поднимается при монтировании.
+  const enter = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.timing(enter, { toValue: 1, duration: 260, useNativeDriver: true }).start();
+  }, [enter]);
 
   const images = postImages(post);
   const hasChain = (post.chain?.length ?? 0) > 0;
@@ -82,6 +88,12 @@ export function PostCard({ post }: { post: Post }) {
   }
 
   return (
+    <Animated.View
+      style={{
+        opacity: enter,
+        transform: [{ translateY: enter.interpolate({ inputRange: [0, 1], outputRange: [8, 0] }) }],
+      }}
+    >
     <Pressable
       onPress={() => navigation.navigate('Post', { postId: post.id })}
       style={{
@@ -194,6 +206,7 @@ export function PostCard({ post }: { post: Post }) {
         </View>
       </View>
     </Pressable>
+    </Animated.View>
   );
 }
 
