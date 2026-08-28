@@ -5,7 +5,6 @@ import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { CompositeNavigationProp } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { supabase } from '../lib/supabase';
 import { apiFetch } from '../lib/api';
 import { useSession } from '../lib/useSession';
 import { CommentWithPost, Post, UserProfile } from '../lib/types';
@@ -14,7 +13,7 @@ import { Avatar } from '../components/Avatar';
 import { VerifiedMark } from '../components/VerifiedMark';
 import { VoteBlock } from '../components/VoteBlock';
 import { PostCard } from '../components/PostCard';
-import { CommentIcon, ChevronIcon } from '../components/icons';
+import { CommentIcon, ChevronIcon, GearIcon } from '../components/icons';
 import { usePalette } from '../theme';
 import type { RootStackParamList, TabParamList } from '../navigation/types';
 
@@ -99,7 +98,19 @@ export function ProfileScreen() {
 
   const header = (
     <View>
-      <View style={{ paddingTop: insets.top + 12, paddingHorizontal: 16, gap: 12 }}>
+      {/* Шестерёнка справа сверху — вход в настройки, как в шапке веба на
+          экране профиля. */}
+      <View style={{ flexDirection: 'row', justifyContent: 'flex-end', paddingTop: insets.top + 8, paddingHorizontal: 16 }}>
+        <Pressable
+          onPress={() => navigation.getParent<NativeStackNavigationProp<RootStackParamList>>()?.navigate('Settings')}
+          hitSlop={10}
+          style={{ width: 40, height: 40, alignItems: 'center', justifyContent: 'center' }}
+        >
+          <GearIcon size={24} color={palette.control} />
+        </Pressable>
+      </View>
+
+      <View style={{ paddingHorizontal: 16, gap: 12 }}>
         <Avatar name={handle} uri={profile?.avatar_url} size={88} />
 
         <View style={{ gap: 2 }}>
@@ -133,10 +144,10 @@ export function ProfileScreen() {
         </View>
 
         <Pressable
-          onPress={() => supabase.auth.signOut()}
+          onPress={() => navigation.getParent<NativeStackNavigationProp<RootStackParamList>>()?.navigate('ProfileEdit')}
           style={{ borderWidth: 1, borderColor: palette.border, borderRadius: 999, paddingVertical: 10, alignItems: 'center' }}
         >
-          <Text style={{ fontSize: 14, fontWeight: '600', color: palette.text }}>Выйти</Text>
+          <Text style={{ fontSize: 14, fontWeight: '600', color: palette.text }}>Редактировать профиль</Text>
         </Pressable>
       </View>
 

@@ -10,6 +10,8 @@ export type RootStackParamList = {
   Messages: undefined;
   Chat: { userId: string; username: string };
   Notifications: undefined;
+  Settings: undefined;
+  ProfileEdit: undefined;
 };
 
 export type TabParamList = {
