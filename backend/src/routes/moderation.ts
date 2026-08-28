@@ -452,23 +452,24 @@ router.get('/stats', async (_req, res) => {
   const count = (query: { count: number | null; error: unknown }) =>
     query.error ? null : (query.count ?? 0);
 
-  const [users, verified, active, posts, comments, newToday] = await Promise.all([
+  const [users, active, posts, comments, newToday, phoneVerified] = await Promise.all([
     supabase.from('users').select('id', { count: 'exact', head: true }),
-    supabase
-      .from('users')
-      .select('id', { count: 'exact', head: true })
-      .not('verified_at', 'is', null),
     supabase.from('users').select('id', { count: 'exact', head: true }).gte('last_seen_at', online),
     supabase.from('posts').select('id', { count: 'exact', head: true }),
     supabase.from('comments').select('id', { count: 'exact', head: true }),
     supabase.from('users').select('id', { count: 'exact', head: true }).gte('created_at', day),
+    // Подтверждение телефона живёт в auth.users, куда обычным запросом не
+    // дотянуться, — считает функция с security definer (миграция 029).
+    supabase.rpc('count_phone_verified'),
   ]);
 
   res.json({
     // null означает «посчитать не вышло» — обычно потому, что миграция ещё не
     // выполнена. Ноль сказал бы неправду: это разные вещи.
     users: count(users),
-    verified: count(verified),
+    // Подтвердили телефон — единственное «настоящее» подтверждение личности,
+    // которое человек делает сам, а не по решению модератора.
+    phoneVerified: phoneVerified.error ? null : (phoneVerified.data ?? 0),
     online: count(active),
     posts: count(posts),
     comments: count(comments),

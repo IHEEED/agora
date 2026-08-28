@@ -20,7 +20,7 @@ import { useMe } from '@/lib/useMe';
 
 type Stats = {
   users: number | null;
-  verified: number | null;
+  phoneVerified: number | null;
   online: number | null;
   posts: number | null;
   comments: number | null;
@@ -80,7 +80,7 @@ export default function StatsPage() {
               <div className="grid grid-cols-2 gap-2">
                 <Stat value={data.online} label="В сети" hint="за последние пять минут" />
                 <Stat value={data.users} label="Зарегистрировано" />
-                <Stat value={data.verified} label="С галочкой" />
+                <Stat value={data.phoneVerified} label="Подтвердили телефон" />
                 <Stat value={data.newToday} label="Пришли за сутки" />
               </div>
             </section>
