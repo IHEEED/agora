@@ -134,7 +134,6 @@ export function PostCard({ post }: { post: Post }) {
         open={menuOpen}
         onClose={() => setMenuOpen(false)}
         postId={post.id}
-        title={post.title}
         isMine={isMine}
         onDeleted={() => setRemoved(true)}
       />
