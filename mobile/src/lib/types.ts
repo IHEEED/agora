@@ -109,6 +109,24 @@ export interface CommentWithPost extends Comment {
   post: { id: string; title: string } | null;
 }
 
+/** Один кадр истории. */
+export type StoryItem = {
+  id: string;
+  created_at: string;
+  seen: boolean;
+  title: string | null;
+  body: string | null;
+  images: string[];
+  postId: string | null;
+};
+
+/** Истории одного автора — кружок в ленте это он. */
+export type StoryGroup = {
+  author: { id: string; username: string; avatar_url?: string | null; verified_at?: string | null };
+  items: StoryItem[];
+  unseen: number;
+};
+
 /** Профиль человека — то, что отдаёт /users/:id. */
 export interface UserProfile {
   id: string;
