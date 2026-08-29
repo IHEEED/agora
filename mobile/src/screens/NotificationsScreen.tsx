@@ -6,8 +6,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { apiFetch } from '../lib/api';
 import { Avatar } from '../components/Avatar';
+import { SuggestedPeople } from '../components/SuggestedPeople';
 import { TopBar, useTopBarInset } from '../components/TopBar';
-import { formatCompactAge } from '../lib/formatDate';
 import { usePalette } from '../theme';
 import type { RootStackParamList } from '../navigation/types';
 
@@ -34,13 +34,29 @@ type Notification = {
 };
 
 const WHAT: Record<Notification['kind'], string> = {
-  reply: 'ответил вам',
-  comment: 'прокомментировал запись',
+  reply: 'ответил',
+  comment: 'прокомментировал',
   vote_post: 'проголосовал за запись',
   vote_comment: 'проголосовал за комментарий',
   follow: 'подписался',
   repost: 'поделился записью',
 };
+
+/** Контекст под именем: текст комментария или заголовок записи. */
+function contextOf(item: Notification): string | null {
+  if (item.kind === 'reply' || item.kind === 'comment') return item.comment?.body ?? null;
+  return item.post?.title ?? null;
+}
+
+/** Время: «только что», «N мин», «N ч», «N дн» — как в вебе. */
+function when(iso: string): string {
+  const minutes = Math.floor((Date.now() - new Date(iso).getTime()) / 60_000);
+  if (minutes < 1) return 'только что';
+  if (minutes < 60) return `${minutes} мин`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} ч`;
+  return `${Math.floor(hours / 24)} дн`;
+}
 
 export function NotificationsScreen() {
   const palette = usePalette();
@@ -87,13 +103,29 @@ export function NotificationsScreen() {
               Уведомления<Text style={{ color: palette.accent }}>.</Text>
             </Text>
             {loading ? <Text style={{ paddingTop: 16, color: palette.textMuted }}>Загрузка…</Text> : null}
-            {!loading && items.length === 0 ? (
-              <Text style={{ paddingTop: 16, color: palette.textMuted }}>Новых уведомлений нет. Пока тихо.</Text>
-            ) : null}
           </View>
+        }
+        ListFooterComponent={
+          // Пусто — колокол-подсказка и «кого почитать», как в вебе.
+          !loading && items.length === 0 ? (
+            <View style={{ paddingHorizontal: 16, gap: 12 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 16, paddingHorizontal: 16, paddingVertical: 14, backgroundColor: palette.surface2 }}>
+                <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: `${palette.accent}22`, alignItems: 'center', justifyContent: 'center' }}>
+                  <Svg width={19} height={19} viewBox="0 0 24 24" fill="none" stroke={palette.accent} strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round">
+                    <Path d="M18 8.5a6 6 0 1 0-12 0c0 6-2 7.5-2 7.5h16s-2-1.5-2-7.5" /><Path d="M13.7 20a2 2 0 0 1-3.4 0" />
+                  </Svg>
+                </View>
+                <Text style={{ flex: 1, fontSize: 14, lineHeight: 19, color: palette.textMuted }}>
+                  Новых уведомлений нет. Пока тихо — вот кого можно почитать.
+                </Text>
+              </View>
+              <SuggestedPeople />
+            </View>
+          ) : null
         }
         renderItem={({ item }) => {
           const unread = item.read_at === null;
+          const context = contextOf(item);
           return (
             <Pressable
               onPress={() => openTarget(item)}
@@ -103,16 +135,19 @@ export function NotificationsScreen() {
                 gap: 12,
                 paddingHorizontal: 16,
                 paddingVertical: 12,
-                backgroundColor: unread ? palette.surface2 : 'transparent',
+                backgroundColor: unread ? `${palette.accent}1f` : 'transparent',
                 borderBottomWidth: 1,
                 borderBottomColor: palette.border,
               }}
             >
-              <Avatar name={item.actor?.username ?? '?'} uri={item.actor?.avatar_url} size={44} />
-              <Text style={{ flex: 1, fontSize: 14.5, lineHeight: 19, color: palette.text }}>
-                <Text style={{ fontWeight: '700' }}>{item.actor?.username ?? 'кто-то'}</Text> {WHAT[item.kind]}
-              </Text>
-              <Text style={{ fontSize: 12.5, color: palette.textMuted }}>{formatCompactAge(item.created_at)}</Text>
+              <Avatar name={item.actor?.username ?? '?'} uri={item.actor?.avatar_url} size={40} />
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text numberOfLines={1} style={{ fontSize: 14.5, color: palette.text }}>
+                  <Text style={{ fontWeight: '600' }}>{item.actor?.username ?? 'кто-то'}</Text> {WHAT[item.kind]}
+                </Text>
+                {context ? <Text numberOfLines={1} style={{ fontSize: 13, color: palette.textMuted }}>{context}</Text> : null}
+              </View>
+              <Text style={{ fontSize: 12.5, color: palette.textMuted }}>{when(item.created_at)}</Text>
             </Pressable>
           );
         }}
