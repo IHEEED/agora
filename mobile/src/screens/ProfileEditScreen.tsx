@@ -27,6 +27,8 @@ export function ProfileEditScreen({ navigation }: Props) {
 
   const [displayName, setDisplayName] = useState('');
   const [bio, setBio] = useState('');
+  const [username, setUsername] = useState('');
+  const [initialUsername, setInitialUsername] = useState('');
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [coverUrl, setCoverUrl] = useState<string | null>(null);
   const [busy, setBusy] = useState<null | 'avatar' | 'cover'>(null);
@@ -39,6 +41,8 @@ export function ProfileEditScreen({ navigation }: Props) {
       .then((profile) => {
         setDisplayName(profile.display_name ?? '');
         setBio(profile.bio ?? '');
+        setUsername(profile.username ?? '');
+        setInitialUsername(profile.username ?? '');
         setAvatarUrl(profile.avatar_url ?? null);
         setCoverUrl(profile.cover_url ?? null);
       })
@@ -82,6 +86,13 @@ export function ProfileEditScreen({ navigation }: Props) {
         method: 'PATCH',
         body: JSON.stringify({ displayName: displayName.trim(), bio: bio.trim(), avatarUrl, coverUrl }),
       });
+
+      // Ник — отдельной ручкой: у него своя уникальность и задержка (как в вебе).
+      const nextUsername = username.trim();
+      if (nextUsername && nextUsername !== initialUsername) {
+        await apiFetch('/users/me/username', { method: 'PATCH', body: JSON.stringify({ username: nextUsername }) });
+      }
+
       navigation.goBack();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Не удалось сохранить');
@@ -113,6 +124,14 @@ export function ProfileEditScreen({ navigation }: Props) {
           )}
           <Text style={{ fontSize: 12.5, fontWeight: '600', color: '#fff' }}>{coverUrl ? 'Сменить фон' : 'Добавить фон'}</Text>
         </View>
+        {coverUrl ? (
+          <Pressable
+            onPress={(e) => { e.stopPropagation?.(); setCoverUrl(null); }}
+            style={{ position: 'absolute', top: 12, left: 12, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 7, backgroundColor: 'rgba(0,0,0,0.4)' }}
+          >
+            <Text style={{ fontSize: 12.5, fontWeight: '600', color: '#fff' }}>Убрать фон</Text>
+          </Pressable>
+        ) : null}
       </Pressable>
 
       {/* Аватар: тап меняет лицо. */}
@@ -129,6 +148,13 @@ export function ProfileEditScreen({ navigation }: Props) {
         </View>
       </Pressable>
 
+      {/* Убрать фото — красным, без подтверждения: восстановить в два нажатия. */}
+      {avatarUrl ? (
+        <Pressable onPress={() => setAvatarUrl(null)} style={{ marginLeft: 16, marginTop: 8 }}>
+          <Text style={{ fontSize: 12.5, color: palette.down }}>Убрать фото</Text>
+        </Pressable>
+      ) : null}
+
       <View style={{ padding: 20, gap: 10 }}>
         <Text style={{ fontSize: 13, color: palette.textMuted }}>Показываемое имя</Text>
         <TextInput value={displayName} onChangeText={setDisplayName} maxLength={40} placeholder="Как вас зовут" placeholderTextColor={palette.textMuted} style={field} />
@@ -136,6 +162,21 @@ export function ProfileEditScreen({ navigation }: Props) {
         <Text style={{ fontSize: 13, color: palette.textMuted, marginTop: 6 }}>Подпись</Text>
         <TextInput value={bio} onChangeText={setBio} maxLength={160} multiline placeholder="Пара слов о себе" placeholderTextColor={palette.textMuted} style={{ ...field, minHeight: 90, textAlignVertical: 'top' }} />
         <Text style={{ fontSize: 12, color: palette.textMuted, textAlign: 'right' }}>{bio.length}/160</Text>
+
+        <Text style={{ fontSize: 13, color: palette.textMuted, marginTop: 6 }}>Имя пользователя</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', ...field }}>
+          <Text style={{ fontSize: 15, color: palette.textMuted }}>@</Text>
+          <TextInput
+            value={username}
+            onChangeText={(t) => setUsername(t.replace(/[^a-zA-Z0-9._-]/g, ''))}
+            maxLength={24}
+            autoCapitalize="none"
+            autoCorrect={false}
+            placeholder="ник"
+            placeholderTextColor={palette.textMuted}
+            style={{ flex: 1, fontSize: 15, color: palette.text, padding: 0, marginLeft: 2 }}
+          />
+        </View>
 
         {error ? <Text style={{ color: palette.down }}>{error}</Text> : null}
 
