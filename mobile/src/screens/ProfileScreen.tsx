@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import { Alert, FlatList, Image, Modal, Pressable, Text, TextInput, View } from 'react-native';
+import { Alert, FlatList, Image, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -254,26 +254,34 @@ export function ProfileScreen() {
         />
       </View>
 
-      {/* Редактор заметки-облачка. */}
+      {/* Редактор заметки-облачка. Панель поднимается над клавиатурой
+          (KeyboardAvoidingView): без него клавиатура закрывала ввод, и не было
+          видно, что печатаешь. Затемнение — отдельным слоем на весь экран, чтобы
+          оно оставалось и за поднятой панелью. */}
       <Modal visible={noteEditing} transparent animationType="slide" onRequestClose={() => setNoteEditing(false)}>
-        <Pressable onPress={() => setNoteEditing(false)} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' }}>
-          <Pressable onPress={(e) => e.stopPropagation()} style={{ backgroundColor: palette.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, paddingBottom: 36, gap: 12 }}>
-            <View style={{ alignSelf: 'center', width: 40, height: 5, borderRadius: 3, backgroundColor: palette.border }} />
-            <Text style={{ fontSize: 17, fontWeight: '700', color: palette.text }}>Мысль дня</Text>
-            <TextInput
-              value={noteDraft}
-              onChangeText={setNoteDraft}
-              placeholder="Что у вас на уме?"
-              placeholderTextColor={palette.textMuted}
-              maxLength={80}
-              autoFocus
-              style={{ borderWidth: 1, borderColor: palette.border, borderRadius: 12, padding: 12, fontSize: 15, color: palette.text, backgroundColor: palette.surface }}
-            />
-            <Pressable onPress={saveNote} style={{ alignSelf: 'flex-start', backgroundColor: palette.accent, borderRadius: 999, paddingHorizontal: 20, paddingVertical: 11 }}>
-              <Text style={{ color: palette.accentContrast, fontWeight: '600', fontSize: 15 }}>Сохранить</Text>
-            </Pressable>
-          </Pressable>
-        </Pressable>
+        <View style={{ flex: 1 }}>
+          <Pressable onPress={() => setNoteEditing(false)} style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.4)' }]} />
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1, justifyContent: 'flex-end' }}>
+            <View style={{ backgroundColor: palette.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, paddingBottom: 36, gap: 12 }}>
+              <View style={{ alignSelf: 'center', width: 40, height: 5, borderRadius: 3, backgroundColor: palette.border }} />
+              <Text style={{ fontSize: 17, fontWeight: '700', color: palette.text }}>Мысль дня</Text>
+              <TextInput
+                value={noteDraft}
+                onChangeText={setNoteDraft}
+                placeholder="Что у вас на уме?"
+                placeholderTextColor={palette.textMuted}
+                maxLength={80}
+                autoFocus
+                onSubmitEditing={saveNote}
+                returnKeyType="done"
+                style={{ borderWidth: 1, borderColor: palette.border, borderRadius: 12, padding: 12, fontSize: 15, color: palette.text, backgroundColor: palette.surface }}
+              />
+              <Pressable onPress={saveNote} style={{ alignSelf: 'flex-start', backgroundColor: palette.accent, borderRadius: 999, paddingHorizontal: 20, paddingVertical: 11 }}>
+                <Text style={{ color: palette.accentContrast, fontWeight: '600', fontSize: 15 }}>Сохранить</Text>
+              </Pressable>
+            </View>
+          </KeyboardAvoidingView>
+        </View>
       </Modal>
     </View>
   );
