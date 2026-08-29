@@ -43,7 +43,19 @@ function compactViews(value: number): string {
  * две группы действий: слева голос и обсуждение, справа просмотры, репост и
  * «поделиться». Все значки — те же контуры SVG, что в вебе.
  */
-export function PostCard({ post }: { post: Post }) {
+export function PostCard({
+  post,
+  /**
+   * Открывать ли карточку в отдельный экран поста. В ленте — да, весь пост
+   * ведёт вглубь и в строке действий есть кнопка комментариев. На самом экране
+   * поста — нет: карточка уже открыта, а комментарии идут ниже своим блоком,
+   * поэтому кнопку и переход убираем (как linkToDetail в вебе).
+   */
+  linkToDetail = true,
+}: {
+  post: Post;
+  linkToDetail?: boolean;
+}) {
   const palette = usePalette();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { session } = useSession();
@@ -96,13 +108,13 @@ export function PostCard({ post }: { post: Post }) {
       }}
     >
     <Pressable
-      onPress={() => navigation.navigate('Post', { postId: post.id })}
+      onPress={linkToDetail ? () => navigation.navigate('Post', { postId: post.id }) : undefined}
       style={{
         flexDirection: 'column',
         gap: 8,
         paddingVertical: 16,
         paddingHorizontal: 16,
-        borderBottomWidth: 1,
+        borderBottomWidth: linkToDetail ? 1 : 0,
         borderBottomColor: palette.border,
         backgroundColor: palette.bg,
       }}
@@ -184,10 +196,12 @@ export function PostCard({ post }: { post: Post }) {
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', marginLeft: -4 }}>
           <VoteBlock id={post.id} score={post.score} myVote={post.myVote} />
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 10 }}>
-            <CommentIcon size={22} color={palette.control} />
-            <Text style={{ fontSize: 15, color: palette.control }}>{commentCount}</Text>
-          </View>
+          {linkToDetail ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 10 }}>
+              <CommentIcon size={22} color={palette.control} />
+              <Text style={{ fontSize: 15, color: palette.control }}>{commentCount}</Text>
+            </View>
+          ) : null}
         </View>
 
         <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: -4 }}>
