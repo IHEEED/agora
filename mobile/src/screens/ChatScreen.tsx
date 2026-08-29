@@ -1,31 +1,46 @@
 import { useCallback, useRef, useState } from 'react';
-import {
-  FlatList,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { FlatList, Image, KeyboardAvoidingView, Platform, Pressable, Text, TextInput, View } from 'react-native';
+import Svg, { Path } from 'react-native-svg';
+import * as ImagePicker from 'expo-image-picker';
 import { useFocusEffect, useRoute, type RouteProp } from '@react-navigation/native';
+import { format } from 'date-fns';
+import { ru } from 'date-fns/locale';
 import { apiFetch } from '../lib/api';
+import { uploadImage } from '../lib/uploadImage';
 import { useSession } from '../lib/useSession';
 import { Message } from '../lib/types';
 import { usePalette } from '../theme';
 import type { RootStackParamList } from '../navigation/types';
 
+type Palette = ReturnType<typeof usePalette>;
+
+/** Время письма: 22:14. */
+function clock(iso: string) {
+  return format(new Date(iso), 'HH:mm');
+}
+/** Заголовок-разделитель дня: «25 августа», «Сегодня», «Вчера». */
+function dayLabel(iso: string) {
+  const d = new Date(iso);
+  const now = new Date();
+  const sameDay = (a: Date, b: Date) => a.toDateString() === b.toDateString();
+  if (sameDay(d, now)) return 'Сегодня';
+  const y = new Date(now); y.setDate(now.getDate() - 1);
+  if (sameDay(d, y)) return 'Вчера';
+  return format(d, 'd MMMM', { locale: ru });
+}
+function mmss(seconds: number) {
+  const s = Math.round(seconds);
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+}
+
 /**
- * Одна переписка.
+ * Одна переписка — по устройству веб-чата.
  *
- * Перенос веб-экрана в его сути: свои письма справа акцентом, чужие слева
- * поверхностью, поле ввода снизу. Всё богатство веба — реакции, ответы,
- * голосовые, удержание — сюда пока не переносится: сначала должна работать
- * простая отправка, а остальное ложится на неё слоями.
- *
- * Список перевёрнут (inverted): у переписки естественный низ — последнее
- * письмо, и открываться она должна на нём, а не на первом сообщении полугодовой
- * давности. Перевёрнутый FlatList держит прокрутку у последнего элемента сам.
+ * Свои письма справа акцентом, чужие слева поверхностью. У каждого письма время,
+ * у своих — галочки прочтения и метка «изменено»; картинки и голосовые своими
+ * пузырями; реакции — эмодзи под пузырём; дни разделены датой. Запись голоса и
+ * постановку реакций тапом добавим отдельным заходом — здесь пока показ и
+ * отправка текста и картинок.
  */
 export function ChatScreen() {
   const palette = usePalette();
@@ -49,8 +64,6 @@ export function ChatScreen() {
   useFocusEffect(
     useCallback(() => {
       load();
-      // Открыли переписку — она прочитана. Ошибку глушим: точка на вкладке не
-      // тот повод, чтобы показывать сбой поверх разговора.
       apiFetch(`/messages/${userId}/read`, { method: 'POST' }).catch(() => {});
     }, [load, userId])
   );
@@ -60,15 +73,12 @@ export function ChatScreen() {
     if (!text || sending) return;
     setSending(true);
     setError(null);
-
     try {
       const created = await apiFetch<Message>('/messages', {
         method: 'POST',
         body: JSON.stringify({ recipient_id: userId, body: text }),
       });
-      // Дописываем в начало: список перевёрнут, и «начало» массива — это низ
-      // экрана, где и должно появиться новое письмо.
-      setMessages((prev) => [created, ...prev]);
+      setMessages((prev) => [...prev, created]);
       setBody('');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Не удалось отправить');
@@ -77,103 +87,158 @@ export function ChatScreen() {
     }
   }
 
-  // Перевёрнутый список хочет данные от новых к старым.
-  const reversed = [...messages].reverse();
+  async function sendImage() {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) return;
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.7, base64: true });
+    if (result.canceled || !result.assets[0]?.base64) return;
+    setSending(true);
+    try {
+      const asset = result.assets[0];
+      const url = await uploadImage(asset.base64!, asset.mimeType ?? 'image/jpeg', 'messages');
+      const created = await apiFetch<Message>('/messages', {
+        method: 'POST',
+        body: JSON.stringify({ recipient_id: userId, image_url: url }),
+      });
+      setMessages((prev) => [...prev, created]);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Не удалось отправить картинку');
+    } finally {
+      setSending(false);
+    }
+  }
 
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: palette.bg }}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
+    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: palette.bg }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <FlatList
         ref={listRef}
-        data={reversed}
-        inverted
+        data={messages}
         keyboardShouldPersistTaps="handled"
-        keyExtractor={(message) => message.id}
-        contentContainerStyle={{ padding: 12, gap: 6 }}
-        renderItem={({ item }) => {
-          const mine = item.sender_id === me;
+        keyExtractor={(m) => m.id}
+        contentContainerStyle={{ padding: 12, gap: 4 }}
+        onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
+        onLayout={() => listRef.current?.scrollToEnd({ animated: false })}
+        renderItem={({ item, index }) => {
+          const prev = messages[index - 1];
+          const newDay = !prev || new Date(prev.created_at).toDateString() !== new Date(item.created_at).toDateString();
           return (
-            <View
-              style={{
-                alignSelf: mine ? 'flex-end' : 'flex-start',
-                maxWidth: '80%',
-                borderRadius: 18,
-                paddingHorizontal: 14,
-                paddingVertical: 8,
-                backgroundColor: mine ? palette.accent : palette.surface2,
-              }}
-            >
-              {item.forwardedFrom ? (
-                <Text
-                  style={{
-                    fontSize: 12,
-                    fontWeight: '600',
-                    marginBottom: 2,
-                    color: mine ? palette.accentContrast : palette.accent,
-                  }}
-                >
-                  Переслано от {item.forwardedFrom.username}
-                </Text>
+            <>
+              {newDay ? (
+                <View style={{ alignItems: 'center', marginVertical: 10 }}>
+                  <View style={{ backgroundColor: palette.surface2, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 4 }}>
+                    <Text style={{ fontSize: 12, color: palette.textMuted }}>{dayLabel(item.created_at)}</Text>
+                  </View>
+                </View>
               ) : null}
-              <Text style={{ fontSize: 15, color: mine ? palette.accentContrast : palette.text }}>
-                {item.body}
-              </Text>
-            </View>
+              <Bubble palette={palette} message={item} mine={item.sender_id === me} />
+            </>
           );
         }}
       />
 
-      {error ? (
-        <Text style={{ paddingHorizontal: 16, paddingBottom: 4, color: palette.down }}>{error}</Text>
-      ) : null}
+      {error ? <Text style={{ paddingHorizontal: 16, paddingBottom: 4, color: palette.down }}>{error}</Text> : null}
 
-      <View
-        style={{
-          flexDirection: 'row',
-          alignItems: 'flex-end',
-          gap: 8,
-          paddingHorizontal: 12,
-          paddingVertical: 8,
-          borderTopWidth: 1,
-          borderTopColor: palette.border,
-          backgroundColor: palette.surface,
-        }}
-      >
+      <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8, paddingHorizontal: 12, paddingVertical: 8, borderTopWidth: 1, borderTopColor: palette.border, backgroundColor: palette.surface }}>
+        <Pressable onPress={sendImage} hitSlop={8} style={{ width: 38, height: 38, alignItems: 'center', justifyContent: 'center' }}>
+          <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke={palette.textMuted} strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round">
+            <Path d="M4 5h16a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Z" />
+            <Path d="m4 16 4.5-4.5 3 3L16 10l4 4" />
+            <Path d="M9 9.5a1.2 1.2 0 1 1-2.4 0 1.2 1.2 0 0 1 2.4 0Z" fill={palette.textMuted} />
+          </Svg>
+        </Pressable>
         <TextInput
           value={body}
           onChangeText={setBody}
-          placeholder="Сообщение…"
+          placeholder="Сообщение"
           placeholderTextColor={palette.textMuted}
           multiline
-          style={{
-            flex: 1,
-            maxHeight: 120,
-            fontSize: 15,
-            color: palette.text,
-            backgroundColor: palette.surface2,
-            borderRadius: 18,
-            paddingHorizontal: 14,
-            paddingVertical: 10,
-          }}
+          style={{ flex: 1, maxHeight: 120, fontSize: 15, color: palette.text, backgroundColor: palette.surface2, borderRadius: 18, paddingHorizontal: 14, paddingVertical: 10 }}
         />
         <Pressable
           onPress={send}
           disabled={sending || !body.trim()}
-          style={{
-            width: 40,
-            height: 40,
-            borderRadius: 20,
-            alignItems: 'center',
-            justifyContent: 'center',
-            backgroundColor: palette.accent,
-            opacity: sending || !body.trim() ? 0.4 : 1,
-          }}
+          style={{ width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: palette.accent, opacity: sending || !body.trim() ? 0.4 : 1 }}
         >
-          <Text style={{ fontSize: 18, color: palette.accentContrast }}>↑</Text>
+          <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={palette.accentContrast} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+            <Path d="M12 19V5M6 11l6-6 6 6" />
+          </Svg>
         </Pressable>
       </View>
     </KeyboardAvoidingView>
+  );
+}
+
+function Bubble({ palette, message, mine }: { palette: Palette; message: Message; mine: boolean }) {
+  const ink = mine ? palette.accentContrast : palette.text;
+  const sub = mine ? `${palette.accentContrast}b0` : palette.textMuted;
+  const hasImage = Boolean(message.image_url);
+  const hasAudio = Boolean(message.audio_url);
+  const reactions = message.reactions ?? [];
+
+  return (
+    <View style={{ alignSelf: mine ? 'flex-end' : 'flex-start', maxWidth: '82%', marginTop: 2 }}>
+      <View
+        style={{
+          borderRadius: 18,
+          overflow: 'hidden',
+          backgroundColor: mine ? palette.accent : palette.surface2,
+          paddingHorizontal: hasImage ? 0 : 14,
+          paddingTop: hasImage ? 0 : 8,
+          paddingBottom: hasImage ? 0 : 8,
+        }}
+      >
+        {message.forwardedFrom ? (
+          <Text style={{ fontSize: 12, fontWeight: '600', marginBottom: 2, color: mine ? palette.accentContrast : palette.accent }}>
+            Переслано от {message.forwardedFrom.username}
+          </Text>
+        ) : null}
+
+        {hasImage ? (
+          <Image source={{ uri: message.image_url! }} style={{ width: 240, height: 240 }} resizeMode="cover" />
+        ) : hasAudio ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 2 }}>
+            <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: mine ? `${palette.accentContrast}33` : palette.bg, alignItems: 'center', justifyContent: 'center' }}>
+              <Svg width={16} height={16} viewBox="0 0 24 24" fill={ink}><Path d="M8 5v14l11-7z" /></Svg>
+            </View>
+            {/* Волна — палочками, как в вебе. */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 2, height: 22 }}>
+              {[8, 14, 20, 12, 18, 9, 16, 22, 11, 15, 7, 13].map((h, i) => (
+                <View key={i} style={{ width: 2.5, height: h, borderRadius: 2, backgroundColor: mine ? `${palette.accentContrast}99` : palette.textMuted }} />
+              ))}
+            </View>
+            <Text style={{ fontSize: 12, color: sub }}>{mmss(message.audio_seconds ?? 0)}</Text>
+          </View>
+        ) : null}
+
+        {message.body ? (
+          <Text style={{ fontSize: 15, lineHeight: 20, color: ink, paddingHorizontal: hasImage ? 14 : 0, paddingTop: hasImage ? 8 : 0, paddingBottom: hasImage ? 8 : 0 }}>
+            {message.body}
+          </Text>
+        ) : null}
+
+        {/* Мета: время, «изменено», галочки прочтения у своих. */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 4, paddingHorizontal: hasImage ? 10 : 0, paddingBottom: hasImage ? 6 : 0, marginTop: 2 }}>
+          {message.edited_at ? <Text style={{ fontSize: 11, color: sub }}>изменено</Text> : null}
+          <Text style={{ fontSize: 11, color: sub }}>{clock(message.created_at)}</Text>
+          {mine ? (
+            <Svg width={15} height={12} viewBox="0 0 24 18" fill="none" stroke={message.read_at ? (mine ? palette.accentContrast : palette.accent) : sub} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+              <Path d="M2 9l4 4 8-9" />
+              {message.read_at ? <Path d="M9 13l1 1 8-9" /> : null}
+            </Svg>
+          ) : null}
+        </View>
+      </View>
+
+      {reactions.length > 0 ? (
+        <View style={{ flexDirection: 'row', gap: 4, marginTop: 3, alignSelf: mine ? 'flex-end' : 'flex-start' }}>
+          {Object.entries(reactions.reduce<Record<string, number>>((acc, r) => { acc[r.emoji] = (acc[r.emoji] ?? 0) + 1; return acc; }, {})).map(([emoji, count]) => (
+            <View key={emoji} style={{ flexDirection: 'row', alignItems: 'center', gap: 2, backgroundColor: palette.surface2, borderRadius: 999, paddingHorizontal: 7, paddingVertical: 2 }}>
+              <Text style={{ fontSize: 12 }}>{emoji}</Text>
+              {count > 1 ? <Text style={{ fontSize: 11, color: palette.textMuted }}>{count}</Text> : null}
+            </View>
+          ))}
+        </View>
+      ) : null}
+    </View>
   );
 }

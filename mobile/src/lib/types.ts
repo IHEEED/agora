@@ -150,8 +150,11 @@ export interface Message {
   recipient_id: string;
   body: string | null;
   image_url?: string | null;
+  audio_url?: string | null;
+  audio_seconds?: number | null;
   created_at: string;
   read_at?: string | null;
   edited_at?: string | null;
+  reactions?: { emoji: string; userId: string }[];
   forwardedFrom?: { id: string; username: string } | null;
 }
