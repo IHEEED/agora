@@ -1,16 +1,21 @@
-import { useCallback, useRef, useState } from 'react';
-import { FlatList, Image, KeyboardAvoidingView, Platform, Pressable, Text, TextInput, View } from 'react-native';
+import { useCallback, useLayoutEffect, useRef, useState } from 'react';
+import { FlatList, Image, KeyboardAvoidingView, Modal, Platform, Pressable, Text, TextInput, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import * as ImagePicker from 'expo-image-picker';
-import { useFocusEffect, useRoute, type RouteProp } from '@react-navigation/native';
+import { useFocusEffect, useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { apiFetch } from '../lib/api';
 import { uploadImage } from '../lib/uploadImage';
 import { useSession } from '../lib/useSession';
-import { Message } from '../lib/types';
+import { Message, UserProfile } from '../lib/types';
+import { Avatar } from '../components/Avatar';
 import { usePalette } from '../theme';
 import type { RootStackParamList } from '../navigation/types';
+
+/** Эмодзи для быстрой реакции по долгому тапу — как в вебе. */
+const QUICK_REACTIONS = ['❤️', '👍', '😂', '🔥', '😮', '😢'];
 
 type Palette = ReturnType<typeof usePalette>;
 
@@ -45,7 +50,8 @@ function mmss(seconds: number) {
 export function ChatScreen() {
   const palette = usePalette();
   const route = useRoute<RouteProp<RootStackParamList, 'Chat'>>();
-  const { userId } = route.params;
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const { userId, username } = route.params;
   const { session } = useSession();
   const me = session?.user.id;
 
@@ -53,6 +59,8 @@ export function ChatScreen() {
   const [body, setBody] = useState('');
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [reacting, setReacting] = useState<string | null>(null);
+  const [peerAvatar, setPeerAvatar] = useState<string | null>(null);
   const listRef = useRef<FlatList<Message>>(null);
 
   const load = useCallback(() => {
@@ -65,8 +73,40 @@ export function ChatScreen() {
     useCallback(() => {
       load();
       apiFetch(`/messages/${userId}/read`, { method: 'POST' }).catch(() => {});
+      apiFetch<UserProfile>(`/users/${userId}`).then((p) => setPeerAvatar(p.avatar_url ?? null)).catch(() => {});
     }, [load, userId])
   );
+
+  // Лицо и имя собеседника в шапке — как в вебе, вместо одного имени.
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerTitle: () => (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <Avatar name={username} uri={peerAvatar} size={30} />
+          <Text style={{ fontSize: 16, fontWeight: '600', color: palette.text }}>{username}</Text>
+        </View>
+      ),
+    });
+  }, [navigation, username, peerAvatar, palette.text]);
+
+  /** Поставить/снять реакцию на письмо. */
+  async function react(messageId: string, emoji: string) {
+    setReacting(null);
+    if (!me) return;
+    setMessages((prev) =>
+      prev.map((m) => {
+        if (m.id !== messageId) return m;
+        const rest = (m.reactions ?? []).filter((r) => r.userId !== me);
+        const had = (m.reactions ?? []).some((r) => r.userId === me && r.emoji === emoji);
+        return { ...m, reactions: had ? rest : [...rest, { emoji, userId: me }] };
+      })
+    );
+    try {
+      await apiFetch(`/messages/${messageId}/reaction`, { method: 'PUT', body: JSON.stringify({ emoji }) });
+    } catch {
+      load();
+    }
+  }
 
   async function send() {
     const text = body.trim();
@@ -130,11 +170,24 @@ export function ChatScreen() {
                   </View>
                 </View>
               ) : null}
-              <Bubble palette={palette} message={item} mine={item.sender_id === me} />
+              <Bubble palette={palette} message={item} mine={item.sender_id === me} onLongPress={() => setReacting(item.id)} />
             </>
           );
         }}
       />
+
+      {/* Выбор реакции по долгому тапу. */}
+      <Modal visible={reacting !== null} transparent animationType="fade" onRequestClose={() => setReacting(null)}>
+        <Pressable onPress={() => setReacting(null)} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', alignItems: 'center', justifyContent: 'center' }}>
+          <Pressable onPress={(e) => e.stopPropagation()} style={{ flexDirection: 'row', gap: 6, backgroundColor: palette.surface, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 8 }}>
+            {QUICK_REACTIONS.map((emoji) => (
+              <Pressable key={emoji} onPress={() => reacting && react(reacting, emoji)} hitSlop={4} style={{ paddingHorizontal: 6, paddingVertical: 2 }}>
+                <Text style={{ fontSize: 28 }}>{emoji}</Text>
+              </Pressable>
+            ))}
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       {error ? <Text style={{ paddingHorizontal: 16, paddingBottom: 4, color: palette.down }}>{error}</Text> : null}
 
@@ -168,7 +221,7 @@ export function ChatScreen() {
   );
 }
 
-function Bubble({ palette, message, mine }: { palette: Palette; message: Message; mine: boolean }) {
+function Bubble({ palette, message, mine, onLongPress }: { palette: Palette; message: Message; mine: boolean; onLongPress: () => void }) {
   const ink = mine ? palette.accentContrast : palette.text;
   const sub = mine ? `${palette.accentContrast}b0` : palette.textMuted;
   const hasImage = Boolean(message.image_url);
@@ -177,7 +230,9 @@ function Bubble({ palette, message, mine }: { palette: Palette; message: Message
 
   return (
     <View style={{ alignSelf: mine ? 'flex-end' : 'flex-start', maxWidth: '82%', marginTop: 2 }}>
-      <View
+      <Pressable
+        onLongPress={onLongPress}
+        delayLongPress={280}
         style={{
           borderRadius: 18,
           overflow: 'hidden',
@@ -227,7 +282,7 @@ function Bubble({ palette, message, mine }: { palette: Palette; message: Message
             </Svg>
           ) : null}
         </View>
-      </View>
+      </Pressable>
 
       {reactions.length > 0 ? (
         <View style={{ flexDirection: 'row', gap: 4, marginTop: 3, alignSelf: mine ? 'flex-end' : 'flex-start' }}>
