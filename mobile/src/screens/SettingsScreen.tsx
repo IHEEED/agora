@@ -36,8 +36,8 @@ export function SettingsScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: palette.bg }}>
       <TopBar back right="none" />
-      <ScrollView contentContainerStyle={{ paddingTop: topInset, paddingHorizontal: 16, paddingBottom: 40, gap: 22 }} scrollIndicatorInsets={{ top: topInset }}>
-      <Text style={{ fontFamily: palette.displayFamily, fontSize: 32, color: palette.text, paddingBottom: 6 }}>
+      <ScrollView contentContainerStyle={{ paddingTop: topInset, paddingHorizontal: 16, paddingBottom: 40, gap: 20 }} scrollIndicatorInsets={{ top: topInset }}>
+      <Text style={{ fontFamily: palette.displayFamily, fontSize: 30, color: palette.text, paddingBottom: 6 }}>
         Настройки<Text style={{ color: palette.accent }}>.</Text>
       </Text>
 
@@ -45,13 +45,13 @@ export function SettingsScreen() {
         const rows = group.filter((section) => !section.modOnly || isModerator);
         if (rows.length === 0) return null;
         return (
-          <View key={groupIndex} style={{ borderRadius: 16, backgroundColor: palette.surface, overflow: 'hidden' }}>
+          <View key={groupIndex} style={{ borderRadius: 20, backgroundColor: palette.surface, overflow: 'hidden' }}>
             {rows.map((section, index) => (
               <Row
                 key={section.id}
                 palette={palette}
                 section={section}
-                last={index === rows.length - 1}
+                first={index === 0}
                 onPress={() => navigation.navigate('SettingsSection', { section: section.id, title: section.label })}
               />
             ))}
@@ -66,41 +66,37 @@ export function SettingsScreen() {
 function Row({
   palette,
   section,
-  last,
+  first,
   onPress,
 }: {
   palette: ReturnType<typeof usePalette>;
   section: SettingsSection;
-  last: boolean;
+  first: boolean;
   onPress: () => void;
 }) {
   return (
     <Pressable
       onPress={onPress}
-      style={({ pressed }) => ({
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 14,
-        paddingHorizontal: 14,
-        paddingVertical: 12,
-        borderBottomWidth: last ? 0 : 1,
-        borderBottomColor: palette.border,
-        backgroundColor: pressed ? palette.surface2 : 'transparent',
-      })}
+      style={({ pressed }) => ({ backgroundColor: pressed ? palette.surface2 : 'transparent' })}
     >
-      <TintTile tint={section.tint} path={section.path} />
-      <Text style={{ flex: 1, fontSize: 16, color: palette.text }}>{section.label}</Text>
-      <ChevronIcon size={17} color={palette.textMuted} />
+      {/* Разделитель — волосяной, с отступом слева 16 (как ios-group в вебе:
+          линия начинается от левого поля строки, а не от края карточки). */}
+      {!first ? <View style={{ height: 1, marginLeft: 16, backgroundColor: palette.border }} /> : null}
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 46, paddingHorizontal: 16, paddingVertical: 8.5 }}>
+        <TintTile tint={section.tint} path={section.path} />
+        <Text style={{ flex: 1, fontSize: 16, color: palette.text }}>{section.label}</Text>
+        <ChevronIcon size={17} color={palette.textMuted} />
+      </View>
     </Pressable>
   );
 }
 
-/** Цветная плитка со значком — путь разбит по « M», как в вебе. */
+/** Цветная плитка со значком — путь разбит по « M», как в вебе (29×29, r8). */
 function TintTile({ tint, path }: { tint: string; path: string }) {
   const pieces = path.split(' M').map((piece, index) => (index === 0 ? piece : `M${piece}`));
   return (
-    <View style={{ width: 34, height: 34, borderRadius: 9, backgroundColor: tint, alignItems: 'center', justifyContent: 'center' }}>
-      <Svg width={19} height={19} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+    <View style={{ width: 29, height: 29, borderRadius: 8, backgroundColor: tint, alignItems: 'center', justifyContent: 'center' }}>
+      <Svg width={17} height={17} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
         {pieces.map((d, index) => (
           <Path key={index} d={d} />
         ))}
