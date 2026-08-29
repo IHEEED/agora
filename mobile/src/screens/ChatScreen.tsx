@@ -1,6 +1,9 @@
 import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 import { FlatList, Image, KeyboardAvoidingView, Modal, Platform, Pressable, Text, TextInput, View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
+import { BlurView } from 'expo-blur';
+import { useColorScheme } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { useAudioRecorder, useAudioRecorderState, RecordingPresets, createAudioPlayer, setAudioModeAsync, requestRecordingPermissionsAsync } from 'expo-audio';
 import { File } from 'expo-file-system';
@@ -80,6 +83,9 @@ export function ChatScreen() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [playingId, setPlayingId] = useState<string | null>(null);
   const topInset = useTopBarInset();
+  const insets = useSafeAreaInsets();
+  const dark = useColorScheme() === 'dark';
+  const PEER_H = 54;
   const listRef = useRef<FlatList<Message>>(null);
   const playerRef = useRef<ReturnType<typeof createAudioPlayer> | null>(null);
 
@@ -207,8 +213,13 @@ export function ChatScreen() {
       <TopBar right="search" />
 
       {/* Строка собеседника: «назад» кружком, ник с лицом пилюлей, «ещё»
-          кружком — как в вебе. */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingTop: topInset, paddingHorizontal: 12, paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: palette.border }}>
+          кружком. Накладная и стеклянная — список едет под ней, как под баром
+          ленты; никаких жёстких границ. */}
+      <View style={{ position: 'absolute', top: topInset, left: 0, right: 0, height: PEER_H, zIndex: 9, overflow: 'hidden' }}>
+        <BlurView tint={dark ? 'dark' : 'light'} intensity={24} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
+        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: palette.bg, opacity: 0.5 }} />
+      </View>
+      <View style={{ position: 'absolute', top: topInset, left: 0, right: 0, height: PEER_H, zIndex: 10, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 12 }}>
         <Pressable onPress={() => navigation.goBack()} hitSlop={6} style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: palette.surface, alignItems: 'center', justifyContent: 'center' }}>
           <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={palette.text} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round"><Path d="m15 6-6 6 6 6" /></Svg>
         </Pressable>
@@ -227,7 +238,8 @@ export function ChatScreen() {
         data={messages}
         keyboardShouldPersistTaps="handled"
         keyExtractor={(m) => m.id}
-        contentContainerStyle={{ padding: 12, gap: 4 }}
+        contentContainerStyle={{ paddingTop: topInset + PEER_H + 8, paddingBottom: insets.bottom + 72, paddingHorizontal: 12, gap: 4 }}
+        scrollIndicatorInsets={{ top: topInset + PEER_H, bottom: 60 }}
         onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
         onLayout={() => listRef.current?.scrollToEnd({ animated: false })}
         renderItem={({ item, index }) => {
@@ -291,9 +303,14 @@ export function ChatScreen() {
 
       {error ? <Text style={{ paddingHorizontal: 16, paddingBottom: 4, color: palette.down }}>{error}</Text> : null}
 
+      {/* Поле ввода — накладное и стеклянное: список едет под ним, жёсткой
+          границы нет, только блюр и лёгкий тон темы. */}
+      <View style={{ position: 'absolute', left: 0, right: 0, bottom: 0, zIndex: 9, overflow: 'hidden' }}>
+      <BlurView tint={dark ? 'dark' : 'light'} intensity={24} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
+      <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: palette.bg, opacity: 0.55 }} />
       {recState.isRecording ? (
         // Идёт запись: красная точка, таймер и кнопка «отправить голосовое».
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 12, borderTopWidth: 1, borderTopColor: palette.border, backgroundColor: palette.surface }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 12, paddingBottom: insets.bottom + 8 }}>
           <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: palette.down }} />
           <Text style={{ flex: 1, fontSize: 15, color: palette.text }}>Запись… {mmss((recState.durationMillis ?? 0) / 1000)}</Text>
           <Pressable onPress={stopRecording} style={{ width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: palette.accent }}>
@@ -303,7 +320,7 @@ export function ChatScreen() {
           </Pressable>
         </View>
       ) : (
-        <View style={{ paddingHorizontal: 12, paddingVertical: 8, borderTopWidth: 1, borderTopColor: palette.border, backgroundColor: palette.surface }}>
+        <View style={{ paddingHorizontal: 12, paddingTop: 8, paddingBottom: insets.bottom + 8 }}>
           {/* Поле-овал: слева картинка, посередине текст, справа микрофон или
               отправка — всё внутри одной обоймы, как в вебе. */}
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: palette.surface2, borderRadius: 24, paddingLeft: 8, paddingRight: 6, paddingVertical: 4 }}>
@@ -337,6 +354,7 @@ export function ChatScreen() {
           </View>
         </View>
       )}
+      </View>
 
       {/* Меню чата по «…»: пожаловаться. */}
       <Modal visible={menuOpen} transparent animationType="fade" onRequestClose={() => setMenuOpen(false)}>
