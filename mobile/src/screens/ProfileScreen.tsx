@@ -254,11 +254,13 @@ export function ProfileScreen() {
         />
       </View>
 
-      {/* Редактор заметки-облачка. Панель поднимается над клавиатурой
-          (KeyboardAvoidingView): без него клавиатура закрывала ввод, и не было
-          видно, что печатаешь. Затемнение — отдельным слоем на весь экран, чтобы
-          оно оставалось и за поднятой панелью. */}
-      <Modal visible={noteEditing} transparent animationType="slide" onRequestClose={() => setNoteEditing(false)}>
+      {/* Редактор заметки-облачка. Появление — затуханием (fade), а не выездом
+          снизу: при slide вся модалка вместе с затемнением ползла вверх, и
+          панель гналась за клавиатурой. Так фон просто затемняется, а панель
+          поднимается над клавиатурой вместе с ней (KeyboardAvoidingView).
+          Затемнение — отдельным слоем на весь экран, чтобы оставаться и за
+          поднятой панелью. */}
+      <Modal visible={noteEditing} transparent animationType="fade" onRequestClose={() => setNoteEditing(false)}>
         <View style={{ flex: 1 }}>
           <Pressable onPress={() => setNoteEditing(false)} style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.4)' }]} />
           <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1, justifyContent: 'flex-end' }}>
