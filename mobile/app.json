@@ -35,7 +35,8 @@
             "deploymentTarget": "16.0"
           }
         }
-      ]
+      ],
+      "expo-audio"
     ],
     "extra": {
       "eas": {
