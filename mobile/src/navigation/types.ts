@@ -5,6 +5,7 @@ export type RootStackParamList = {
   Community: { community: Community };
   CommunityAbout: { community: Community };
   Post: { postId: string };
+  Comments: { postId: string };
   Login: undefined;
   CreateCommunity: undefined;
   CreatePost: { communityId: string };

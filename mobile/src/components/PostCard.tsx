@@ -197,10 +197,17 @@ export function PostCard({
         <View style={{ flexDirection: 'row', alignItems: 'center', marginLeft: -4 }}>
           <VoteBlock id={post.id} score={post.score} myVote={post.myVote} />
           {linkToDetail ? (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 10 }}>
+            // Комментарии открываются шторкой-модалкой поверх ленты (как в
+            // вебе через CommentSheet), а не переходом на отдельный экран: так
+            // не теряется место, до которого дочитали.
+            <Pressable
+              onPress={() => navigation.navigate('Comments', { postId: post.id })}
+              hitSlop={4}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 10 }}
+            >
               <CommentIcon size={22} color={palette.control} />
               <Text style={{ fontSize: 15, color: palette.control }}>{commentCount}</Text>
-            </View>
+            </Pressable>
           ) : null}
         </View>
 
