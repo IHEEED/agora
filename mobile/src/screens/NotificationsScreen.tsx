@@ -6,6 +6,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { apiFetch } from '../lib/api';
 import { Avatar } from '../components/Avatar';
+import { VerifiedMark } from '../components/VerifiedMark';
+import { SegmentRing } from '../components/SegmentRing';
 import { SuggestedPeople } from '../components/SuggestedPeople';
 import { TopBar, useTopBarInset } from '../components/TopBar';
 import { usePalette } from '../theme';
@@ -21,7 +23,7 @@ import type { RootStackParamList } from '../navigation/types';
  * записи.
  */
 
-type Actor = { id: string; username: string; avatar_url?: string | null };
+type Actor = { id: string; username: string; avatar_url?: string | null; verified_at?: string | null };
 
 type Notification = {
   id: string;
@@ -136,15 +138,20 @@ export function NotificationsScreen() {
                 paddingHorizontal: 16,
                 paddingVertical: 12,
                 backgroundColor: unread ? `${palette.accent}1f` : 'transparent',
-                borderBottomWidth: 1,
-                borderBottomColor: palette.border,
               }}
             >
-              <Avatar name={item.actor?.username ?? '?'} uri={item.actor?.avatar_url} size={40} />
+              <View style={{ width: 46, height: 46, alignItems: 'center', justifyContent: 'center' }}>
+                <SegmentRing size={46} segments={3} viewed={false} />
+                <Avatar name={item.actor?.username ?? '?'} uri={item.actor?.avatar_url} size={38} />
+              </View>
               <View style={{ flex: 1, minWidth: 0 }}>
-                <Text numberOfLines={1} style={{ fontSize: 14.5, color: palette.text }}>
-                  <Text style={{ fontWeight: '600' }}>{item.actor?.username ?? 'кто-то'}</Text> {WHAT[item.kind]}
-                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <Text numberOfLines={1} style={{ flexShrink: 1, fontSize: 14.5, fontWeight: '600', color: palette.text }}>
+                    {item.actor?.username ?? 'кто-то'}
+                  </Text>
+                  <VerifiedMark verified={item.actor?.verified_at} size={14} />
+                  <Text numberOfLines={1} style={{ flexShrink: 1, fontSize: 14.5, color: palette.text }}> {WHAT[item.kind]}</Text>
+                </View>
                 {context ? <Text numberOfLines={1} style={{ fontSize: 13, color: palette.textMuted }}>{context}</Text> : null}
               </View>
               <Text style={{ fontSize: 12.5, color: palette.textMuted }}>{when(item.created_at)}</Text>

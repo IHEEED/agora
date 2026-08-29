@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { SuggestedPeople } from '@/components/SuggestedPeople';
 import { ScreenTitle } from '@/components/ScreenTitle';
 import { ProfileAvatar } from '@/components/ProfileAvatar';
+import { VerifiedMark } from '@/components/VerifiedMark';
+import { SegmentRing } from '@/components/SegmentRing';
 import { apiFetch } from '@/lib/api';
 import { invalidate, useApiData } from '@/lib/useApiData';
 import { useT, TranslationKey } from '@/lib/i18n';
@@ -19,7 +21,7 @@ import { useT, TranslationKey } from '@/lib/i18n';
  * серой строкой по-прежнему выглядит сломанным.
  */
 
-type Actor = { id: string; username: string; avatar_url?: string | null };
+type Actor = { id: string; username: string; avatar_url?: string | null; verified_at?: string | null };
 
 type Notification = {
   id: string;
@@ -118,7 +120,7 @@ export default function NotificationsPage() {
         {loading && <p className="text-[14px] text-[var(--text-muted)]">Загрузка…</p>}
 
         {items.length > 0 && (
-          <div className="flex flex-col divide-y divide-[var(--border)]">
+          <div className="flex flex-col">
             {items.map((item) => {
               const context = contextOf(item);
               const unread = item.read_at === null;
@@ -133,15 +135,18 @@ export default function NotificationsPage() {
                   // текст и время. Фон же читается боковым зрением.
                   style={unread ? { background: 'var(--accent-soft)' } : undefined}
                 >
-                  <ProfileAvatar
-                    name={item.actor?.username ?? '?'}
-                    size={40}
-                    photo={item.actor?.avatar_url ?? null}
-                  />
+                  {/* Лицо в крутящемся кольце — как у историй. */}
+                  <span className="relative flex-none" style={{ width: 44, height: 44 }}>
+                    <SegmentRing size={44} segments={3} />
+                    <span className="absolute inset-0 flex items-center justify-center">
+                      <ProfileAvatar name={item.actor?.username ?? '?'} size={36} photo={item.actor?.avatar_url ?? null} />
+                    </span>
+                  </span>
 
                   <div className="flex min-w-0 flex-1 flex-col">
                     <span className="truncate text-[14.5px] text-[var(--text)]">
-                      <span className="font-medium">{item.actor?.username ?? 'кто-то'}</span>{' '}
+                      <span className="font-medium">{item.actor?.username ?? 'кто-то'}</span>
+                      <VerifiedMark verified={item.actor?.verified_at} size={14} />{' '}
                       {t(WHAT[item.kind])}
                     </span>
                     {context && (
