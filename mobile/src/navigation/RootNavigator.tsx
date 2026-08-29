@@ -1,6 +1,7 @@
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { MainTabs } from './MainTabs';
 import { CommunityScreen } from '../screens/CommunityScreen';
+import { CommunityAboutScreen } from '../screens/CommunityAboutScreen';
 import { PostScreen } from '../screens/PostScreen';
 import { LoginScreen } from '../screens/LoginScreen';
 import { CreateCommunityScreen } from '../screens/CreateCommunityScreen';
@@ -42,6 +43,7 @@ export function RootNavigator() {
     >
       <Stack.Screen name="MainTabs" component={MainTabs} options={{ headerShown: false }} />
       <Stack.Screen name="Community" component={CommunityScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="CommunityAbout" component={CommunityAboutScreen} options={{ title: 'О клубе', presentation: 'modal' }} />
       <Stack.Screen name="Post" component={PostScreen} options={{ title: 'Пост' }} />
       <Stack.Screen name="Messages" component={MessagesScreen} options={{ title: 'Мессенджер' }} />
       {/* Шапку рисует сам экран (TopBar + строка собеседника). */}

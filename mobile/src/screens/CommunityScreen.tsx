@@ -7,12 +7,9 @@ import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { apiFetch } from '../lib/api';
-import { useSession } from '../lib/useSession';
 import { Post } from '../lib/types';
 import { PostCard } from '../components/PostCard';
 import { Avatar } from '../components/Avatar';
-import { AvatarFollow } from '../components/AvatarFollow';
-import { BottomSheet } from '../components/BottomSheet';
 import { TopBar, useTopBarInset } from '../components/TopBar';
 import { communityPalette } from '../lib/communityPalette';
 import { usePalette } from '../theme';
@@ -31,11 +28,9 @@ export function CommunityScreen({ route, navigation }: Props) {
   const palette = usePalette();
   const insets = useSafeAreaInsets().bottom;
   const topInset = useTopBarInset();
-  const { session } = useSession();
 
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
-  const [aboutOpen, setAboutOpen] = useState(false);
   const [joined, setJoined] = useState(Boolean(community.isSubscribed));
   const [joining, setJoining] = useState(false);
 
@@ -78,9 +73,6 @@ export function CommunityScreen({ route, navigation }: Props) {
   const influence = useMemo(() => posts.reduce((sum, p) => sum + p.score, 0), [posts]);
   const [from, to] = communityPalette(community.name);
   const handle = 'c/' + community.name.toLowerCase().replace(/\s+/g, '');
-  const created = community.created_at
-    ? new Date(community.created_at).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })
-    : null;
 
   const header = (
     <View style={{ paddingTop: 8 }}>
@@ -109,7 +101,7 @@ export function CommunityScreen({ route, navigation }: Props) {
             </Text>
           </Pressable>
 
-          <Pressable onPress={() => setAboutOpen(true)} style={{ flexDirection: 'row', alignItems: 'baseline', gap: 5, alignSelf: 'flex-start' }}>
+          <Pressable onPress={() => navigation.navigate('CommunityAbout', { community })} style={{ flexDirection: 'row', alignItems: 'baseline', gap: 5, alignSelf: 'flex-start' }}>
             <Text style={{ fontSize: 16, fontWeight: '700', color: palette.text }}>{people.length}</Text>
             <Text style={{ fontSize: 13.5, color: palette.textMuted }}>участн.</Text>
           </Pressable>
@@ -128,7 +120,7 @@ export function CommunityScreen({ route, navigation }: Props) {
               <Svg width={17} height={17} viewBox="0 0 24 24" fill="none" stroke={palette.accentContrast} strokeWidth={2.4} strokeLinecap="round"><Path d="M12 5v14M5 12h14" /></Svg>
               <Text style={{ fontSize: 14, fontWeight: '600', color: palette.accentContrast }}>Опубликовать пост</Text>
             </Pressable>
-            <Pressable onPress={() => setAboutOpen(true)} style={{ width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: `${palette.accent}22` }}>
+            <Pressable onPress={() => navigation.navigate('CommunityAbout', { community })} style={{ width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: `${palette.accent}22` }}>
               <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={palette.accent} strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round">
                 <Circle cx="12" cy="12" r="9" /><Path d="M12 11v5.5M12 7.6v.1" />
               </Svg>
@@ -154,50 +146,6 @@ export function CommunityScreen({ route, navigation }: Props) {
         ListEmptyComponent={!loading ? <Text style={{ paddingVertical: 40, textAlign: 'center', color: palette.textMuted }}>В этом клубе пока нет записей.</Text> : null}
         renderItem={({ item }) => <PostCard post={item} />}
       />
-
-      <BottomSheet open={aboutOpen} onClose={() => setAboutOpen(false)} title="О клубе">
-        <View style={{ gap: 18, paddingTop: 4 }}>
-          <Text style={{ fontSize: 14.5, lineHeight: 21, color: palette.text }}>
-            {community.description || 'Описание пока не заполнено.'}
-          </Text>
-
-          <View style={{ gap: 8 }}>
-            {community.creator ? (
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <Text style={{ fontSize: 13.5, color: palette.textMuted }}>Создатель</Text>
-                <Pressable onPress={() => { setAboutOpen(false); if (community.creator.id) navigation.navigate('User', { userId: community.creator.id }); }}>
-                  <Text style={{ fontSize: 13.5, fontWeight: '600', color: palette.accent }}>{community.creator.username}</Text>
-                </Pressable>
-              </View>
-            ) : null}
-            {created ? (
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <Text style={{ fontSize: 13.5, color: palette.textMuted }}>Создано</Text>
-                <Text style={{ fontSize: 13.5, color: palette.text }}>{created}</Text>
-              </View>
-            ) : null}
-          </View>
-
-          <View style={{ gap: 2 }}>
-            <Text style={{ fontSize: 14, fontWeight: '700', color: palette.text, marginBottom: 4 }}>Участники</Text>
-            {people.map((person) => (
-              <View key={person.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8 }}>
-                <Pressable onPress={() => { setAboutOpen(false); navigation.navigate('User', { userId: person.id }); }} style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                  <Avatar name={person.username} uri={person.avatar_url} size={40} />
-                  <View style={{ flex: 1 }}>
-                    <Text numberOfLines={1} style={{ fontSize: 15, fontWeight: '600', color: palette.text }}>{person.username}</Text>
-                    <Text style={{ fontSize: 12.5, color: palette.textMuted }}>{person.posts} записей</Text>
-                  </View>
-                </Pressable>
-                {person.id !== session?.user.id ? (
-                  <AvatarFollow userId={person.id} username={person.username} avatar={person.avatar_url} initiallyFollowing={person.isFollowing} size={34} />
-                ) : null}
-              </View>
-            ))}
-            {people.length === 0 ? <Text style={{ paddingVertical: 12, fontSize: 14, color: palette.textMuted }}>Пока никто здесь не писал.</Text> : null}
-          </View>
-        </View>
-      </BottomSheet>
     </View>
   );
 }

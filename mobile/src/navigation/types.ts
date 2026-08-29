@@ -3,6 +3,7 @@ import type { Community } from '../lib/types';
 export type RootStackParamList = {
   MainTabs: undefined;
   Community: { community: Community };
+  CommunityAbout: { community: Community };
   Post: { postId: string };
   Login: undefined;
   CreateCommunity: undefined;
