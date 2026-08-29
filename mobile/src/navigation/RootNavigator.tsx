@@ -41,7 +41,7 @@ export function RootNavigator() {
       }}
     >
       <Stack.Screen name="MainTabs" component={MainTabs} options={{ headerShown: false }} />
-      <Stack.Screen name="Community" component={CommunityScreen} />
+      <Stack.Screen name="Community" component={CommunityScreen} options={{ headerShown: false }} />
       <Stack.Screen name="Post" component={PostScreen} options={{ title: 'Пост' }} />
       <Stack.Screen name="Messages" component={MessagesScreen} options={{ title: 'Мессенджер' }} />
       {/* Шапку рисует сам экран (TopBar + строка собеседника). */}
