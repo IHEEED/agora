@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Modal, Pressable, ScrollView, Text, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import * as Clipboard from 'expo-clipboard';
 import { useNavigation } from '@react-navigation/native';
@@ -10,6 +10,7 @@ import { apiFetch } from '../lib/api';
 import { useSession } from '../lib/useSession';
 import { setStylePreference, setThemePreference, StyleId, ThemePreference, useStylePreference, useThemePreference } from '../lib/appearance';
 import { LocalToggle } from '../components/LocalToggle';
+import { SegmentedControl } from '../components/SegmentedControl';
 import { ChevronIcon } from '../components/icons';
 import { SettingsSectionId } from '../lib/settingsSections';
 import { useIsDark, usePalette } from '../theme';
@@ -20,10 +21,10 @@ type Palette = ReturnType<typeof usePalette>;
 
 const WEB_URL = process.env.EXPO_PUBLIC_WEB_URL ?? '';
 
-const THEMES: { value: ThemePreference; label: string }[] = [
-  { value: 'light', label: 'Светлая' },
-  { value: 'dark', label: 'Тёмная' },
-  { value: 'system', label: 'Системная' },
+const THEMES: ReadonlyArray<readonly [ThemePreference, string]> = [
+  ['light', 'Светлая'],
+  ['dark', 'Тёмная'],
+  ['system', 'Системная'],
 ];
 
 /** Стили с превью-цветами из веба: [фон, поверхность, акцент] для свет/тьмы. */
@@ -41,14 +42,30 @@ const LOCALES = [
   { id: 'es', label: 'Español', on: false },
 ];
 
+/** Правила — три пункта, тем же текстом, что в вебе (AboutSheets). */
+const RULES = [
+  {
+    title: 'Спорьте, а не побеждайте',
+    body: 'Минус здесь — не наказание, а участие: он говорит «прочитал и не согласен». Запись с двадцатью плюсами и восемнадцатью минусами интереснее записи с пятью плюсами. Несогласие — нормальная часть разговора, переход на человека — нет.',
+  },
+  {
+    title: 'Отвечайте тому, кто написал',
+    body: 'Цепочку продолжает только автор и только один раз. Это не ограничение доступа, а форма: мысль в три захода читается, мысль в тридцать — нет.',
+  },
+  {
+    title: 'Чужое остаётся чужим',
+    body: 'Пересланное сообщение подписано автором, репост в историю ведёт на источник. Выдавать чужое за своё нечем — и не стоит пытаться обойти.',
+  },
+];
+
 /**
  * Содержимое раздела настроек — все разделы перенесены с веба целиком.
  *
- * Оформление: тема (светлая/тёмная/системная) работает по-настоящему; выбор
- * стиля пока показывает единственный реализованный — Хронику. Аккаунт: почта,
- * телефон, код-приглашение со ссылкой и выход. Модерация — двери в веб-разделы.
- * Уведомления, приватность, контент — локальные переключатели. Язык — список с
- * галочкой. О приложении — версия, правила и поддержка шторками.
+ * Оформление: тема (светлая/тёмная/системная) той же «гусеницей», что в вебе;
+ * ниже — пять стилей превью-макетами. Аккаунт: почта, телефон, код-приглашение
+ * и выход. Модерация — двери в рабочие экраны. Уведомления, приватность, контент
+ * — локальные переключатели. Язык — список с галочкой. О приложении — версия,
+ * правила и поддержка шторками (fade), настоящим текстом с сайта.
  */
 export function SettingsSectionScreen({ route }: Props) {
   const palette = usePalette();
@@ -82,7 +99,7 @@ export function SettingsSectionScreen({ route }: Props) {
         <Card palette={palette}>
           <View style={{ padding: 16, gap: 10 }}>
             <Text style={{ fontSize: 15, color: palette.text }}>Тема</Text>
-            <Segmented palette={palette} value={themePref} onChange={setThemePreference} options={THEMES} />
+            <SegmentedControl value={themePref} onChange={setThemePreference} options={THEMES} />
           </View>
         </Card>
 
@@ -96,22 +113,27 @@ export function SettingsSectionScreen({ route }: Props) {
             const selected = stylePref === s.id;
             return (
               <Pressable key={s.id} onPress={() => setStylePreference(s.id)} style={{ width: '47%', gap: 6 }}>
-                {/* Превью: фон стиля, «Aa» акцентом его гарнитурой и ползунок. */}
+                {/* Превью-макет как в вебе: фон стиля, «Aa» его гарнитурой и
+                    карточка с двумя строками текста и акцентной точкой. */}
                 <View
                   style={{
-                    height: 96,
-                    borderRadius: 14,
-                    padding: 14,
-                    justifyContent: 'space-between',
+                    height: 86,
+                    borderRadius: 12,
+                    padding: 10,
+                    justifyContent: 'flex-end',
+                    gap: 6,
                     backgroundColor: swatch[0],
                     borderWidth: selected ? 2 : 1,
-                    borderColor: selected ? palette.accent : palette.border,
+                    borderColor: selected ? swatch[2] : palette.border,
                   }}
                 >
-                  <Text style={{ fontFamily: s.serif ? 'Georgia' : 'System', fontSize: 20, fontWeight: '700', color: swatch[2] }}>Aa</Text>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    <View style={{ flex: 1, height: 4, borderRadius: 2, backgroundColor: `${swatch[2]}55` }} />
-                    <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: swatch[2] }} />
+                  <Text style={{ fontSize: 13, color: swatch[2], fontFamily: s.serif ? 'Georgia' : 'System', fontWeight: s.serif ? '500' : '700' }}>Aa</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 6, padding: 6, backgroundColor: swatch[1] }}>
+                    <View style={{ flex: 1, gap: 4 }}>
+                      <View style={{ height: 3, borderRadius: 2, backgroundColor: swatch[2], opacity: 0.55 }} />
+                      <View style={{ height: 3, width: '66%', borderRadius: 2, backgroundColor: swatch[2], opacity: 0.25 }} />
+                    </View>
+                    <View style={{ width: 14, height: 14, borderRadius: 7, backgroundColor: swatch[2] }} />
                   </View>
                 </View>
                 <View style={{ paddingHorizontal: 2 }}>
@@ -130,7 +152,7 @@ export function SettingsSectionScreen({ route }: Props) {
     return (
       <Wrap palette={palette}>
         <Card palette={palette}>
-          <Line palette={palette} label="Почта" hint={session?.user.email ?? ''} />
+          <Line palette={palette} label="Почта" hint={session?.user.email ?? ''} first />
           <Line palette={palette} label="Телефон" hint={phoneVerified ? 'Подтверждён' : 'Нужен, чтобы писать посты и комментарии'}>
             {phoneVerified ? (
               <Text style={{ fontSize: 13, fontWeight: '600', color: palette.up }}>Готово</Text>
@@ -138,7 +160,7 @@ export function SettingsSectionScreen({ route }: Props) {
               <Pill palette={palette} label="Подтвердить" onPress={() => {}} />
             )}
           </Line>
-          <Line palette={palette} label={inviteCode ?? '••••••'} hint="Ваш код. Один на всех, кого позовёте" mono last>
+          <Line palette={palette} label={inviteCode ?? '••••••'} hint="Ваш код. Один на всех, кого позовёте" mono>
             <Pill palette={palette} label={copied ? 'Скопировано' : 'Ссылка'} muted onPress={copyInvite} />
           </Line>
         </Card>
@@ -157,9 +179,9 @@ export function SettingsSectionScreen({ route }: Props) {
     return (
       <Wrap palette={palette}>
         <Card palette={palette}>
-          <Line palette={palette} label="Разбор жалоб" hint="Очередь и баны" onPress={() => navigation.navigate('Moderation')} />
+          <Line palette={palette} label="Разбор жалоб" hint="Очередь и баны" onPress={() => navigation.navigate('Moderation')} first />
           <Line palette={palette} label="Подтверждение личности" hint="Галочки и заявки" onPress={() => navigation.navigate('Verification')} />
-          <Line palette={palette} label="Статистика" hint="Люди и написанное" onPress={() => navigation.navigate('Stats')} last />
+          <Line palette={palette} label="Статистика" hint="Люди и написанное" onPress={() => navigation.navigate('Stats')} />
         </Card>
       </Wrap>
     );
@@ -169,13 +191,13 @@ export function SettingsSectionScreen({ route }: Props) {
     return (
       <Wrap palette={palette}>
         <Card palette={palette}>
-          <Line palette={palette} label="Ответы на мои посты" hint="Когда кто-то комментирует вашу запись">
+          <Line palette={palette} label="Ответы на мои посты" hint="Когда кто-то комментирует вашу запись" first>
             <LocalToggle storageKey="parafraz-notify-replies" defaultOn />
           </Line>
           <Line palette={palette} label="Упоминания" hint="Когда вас отмечают через @">
             <LocalToggle storageKey="parafraz-notify-mentions" defaultOn />
           </Line>
-          <Line palette={palette} label="Реакции" hint="Когда за вашу запись голосуют" last>
+          <Line palette={palette} label="Реакции" hint="Когда за вашу запись голосуют">
             <LocalToggle storageKey="parafraz-notify-votes" />
           </Line>
         </Card>
@@ -188,10 +210,10 @@ export function SettingsSectionScreen({ route }: Props) {
     return (
       <Wrap palette={palette}>
         <Card palette={palette}>
-          <Line palette={palette} label="Закрытый профиль" hint="Записи видны только подписчикам">
+          <Line palette={palette} label="Закрытый профиль" hint="Записи видны только подписчикам" first>
             <LocalToggle storageKey="parafraz-private-profile" />
           </Line>
-          <Line palette={palette} label="Показывать influence-очки" hint="Другие видят ваш счёт в профиле" last>
+          <Line palette={palette} label="Показывать influence-очки" hint="Другие видят ваш счёт в профиле">
             <LocalToggle storageKey="parafraz-show-influence" defaultOn />
           </Line>
         </Card>
@@ -204,10 +226,10 @@ export function SettingsSectionScreen({ route }: Props) {
     return (
       <Wrap palette={palette}>
         <Card palette={palette}>
-          <Line palette={palette} label="Материалы 18+" hint="Показывать записи с пометкой для взрослых">
+          <Line palette={palette} label="Материалы 18+" hint="Показывать записи с пометкой для взрослых" first>
             <LocalToggle storageKey="parafraz-nsfw" />
           </Line>
-          <Line palette={palette} label="Автовоспроизведение" hint="Видео запускается само при прокрутке" last>
+          <Line palette={palette} label="Автовоспроизведение" hint="Видео запускается само при прокрутке">
             <LocalToggle storageKey="parafraz-autoplay" defaultOn />
           </Line>
         </Card>
@@ -221,9 +243,12 @@ export function SettingsSectionScreen({ route }: Props) {
       <Wrap palette={palette}>
         <Card palette={palette}>
           {LOCALES.map((l, i) => (
-            <View key={l.id} style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 15, borderBottomWidth: i === LOCALES.length - 1 ? 0 : 1, borderBottomColor: palette.border, opacity: l.on ? 1 : 0.5 }}>
-              <Text style={{ flex: 1, fontSize: 16, color: palette.text }}>{l.label}</Text>
-              {l.on ? <Check palette={palette} /> : null}
+            <View key={l.id}>
+              {i > 0 ? <View style={{ height: 1, marginLeft: 16, backgroundColor: palette.border }} /> : null}
+              <View style={{ flexDirection: 'row', alignItems: 'center', minHeight: 46, paddingHorizontal: 16, paddingVertical: 9, opacity: l.on ? 1 : 0.5 }}>
+                <Text style={{ flex: 1, fontSize: 16, color: palette.text }}>{l.label}</Text>
+                {l.on ? <Check palette={palette} /> : null}
+              </View>
             </View>
           ))}
         </Card>
@@ -236,25 +261,41 @@ export function SettingsSectionScreen({ route }: Props) {
   return (
     <Wrap palette={palette}>
       <Card palette={palette}>
-        <Line palette={palette} label="Версия" hint="PARAFRAZ, сборка для разработки" />
+        <Line palette={palette} label="Версия" hint="PARAFRAZ, сборка для разработки" first />
         <Line palette={palette} label="Правила" onPress={() => setSheet('rules')} />
-        <Line palette={palette} label="Поддержка" onPress={() => setSheet('support')} last />
+        <Line palette={palette} label="Поддержка" onPress={() => setSheet('support')} />
       </Card>
       <Note palette={palette}>
         Переключатели уведомлений, приватности и контента пока сохраняются только на этом устройстве — серверной части у них ещё нет.
       </Note>
 
-      <InfoSheet
-        palette={palette}
-        open={sheet !== null}
-        onClose={() => setSheet(null)}
-        title={sheet === 'support' ? 'Поддержка' : 'Правила'}
-        body={
-          sheet === 'support'
-            ? 'Что-то сломалось или есть идея — напишите в телеграм @parafraz. Отвечает живой человек, обычно в тот же день.'
-            : 'Три пункта, а не свод. Не оскорблять людей. Минус — это несогласие, а не травля. Чужое лицо и имя — только с разрешения.'
-        }
-      />
+      <Sheet palette={palette} open={sheet !== null} onClose={() => setSheet(null)} title={sheet === 'support' ? 'Поддержка' : 'Правила'}>
+        {sheet === 'support' ? (
+          <View style={{ gap: 12 }}>
+            <Text style={{ fontSize: 14, lineHeight: 21, color: palette.text }}>
+              Напишите в <Text style={{ fontWeight: '700', color: palette.accent }}>@parafraz</Text> — это общий аккаунт поддержки. Отвечает тот из модераторов, кто сейчас свободен, в той же переписке.
+            </Text>
+            <Text style={{ fontSize: 13.5, lineHeight: 20, color: palette.textMuted }}>
+              Если что-то сломалось, приложите снимок экрана и скажите, что делали за секунду до поломки: почти всегда именно это её и объясняет.
+            </Text>
+            <Text style={{ fontSize: 13.5, lineHeight: 20, color: palette.textMuted }}>
+              Если человек мешает лично вам — быстрее заблокировать: это работает мгновенно и никого не ждёт. Жалоба уходит модератору и тому, на кого жалуются, не показывается.
+            </Text>
+          </View>
+        ) : (
+          <View style={{ gap: 16 }}>
+            <Text style={{ fontSize: 13.5, lineHeight: 20, color: palette.textMuted }}>
+              Три пункта, а не свод. Правила, которые не дочитывают, не работают.
+            </Text>
+            {RULES.map((rule) => (
+              <View key={rule.title} style={{ gap: 4 }}>
+                <Text style={{ fontSize: 15, fontWeight: '700', color: palette.text }}>{rule.title}</Text>
+                <Text style={{ fontSize: 13.5, lineHeight: 20, color: palette.textMuted }}>{rule.body}</Text>
+              </View>
+            ))}
+          </View>
+        )}
+      </Sheet>
     </Wrap>
   );
 }
@@ -270,7 +311,7 @@ function Wrap({ palette, children }: { palette: Palette; children: React.ReactNo
 }
 
 function Card({ palette, children }: { palette: Palette; children: React.ReactNode }) {
-  return <View style={{ borderRadius: 16, backgroundColor: palette.surface, overflow: 'hidden' }}>{children}</View>;
+  return <View style={{ borderRadius: 20, backgroundColor: palette.surface, overflow: 'hidden' }}>{children}</View>;
 }
 
 function Line({
@@ -278,7 +319,7 @@ function Line({
   label,
   hint,
   onPress,
-  last = false,
+  first = false,
   mono = false,
   children,
 }: {
@@ -286,30 +327,22 @@ function Line({
   label: string;
   hint?: string;
   onPress?: () => void;
-  last?: boolean;
+  /** Первая строка группы — без верхнего разделителя. */
+  first?: boolean;
   mono?: boolean;
   children?: React.ReactNode;
 }) {
   return (
-    <Pressable
-      onPress={onPress}
-      disabled={!onPress}
-      style={({ pressed }) => ({
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 10,
-        paddingHorizontal: 14,
-        paddingVertical: 14,
-        borderBottomWidth: last ? 0 : 1,
-        borderBottomColor: palette.border,
-        backgroundColor: pressed && onPress ? palette.surface2 : 'transparent',
-      })}
-    >
-      <View style={{ flex: 1 }}>
-        <Text style={{ fontSize: 15, color: palette.text, letterSpacing: mono ? 2 : 0 }}>{label}</Text>
-        {hint ? <Text style={{ fontSize: 12.5, color: palette.textMuted, marginTop: 1 }}>{hint}</Text> : null}
+    <Pressable onPress={onPress} disabled={!onPress} style={({ pressed }) => ({ backgroundColor: pressed && onPress ? palette.surface2 : 'transparent' })}>
+      {/* Разделитель — волосяной, с отступом слева 16 (ios-group в вебе). */}
+      {!first ? <View style={{ height: 1, marginLeft: 16, backgroundColor: palette.border }} /> : null}
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 46, paddingHorizontal: 16, paddingVertical: 9 }}>
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontSize: 15, color: palette.text, letterSpacing: mono ? 2 : 0 }}>{label}</Text>
+          {hint ? <Text style={{ fontSize: 12.5, color: palette.textMuted, marginTop: 1 }}>{hint}</Text> : null}
+        </View>
+        {children ?? (onPress ? <ChevronIcon size={16} color={palette.textMuted} /> : null)}
       </View>
-      {children ?? (onPress ? <ChevronIcon size={16} color={palette.textMuted} /> : null)}
     </Pressable>
   );
 }
@@ -333,35 +366,6 @@ function Check({ palette }: { palette: Palette }) {
   );
 }
 
-function Segmented<T extends string>({
-  palette,
-  value,
-  onChange,
-  options,
-}: {
-  palette: Palette;
-  value: T;
-  onChange: (v: T) => void;
-  options: { value: T; label: string }[];
-}) {
-  return (
-    <View style={{ flexDirection: 'row', backgroundColor: palette.surface2, borderRadius: 12, padding: 3 }}>
-      {options.map((o) => {
-        const on = o.value === value;
-        return (
-          <Pressable
-            key={o.value}
-            onPress={() => onChange(o.value)}
-            style={{ flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: 10, backgroundColor: on ? palette.accent : 'transparent' }}
-          >
-            <Text style={{ fontSize: 13, fontWeight: '600', color: on ? palette.accentContrast : palette.textMuted }}>{o.label}</Text>
-          </Pressable>
-        );
-      })}
-    </View>
-  );
-}
-
 function Note({ palette, children }: { palette: Palette; children: React.ReactNode }) {
   return <Text style={{ fontSize: 13, lineHeight: 18, color: palette.textMuted, paddingHorizontal: 4 }}>{children}</Text>;
 }
@@ -374,16 +378,19 @@ function LocalNote({ palette }: { palette: Palette }) {
   );
 }
 
-function InfoSheet({ palette, open, onClose, title, body }: { palette: Palette; open: boolean; onClose: () => void; title: string; body: string }) {
+function Sheet({ palette, open, onClose, title, children }: { palette: Palette; open: boolean; onClose: () => void; title: string; children: React.ReactNode }) {
   return (
-    <Modal visible={open} transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable onPress={onClose} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' }}>
-        <Pressable onPress={(e) => e.stopPropagation()} style={{ backgroundColor: palette.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, paddingBottom: 36, gap: 12 }}>
-          <View style={{ alignSelf: 'center', width: 40, height: 5, borderRadius: 3, backgroundColor: palette.border }} />
-          <Text style={{ fontSize: 18, fontWeight: '700', color: palette.text }}>{title}</Text>
-          <Text style={{ fontSize: 14.5, lineHeight: 21, color: palette.textMuted }}>{body}</Text>
-        </Pressable>
-      </Pressable>
+    <Modal visible={open} transparent animationType="fade" onRequestClose={onClose}>
+      <View style={{ flex: 1 }}>
+        <Pressable onPress={onClose} style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.4)' }]} />
+        <View style={{ marginTop: 'auto', maxHeight: '82%', backgroundColor: palette.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingTop: 10, paddingBottom: 36 }}>
+          <View style={{ alignSelf: 'center', width: 40, height: 5, borderRadius: 3, backgroundColor: palette.border, marginBottom: 12 }} />
+          <ScrollView contentContainerStyle={{ paddingHorizontal: 20, gap: 12 }}>
+            <Text style={{ fontSize: 18, fontWeight: '700', color: palette.text }}>{title}</Text>
+            {children}
+          </ScrollView>
+        </View>
+      </View>
     </Modal>
   );
 }
