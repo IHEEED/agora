@@ -10,6 +10,7 @@ export type RootStackParamList = {
   CreatePost: { communityId: string };
   Messages: undefined;
   Chat: { userId: string; username: string };
+  NewMessage: undefined;
   Notifications: undefined;
   Search: undefined;
   User: { userId: string };

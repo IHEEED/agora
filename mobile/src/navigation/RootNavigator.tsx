@@ -8,6 +8,7 @@ import { CreateCommunityScreen } from '../screens/CreateCommunityScreen';
 import { CreatePostScreen } from '../screens/CreatePostScreen';
 import { MessagesScreen } from '../screens/MessagesScreen';
 import { ChatScreen } from '../screens/ChatScreen';
+import { NewMessageScreen } from '../screens/NewMessageScreen';
 import { NotificationsScreen } from '../screens/NotificationsScreen';
 import { UserScreen } from '../screens/UserScreen';
 import { SearchScreen } from '../screens/SearchScreen';
@@ -52,6 +53,7 @@ export function RootNavigator() {
         component={ChatScreen}
         options={{ headerShown: false }}
       />
+      <Stack.Screen name="NewMessage" component={NewMessageScreen} options={{ title: 'Кому написать', presentation: 'modal' }} />
       <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ headerShown: false }} />
       <Stack.Screen name="User" component={UserScreen} options={{ title: 'Профиль' }} />
       <Stack.Screen name="Search" component={SearchScreen} options={{ headerShown: false }} />
