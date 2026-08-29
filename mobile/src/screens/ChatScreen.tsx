@@ -1,10 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { FlatList, Image, Keyboard, Modal, Pressable, Text, TextInput, View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
-import { BlurView } from 'expo-blur';
-import { LinearGradient } from 'expo-linear-gradient';
-import MaskedView from '@react-native-masked-view/masked-view';
-import { useColorScheme } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { useAudioRecorder, useAudioRecorderState, RecordingPresets, createAudioPlayer, setAudioModeAsync, requestRecordingPermissionsAsync } from 'expo-audio';
@@ -86,7 +82,6 @@ export function ChatScreen() {
   const [playingId, setPlayingId] = useState<string | null>(null);
   const topInset = useTopBarInset();
   const insets = useSafeAreaInsets();
-  const dark = useColorScheme() === 'dark';
   const PEER_H = 54;
   const [kbHeight, setKbHeight] = useState(0);
   const listRef = useRef<FlatList<Message>>(null);
@@ -230,13 +225,6 @@ export function ChatScreen() {
       {/* Строка собеседника: «назад» кружком, ник с лицом пилюлей, «ещё»
           кружком. Накладная и стеклянная — список едет под ней, как под баром
           ленты; никаких жёстких границ. */}
-      <MaskedView
-        style={{ position: 'absolute', top: topInset, left: 0, right: 0, height: PEER_H + 16, zIndex: 9 }}
-        maskElement={<LinearGradient colors={['#000', '#000', 'transparent']} locations={[0, 0.7, 1]} style={{ flex: 1 }} />}
-      >
-        <BlurView tint={dark ? 'dark' : 'light'} intensity={24} style={{ flex: 1 }} />
-        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: palette.bg, opacity: 0.5 }} />
-      </MaskedView>
       <View style={{ position: 'absolute', top: topInset, left: 0, right: 0, height: PEER_H, zIndex: 10, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 12 }}>
         <Pressable onPress={() => navigation.goBack()} hitSlop={6} style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: palette.surface, alignItems: 'center', justifyContent: 'center' }}>
           <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={palette.text} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round"><Path d="m15 6-6 6 6 6" /></Svg>
@@ -321,13 +309,9 @@ export function ChatScreen() {
 
       {error ? <Text style={{ paddingHorizontal: 16, paddingBottom: 4, color: palette.down }}>{error}</Text> : null}
 
-      {/* Поле ввода — накладное и стеклянное, поднимается над клавиатурой;
-          верхний край растворяется маской, жёсткой линии нет. */}
+      {/* Поле ввода — накладное, без фона за ним: сообщения видны прямо под
+          обоймой. Поднимается над клавиатурой. */}
       <View style={{ position: 'absolute', left: 0, right: 0, bottom: kbHeight, zIndex: 9 }}>
-      <MaskedView style={{ position: 'absolute', top: -16, left: 0, right: 0, bottom: 0 }} maskElement={<LinearGradient colors={['transparent', '#000', '#000']} locations={[0, 0.35, 1]} style={{ flex: 1 }} />}>
-        <BlurView tint={dark ? 'dark' : 'light'} intensity={24} style={{ flex: 1 }} />
-        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: palette.bg, opacity: 0.6 }} />
-      </MaskedView>
       {recState.isRecording ? (
         // Идёт запись: красная точка, таймер и кнопка «отправить голосовое».
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 12, paddingBottom: (kbHeight > 0 ? 8 : insets.bottom + 8) }}>
