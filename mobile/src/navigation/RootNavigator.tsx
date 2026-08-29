@@ -72,9 +72,9 @@ export function RootNavigator() {
         options={{ headerShown: false }}
       />
       <Stack.Screen name="ProfileEdit" component={ProfileEditScreen} options={{ title: 'Профиль' }} />
-      <Stack.Screen name="Moderation" component={ModerationScreen} options={{ title: 'Разбор жалоб' }} />
-      <Stack.Screen name="Verification" component={VerificationScreen} options={{ title: 'Подтверждение личности' }} />
-      <Stack.Screen name="Stats" component={StatsScreen} options={{ title: 'Статистика' }} />
+      <Stack.Screen name="Moderation" component={ModerationScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="Verification" component={VerificationScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="Stats" component={StatsScreen} options={{ headerShown: false }} />
       <Stack.Screen name="Login" component={LoginScreen} options={{ title: 'Вход' }} />
       <Stack.Screen
         name="CreateCommunity"

@@ -1,9 +1,11 @@
 import { useCallback, useState } from 'react';
 import { FlatList, Pressable, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { apiFetch } from '../lib/api';
 import { formatRelativeDate } from '../lib/formatDate';
+import { TopBar, useTopBarInset } from '../components/TopBar';
 import { usePalette } from '../theme';
 import type { RootStackParamList } from '../navigation/types';
 
@@ -41,6 +43,8 @@ const TABS: { key: Status; label: string }[] = [
  */
 export function ModerationScreen() {
   const palette = usePalette();
+  const insets = useSafeAreaInsets();
+  const topInset = useTopBarInset();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [status, setStatus] = useState<Status>('open');
   const [reports, setReports] = useState<Report[]>([]);
@@ -61,31 +65,44 @@ export function ModerationScreen() {
   }
 
   return (
-    <FlatList
-      style={{ flex: 1, backgroundColor: palette.bg }}
-      contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: 40 }}
-      data={reports}
-      keyExtractor={(r) => r.id}
-      ListHeaderComponent={
-        <View style={{ gap: 12, marginBottom: 4 }}>
-          <View style={{ flexDirection: 'row', gap: 8 }}>
-            {TABS.map((t) => {
-              const on = status === t.key;
-              return (
-                <Pressable key={t.key} onPress={() => setStatus(t.key)} style={{ paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999, backgroundColor: on ? palette.accent : palette.surface2 }}>
-                  <Text style={{ fontSize: 13, fontWeight: '600', color: on ? palette.accentContrast : palette.textMuted }}>{t.label}</Text>
-                </Pressable>
-              );
-            })}
+    <View style={{ flex: 1, backgroundColor: palette.bg }}>
+      <TopBar back right="none" />
+      <FlatList
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingTop: topInset, paddingHorizontal: 16, gap: 12, paddingBottom: insets.bottom + 40 }}
+        scrollIndicatorInsets={{ top: topInset }}
+        data={reports}
+        keyExtractor={(r) => r.id}
+        ListHeaderComponent={
+          <View style={{ gap: 14, marginBottom: 4 }}>
+            <Text style={{ fontFamily: palette.displayFamily, fontSize: 30, color: palette.text }}>
+              Модерация<Text style={{ color: palette.accent }}>.</Text>
+            </Text>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              {TABS.map((t) => {
+                const on = status === t.key;
+                return (
+                  <Pressable key={t.key} onPress={() => setStatus(t.key)} style={{ paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999, backgroundColor: on ? palette.accent : palette.surface2 }}>
+                    <Text style={{ fontSize: 13, fontWeight: '600', color: on ? palette.accentContrast : palette.textMuted }}>{t.label}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+            {loading ? <Text style={{ color: palette.textMuted }}>Загрузка…</Text> : null}
           </View>
-          {loading ? <Text style={{ color: palette.textMuted }}>Загрузка…</Text> : null}
-        </View>
-      }
-      ListEmptyComponent={!loading ? <Text style={{ paddingHorizontal: 4, color: palette.textMuted }}>Здесь пусто.</Text> : null}
-      renderItem={({ item }) => (
-        <ReportCard palette={palette} report={item} active={status === 'open'} onDone={() => remove(item.id)} onUser={(id) => navigation.navigate('User', { userId: id })} />
-      )}
-    />
+        }
+        ListEmptyComponent={
+          !loading ? (
+            <Text style={{ paddingHorizontal: 4, color: palette.textMuted }}>
+              {status === 'open' ? 'Очередь пуста — разбирать нечего.' : 'Здесь пока пусто.'}
+            </Text>
+          ) : null
+        }
+        renderItem={({ item }) => (
+          <ReportCard palette={palette} report={item} active={status === 'open'} onDone={() => remove(item.id)} onUser={(id) => navigation.navigate('User', { userId: id })} />
+        )}
+      />
+    </View>
   );
 }
 

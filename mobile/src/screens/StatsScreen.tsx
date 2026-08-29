@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { apiFetch } from '../lib/api';
+import { TopBar, useTopBarInset } from '../components/TopBar';
 import { usePalette } from '../theme';
 
 type Stats = {
@@ -19,25 +21,33 @@ type Palette = ReturnType<typeof usePalette>;
  */
 export function StatsScreen() {
   const palette = usePalette();
+  const insets = useSafeAreaInsets();
+  const topInset = useTopBarInset();
   const [data, setData] = useState<Stats | null>(null);
 
   useEffect(() => {
     apiFetch<Stats>('/moderation/stats').then(setData).catch(() => {});
   }, []);
 
-  if (!data) {
-    return (
-      <View style={{ flex: 1, backgroundColor: palette.bg }}>
-        <Text style={{ padding: 16, color: palette.textMuted }}>Загрузка…</Text>
-      </View>
-    );
-  }
-
-  const perUser = data.users && data.posts !== null && data.users > 0 ? (data.posts / data.users).toFixed(1).replace('.', ',') : null;
-  const perPost = data.posts && data.posts > 0 && data.comments !== null ? (data.comments / data.posts).toFixed(1).replace('.', ',') : null;
+  const perUser = data?.users && data.posts !== null && data.users > 0 ? (data.posts / data.users).toFixed(1).replace('.', ',') : null;
+  const perPost = data?.posts && data.posts > 0 && data.comments !== null ? (data.comments / data.posts).toFixed(1).replace('.', ',') : null;
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: palette.bg }} contentContainerStyle={{ padding: 16, gap: 20 }}>
+    <View style={{ flex: 1, backgroundColor: palette.bg }}>
+      <TopBar back right="none" />
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingTop: topInset, paddingHorizontal: 16, paddingBottom: insets.bottom + 40, gap: 20 }}
+        scrollIndicatorInsets={{ top: topInset }}
+      >
+        <Text style={{ fontFamily: palette.displayFamily, fontSize: 30, color: palette.text }}>
+          Статистика<Text style={{ color: palette.accent }}>.</Text>
+        </Text>
+
+        {!data ? <Text style={{ color: palette.textMuted }}>Загрузка…</Text> : null}
+
+        {data ? (
+          <>
       <View style={{ gap: 8 }}>
         <Text style={{ fontSize: 14, fontWeight: '700', color: palette.text }}>Люди</Text>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
@@ -66,14 +76,17 @@ export function StatsScreen() {
       <Text style={{ fontSize: 12, lineHeight: 17, color: palette.textMuted }}>
         Прочерк вместо числа означает, что посчитать не вышло — обычно из-за невыполненной миграции. Ноль на его месте был бы неправдой.
       </Text>
-    </ScrollView>
+          </>
+        ) : null}
+      </ScrollView>
+    </View>
   );
 }
 
 function Stat({ palette, value, label, hint }: { palette: Palette; value: number | null; label: string; hint?: string }) {
   return (
-    <View style={{ width: '47%', borderRadius: 14, backgroundColor: palette.surface, padding: 14, gap: 2 }}>
-      <Text style={{ fontSize: 26, fontWeight: '700', color: palette.text }}>{value ?? '—'}</Text>
+    <View style={{ width: '47%', borderRadius: 16, backgroundColor: palette.surface2, padding: 14, gap: 2 }}>
+      <Text style={{ fontSize: 26, fontWeight: '700', color: palette.text }}>{value === null ? '—' : value.toLocaleString('ru-RU')}</Text>
       <Text style={{ fontSize: 13, color: palette.text }}>{label}</Text>
       {hint ? <Text style={{ fontSize: 11.5, color: palette.textMuted }}>{hint}</Text> : null}
     </View>
