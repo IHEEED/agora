@@ -69,7 +69,7 @@ export function RootNavigator() {
       <Stack.Screen
         name="SettingsSection"
         component={SettingsSectionScreen}
-        options={({ route }) => ({ title: route.params.title })}
+        options={{ headerShown: false }}
       />
       <Stack.Screen name="ProfileEdit" component={ProfileEditScreen} options={{ title: 'Профиль' }} />
       <Stack.Screen name="Moderation" component={ModerationScreen} options={{ title: 'Разбор жалоб' }} />

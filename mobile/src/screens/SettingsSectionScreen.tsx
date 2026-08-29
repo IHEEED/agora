@@ -11,6 +11,7 @@ import { useSession } from '../lib/useSession';
 import { setStylePreference, setThemePreference, StyleId, ThemePreference, useStylePreference, useThemePreference } from '../lib/appearance';
 import { LocalToggle } from '../components/LocalToggle';
 import { SegmentedControl } from '../components/SegmentedControl';
+import { TopBar, useTopBarInset } from '../components/TopBar';
 import { ChevronIcon } from '../components/icons';
 import { SettingsSectionId } from '../lib/settingsSections';
 import { useIsDark, usePalette } from '../theme';
@@ -95,7 +96,7 @@ export function SettingsSectionScreen({ route }: Props) {
 
   if (section === 'appearance') {
     return (
-      <Wrap palette={palette}>
+      <Wrap palette={palette} title={route.params.title}>
         <Card palette={palette}>
           <View style={{ padding: 16, gap: 10 }}>
             <Text style={{ fontSize: 15, color: palette.text }}>Тема</Text>
@@ -150,7 +151,7 @@ export function SettingsSectionScreen({ route }: Props) {
 
   if (section === 'account') {
     return (
-      <Wrap palette={palette}>
+      <Wrap palette={palette} title={route.params.title}>
         <Card palette={palette}>
           <Line palette={palette} label="Почта" hint={session?.user.email ?? ''} first />
           <Line palette={palette} label="Телефон" hint={phoneVerified ? 'Подтверждён' : 'Нужен, чтобы писать посты и комментарии'}>
@@ -177,7 +178,7 @@ export function SettingsSectionScreen({ route }: Props) {
 
   if (section === 'moderation') {
     return (
-      <Wrap palette={palette}>
+      <Wrap palette={palette} title={route.params.title}>
         <Card palette={palette}>
           <Line palette={palette} label="Разбор жалоб" hint="Очередь и баны" onPress={() => navigation.navigate('Moderation')} first />
           <Line palette={palette} label="Подтверждение личности" hint="Галочки и заявки" onPress={() => navigation.navigate('Verification')} />
@@ -189,7 +190,7 @@ export function SettingsSectionScreen({ route }: Props) {
 
   if (section === 'notifications') {
     return (
-      <Wrap palette={palette}>
+      <Wrap palette={palette} title={route.params.title}>
         <Card palette={palette}>
           <Line palette={palette} label="Ответы на мои посты" hint="Когда кто-то комментирует вашу запись" first>
             <LocalToggle storageKey="parafraz-notify-replies" defaultOn />
@@ -208,7 +209,7 @@ export function SettingsSectionScreen({ route }: Props) {
 
   if (section === 'privacy') {
     return (
-      <Wrap palette={palette}>
+      <Wrap palette={palette} title={route.params.title}>
         <Card palette={palette}>
           <Line palette={palette} label="Закрытый профиль" hint="Записи видны только подписчикам" first>
             <LocalToggle storageKey="parafraz-private-profile" />
@@ -224,7 +225,7 @@ export function SettingsSectionScreen({ route }: Props) {
 
   if (section === 'content') {
     return (
-      <Wrap palette={palette}>
+      <Wrap palette={palette} title={route.params.title}>
         <Card palette={palette}>
           <Line palette={palette} label="Материалы 18+" hint="Показывать записи с пометкой для взрослых" first>
             <LocalToggle storageKey="parafraz-nsfw" />
@@ -240,7 +241,7 @@ export function SettingsSectionScreen({ route }: Props) {
 
   if (section === 'language') {
     return (
-      <Wrap palette={palette}>
+      <Wrap palette={palette} title={route.params.title}>
         <Card palette={palette}>
           {LOCALES.map((l, i) => (
             <View key={l.id}>
@@ -259,7 +260,7 @@ export function SettingsSectionScreen({ route }: Props) {
 
   // about
   return (
-    <Wrap palette={palette}>
+    <Wrap palette={palette} title={route.params.title}>
       <Card palette={palette}>
         <Line palette={palette} label="Версия" hint="PARAFRAZ, сборка для разработки" first />
         <Line palette={palette} label="Правила" onPress={() => setSheet('rules')} />
@@ -302,11 +303,25 @@ export function SettingsSectionScreen({ route }: Props) {
 
 /* ── Кусочки ──────────────────────────────────────────────────────────── */
 
-function Wrap({ palette, children }: { palette: Palette; children: React.ReactNode }) {
+function Wrap({ palette, title, children }: { palette: Palette; title: string; children: React.ReactNode }) {
+  const topInset = useTopBarInset();
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: palette.bg }} contentContainerStyle={{ padding: 16, gap: 12 }}>
-      {children}
-    </ScrollView>
+    <View style={{ flex: 1, backgroundColor: palette.bg }}>
+      {/* Та же стеклянная шапка, что на ленте (колокол, :P, действие) —
+          накладная, с блюром и вуалью-затемнением под ней. */}
+      <TopBar back right="none" />
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingTop: topInset, paddingHorizontal: 16, paddingBottom: 40, gap: 12 }}
+        scrollIndicatorInsets={{ top: topInset }}
+      >
+        {/* Имя раздела крупным заголовком с акцентной точкой — как ScreenTitle. */}
+        <Text style={{ fontFamily: palette.displayFamily, fontSize: 30, color: palette.text, paddingBottom: 6 }}>
+          {title}<Text style={{ color: palette.accent }}>.</Text>
+        </Text>
+        {children}
+      </ScrollView>
+    </View>
   );
 }
 
