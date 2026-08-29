@@ -89,16 +89,17 @@ export function CommunitiesScreen() {
             </View>
 
             {communities.length > 0 ? (
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginHorizontal: 6, marginBottom: 12, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 14, backgroundColor: palette.surface2 }}>
+              // Поиск волосяной строкой, как в вебе (field-line): лупа и
+              // постоянная подпись «Поиск» слева, ввод — за ними.
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginHorizontal: 6, marginBottom: 12, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: palette.border }}>
                 <Svg width={17} height={17} viewBox="0 0 24 24" fill="none" stroke={palette.textMuted} strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round">
-                  <Path d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14Z" />
+                  <Path d="M11 4a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13Z" />
                   <Path d="m20 20-4.3-4.3" />
                 </Svg>
+                <Text style={{ fontSize: 15, color: palette.textMuted }}>Поиск</Text>
                 <TextInput
                   value={query}
                   onChangeText={setQuery}
-                  placeholder="Поиск"
-                  placeholderTextColor={palette.textMuted}
                   style={{ flex: 1, fontSize: 15, color: palette.text, paddingVertical: 2 }}
                 />
               </View>
@@ -110,9 +111,11 @@ export function CommunitiesScreen() {
         }
         ListEmptyComponent={
           !loading && !error ? (
-            <Text style={{ color: palette.textMuted, textAlign: 'center', marginTop: 40 }}>
-              {query ? 'Ничего не нашлось.' : 'Клубов пока нет.'}
-            </Text>
+            <View style={{ marginHorizontal: 6, borderRadius: 16, backgroundColor: palette.surface, padding: 24 }}>
+              <Text style={{ color: palette.textMuted, textAlign: 'center' }}>
+                {query ? 'Ничего не нашлось.' : 'Клубов пока нет.'}
+              </Text>
+            </View>
           ) : null
         }
         renderItem={({ item }) => (
@@ -127,8 +130,8 @@ export function CommunitiesScreen() {
               gap: 14,
               borderRadius: 16,
               padding: 16,
-              backgroundColor: palette.surface2,
-              transform: [{ scale: pressed ? 0.985 : 1 }],
+              backgroundColor: palette.surface,
+              transform: [{ scale: pressed ? 0.99 : 1 }],
             })}
           >
             <Avatar name={item.name} size={52} kind="community" />
