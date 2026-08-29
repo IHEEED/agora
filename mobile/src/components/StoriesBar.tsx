@@ -1,47 +1,31 @@
 import { useCallback, useState } from 'react';
-import { Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
+import Svg, { Path } from 'react-native-svg';
+import * as ImagePicker from 'expo-image-picker';
 import { useFocusEffect } from '@react-navigation/native';
 import { apiFetch } from '../lib/api';
 import { StoryGroup } from '../lib/types';
 import { Avatar } from './Avatar';
 import { StoryViewer } from './StoryViewer';
+import { StoryEditor } from './StoryEditor';
 import { SegmentRing } from './SegmentRing';
 import { usePalette } from '../theme';
 
 /**
  * Полоса историй наверху ленты, как в вебе.
  *
- * Первый кружок — своя история с плюсом (открывает конструктор); дальше люди со
- * свежими историями. Кольцо у непросмотренной — акцентом, у просмотренной —
- * приглушённое. Тап по кружку человека открывает полноэкранный просмотрщик.
- * Конструктор пока делает текстовую историю; картинка с загрузкой в хранилище
- * ляжет отдельным заходом.
+ * Первый кружок — своя история: пунктирное кольцо с плюсом. Нажатие сразу
+ * открывает выбор фото (как NewStorySheet в вебе, без промежуточной шторки), с
+ * нативным кадрированием (allowsEditing — роль вебового MediaEditor), а
+ * выбранный кадр уходит в редактор истории во весь экран. Дальше — люди со
+ * свежими историями: кольцо у непросмотренной акцентом, у просмотренной
+ * приглушённое; тап открывает полноэкранный просмотрщик.
  */
-
-function Ring({ children, color, dashed = false }: { children: React.ReactNode; color: string; dashed?: boolean }) {
-  return (
-    <View
-      style={{
-        width: 68,
-        height: 68,
-        borderRadius: 34,
-        borderWidth: 2.5,
-        borderColor: color,
-        borderStyle: dashed ? 'dashed' : 'solid',
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}
-    >
-      {children}
-    </View>
-  );
-}
-
 export function StoriesBar() {
   const palette = usePalette();
   const [groups, setGroups] = useState<StoryGroup[]>([]);
   const [viewing, setViewing] = useState<number | null>(null);
-  const [composing, setComposing] = useState(false);
+  const [editing, setEditing] = useState<{ uri: string; base64: string; mime: string } | null>(null);
 
   const load = useCallback(() => {
     apiFetch<StoryGroup[] | { stories: StoryGroup[] }>('/stories')
@@ -51,16 +35,37 @@ export function StoriesBar() {
 
   useFocusEffect(useCallback(() => load(), [load]));
 
+  async function pickForStory() {
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) return;
+    const res = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      quality: 0.8,
+      base64: true,
+      // Нативный кроп вместо вебового MediaEditor: история — вертикальный кадр.
+      allowsEditing: true,
+    });
+    const asset = res.canceled ? null : res.assets[0];
+    if (asset?.base64) {
+      setEditing({ uri: asset.uri, base64: asset.base64, mime: asset.mimeType ?? 'image/jpeg' });
+    }
+  }
+
   return (
     <>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 14, paddingHorizontal: 16, paddingVertical: 12 }}>
-        {/* Своя история — пунктирное кольцо с плюсом. */}
-        <Pressable onPress={() => setComposing(true)} style={{ alignItems: 'center', gap: 4, width: 72 }}>
-          <Ring color={palette.border} dashed>
-            <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: palette.surface2, alignItems: 'center', justifyContent: 'center' }}>
-              <Text style={{ fontSize: 24, color: palette.accent }}>+</Text>
+        {/* Своя история — пунктирное кольцо с плюсом-значком в углу. */}
+        <Pressable onPress={pickForStory} style={{ alignItems: 'center', gap: 4, width: 72 }}>
+          <View style={{ width: 68, height: 68 }}>
+            <View style={{ width: 68, height: 68, borderRadius: 34, borderWidth: 2, borderColor: palette.border, borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center' }}>
+              <Avatar name="+" size={56} />
             </View>
-          </Ring>
+            <View style={{ position: 'absolute', bottom: 0, right: 0, width: 22, height: 22, borderRadius: 11, backgroundColor: palette.accent, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: palette.bg }}>
+              <Svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke={palette.accentContrast} strokeWidth={3.2} strokeLinecap="round">
+                <Path d="M12 5v14M5 12h14" />
+              </Svg>
+            </View>
+          </View>
           <Text numberOfLines={1} style={{ fontSize: 11.5, color: palette.textMuted }}>Ваша история</Text>
         </Pressable>
 
@@ -86,53 +91,7 @@ export function StoriesBar() {
         />
       ) : null}
 
-      {composing ? <StoryComposer onClose={() => setComposing(false)} onPublished={load} /> : null}
+      <StoryEditor image={editing} onCancel={() => setEditing(null)} onPublished={load} />
     </>
-  );
-}
-
-/** Простой конструктор: текстовая история. */
-function StoryComposer({ onClose, onPublished }: { onClose: () => void; onPublished: () => void }) {
-  const palette = usePalette();
-  const [body, setBody] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-
-  async function publish() {
-    if (!body.trim()) return;
-    setSubmitting(true);
-    try {
-      await apiFetch('/stories', { method: 'POST', body: JSON.stringify({ body: body.trim() }) });
-      onPublished();
-      onClose();
-    } catch {
-      setSubmitting(false);
-    }
-  }
-
-  return (
-    <Modal visible transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable onPress={onClose} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' }}>
-        <Pressable onPress={(e) => e.stopPropagation()} style={{ backgroundColor: palette.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, paddingBottom: 34, gap: 12 }}>
-          <View style={{ alignSelf: 'center', width: 40, height: 5, borderRadius: 3, backgroundColor: palette.border }} />
-          <Text style={{ fontSize: 17, fontWeight: '700', color: palette.text }}>Новая история</Text>
-          <TextInput
-            value={body}
-            onChangeText={setBody}
-            placeholder="Что происходит?"
-            placeholderTextColor={palette.textMuted}
-            multiline
-            autoFocus
-            style={{ minHeight: 90, fontSize: 16, lineHeight: 22, color: palette.text, borderWidth: 1, borderColor: palette.border, borderRadius: 12, padding: 12, textAlignVertical: 'top' }}
-          />
-          <Pressable
-            onPress={publish}
-            disabled={submitting || !body.trim()}
-            style={{ alignSelf: 'flex-start', backgroundColor: palette.accent, borderRadius: 999, paddingHorizontal: 20, paddingVertical: 11, opacity: submitting || !body.trim() ? 0.4 : 1 }}
-          >
-            <Text style={{ color: palette.accentContrast, fontWeight: '600', fontSize: 15 }}>{submitting ? 'Секунду…' : 'Опубликовать'}</Text>
-          </Pressable>
-        </Pressable>
-      </Pressable>
-    </Modal>
   );
 }
