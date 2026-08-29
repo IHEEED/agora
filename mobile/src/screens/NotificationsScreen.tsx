@@ -7,7 +7,6 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { apiFetch } from '../lib/api';
 import { Avatar } from '../components/Avatar';
 import { VerifiedMark } from '../components/VerifiedMark';
-import { SegmentRing } from '../components/SegmentRing';
 import { SuggestedPeople } from '../components/SuggestedPeople';
 import { TopBar, useTopBarInset } from '../components/TopBar';
 import { usePalette } from '../theme';
@@ -140,10 +139,7 @@ export function NotificationsScreen() {
                 backgroundColor: unread ? `${palette.accent}1f` : 'transparent',
               }}
             >
-              <View style={{ width: 46, height: 46, alignItems: 'center', justifyContent: 'center' }}>
-                <SegmentRing size={46} segments={3} viewed={false} />
-                <Avatar name={item.actor?.username ?? '?'} uri={item.actor?.avatar_url} size={38} />
-              </View>
+              <Avatar name={item.actor?.username ?? '?'} uri={item.actor?.avatar_url} size={40} />
               <View style={{ flex: 1, minWidth: 0 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                   <Text numberOfLines={1} style={{ flexShrink: 1, fontSize: 14.5, fontWeight: '600', color: palette.text }}>

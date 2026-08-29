@@ -17,7 +17,6 @@ import { VoteBlock } from '../components/VoteBlock';
 import { PostCard } from '../components/PostCard';
 import { SuggestedPeople } from '../components/SuggestedPeople';
 import { TopBar, useTopBarInset } from '../components/TopBar';
-import { SegmentRing } from '../components/SegmentRing';
 import { CommentIcon, ChevronIcon } from '../components/icons';
 import { usePalette } from '../theme';
 import type { RootStackParamList, TabParamList } from '../navigation/types';
@@ -154,12 +153,11 @@ export function ProfileScreen() {
         </Pressable>
 
         <View style={{ paddingHorizontal: 16, paddingTop: 108, paddingBottom: 16, gap: 12 }}>
-          {/* Аватар приподнят на обложку, вокруг — кольцо истории; облачко-мысль
-              над ним. */}
+          {/* Аватар приподнят на обложку; облачко-мысль над ним. Кольца нет —
+              оно означает непросмотренные истории, а их у своего профиля нет. */}
           <View style={{ marginTop: -44, width: 96, height: 96 }}>
             <View style={{ position: 'absolute', left: 0, top: 0, width: 96, height: 96, alignItems: 'center', justifyContent: 'center' }}>
-              <SegmentRing size={96} segments={3} viewed={false} />
-              <Avatar name={handle} uri={profile?.avatar_url} size={82} />
+              <Avatar name={handle} uri={profile?.avatar_url} size={88} />
             </View>
             <Pressable
               onPress={() => { setNoteDraft(note); setNoteEditing(true); }}
