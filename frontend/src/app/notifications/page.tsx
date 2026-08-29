@@ -6,7 +6,6 @@ import { SuggestedPeople } from '@/components/SuggestedPeople';
 import { ScreenTitle } from '@/components/ScreenTitle';
 import { ProfileAvatar } from '@/components/ProfileAvatar';
 import { VerifiedMark } from '@/components/VerifiedMark';
-import { SegmentRing } from '@/components/SegmentRing';
 import { apiFetch } from '@/lib/api';
 import { invalidate, useApiData } from '@/lib/useApiData';
 import { useT, TranslationKey } from '@/lib/i18n';
@@ -135,13 +134,8 @@ export default function NotificationsPage() {
                   // текст и время. Фон же читается боковым зрением.
                   style={unread ? { background: 'var(--accent-soft)' } : undefined}
                 >
-                  {/* Лицо в крутящемся кольце — как у историй. */}
-                  <span className="relative flex-none" style={{ width: 44, height: 44 }}>
-                    <SegmentRing size={44} segments={3} />
-                    <span className="absolute inset-0 flex items-center justify-center">
-                      <ProfileAvatar name={item.actor?.username ?? '?'} size={36} photo={item.actor?.avatar_url ?? null} />
-                    </span>
-                  </span>
+                  {/* Лицо с крутящимся кольцом — ProfileAvatar рисует его сам. */}
+                  <ProfileAvatar name={item.actor?.username ?? '?'} size={44} photo={item.actor?.avatar_url ?? null} />
 
                   <div className="flex min-w-0 flex-1 flex-col">
                     <span className="truncate text-[14.5px] text-[var(--text)]">
