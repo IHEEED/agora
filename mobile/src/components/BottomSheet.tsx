@@ -54,10 +54,10 @@ export function BottomSheet({
 
   return (
     <Modal visible={open} transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable onPress={onClose} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' }}>
-        <Animated.View style={{ transform: [{ translateY: y }] }}>
-          <Pressable onPress={(e) => e.stopPropagation()}>
-            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <Pressable onPress={onClose} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' }}>
+          <Animated.View style={{ transform: [{ translateY: y }] }}>
+            <Pressable onPress={(e) => e.stopPropagation()}>
               <View
                 onLayout={(e) => { height.current = e.nativeEvent.layout.height; }}
                 style={{ backgroundColor: palette.surface, borderTopLeftRadius: 22, borderTopRightRadius: 22, paddingBottom: insets.bottom + 12, maxHeight: '90%' }}
@@ -75,10 +75,10 @@ export function BottomSheet({
 
                 {footer ? <View style={{ paddingHorizontal: 20, paddingTop: 8 }}>{footer}</View> : null}
               </View>
-            </KeyboardAvoidingView>
-          </Pressable>
-        </Animated.View>
-      </Pressable>
+            </Pressable>
+          </Animated.View>
+        </Pressable>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
