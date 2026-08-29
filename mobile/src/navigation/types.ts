@@ -9,7 +9,7 @@ export type RootStackParamList = {
   People: { endpoint: string; title: string; emptyText: string };
   Login: undefined;
   CreateCommunity: undefined;
-  CreatePost: { communityId: string };
+  CreatePost: { communityId?: string; after?: string } | undefined;
   Messages: undefined;
   Chat: { userId: string; username: string };
   NewMessage: undefined;

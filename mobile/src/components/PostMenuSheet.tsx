@@ -31,6 +31,7 @@ export function PostMenuSheet({
   isMine,
   onDeleted,
   onStory,
+  onContinue,
 }: {
   open: boolean;
   onClose: () => void;
@@ -39,6 +40,8 @@ export function PostMenuSheet({
   onDeleted?: () => void;
   /** Открыть репост записи в историю. Без него пункт «В историю» не показываем. */
   onStory?: () => void;
+  /** Продолжить запись (только своя и без цепочки). Без него пункта нет. */
+  onContinue?: () => void;
 }) {
   const palette = usePalette();
   const [reporting, setReporting] = useState(false);
@@ -101,6 +104,12 @@ export function PostMenuSheet({
             </>
           ) : (
             <>
+              {onContinue ? (
+                <Item palette={palette} label="Продолжить" onPress={() => { onClose(); onContinue(); }}>
+                  <Path d="M6 4v10a3 3 0 0 0 3 3h9" />
+                  <Path d="m14 13 4 4-4 4" />
+                </Item>
+              ) : null}
               <Item palette={palette} label={copied ? 'Ссылка скопирована' : 'Скопировать ссылку'} onPress={copyLink}>
                 <Rect x="9" y="9" width="11" height="11" rx="2.5" />
                 <Path d="M15 5.5A2.5 2.5 0 0 0 12.5 3h-7A2.5 2.5 0 0 0 3 5.5v7A2.5 2.5 0 0 0 5.5 15" />

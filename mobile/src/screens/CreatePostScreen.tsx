@@ -26,9 +26,12 @@ type Target = { kind: 'personal' } | { kind: 'community'; id: string; name: stri
 export function CreatePostScreen({ navigation, route }: Props) {
   const palette = usePalette();
   const { session } = useSession();
-  const preset = route.params.communityId;
+  const preset = route.params?.communityId;
+  // Пришли по «Написать вслед» — запись продолжает указанную; выбор клуба тогда
+  // не нужен, продолжение живёт там же, где начало (как в вебе).
+  const after = route.params?.after;
 
-  const [step, setStep] = useState<'community' | 'compose'>(preset ? 'compose' : 'community');
+  const [step, setStep] = useState<'community' | 'compose'>(preset || after ? 'compose' : 'community');
   const [target, setTarget] = useState<Target | null>(preset ? { kind: 'community', id: preset, name: '' } : null);
   const [communities, setCommunities] = useState<Community[]>([]);
   const [query, setQuery] = useState('');
@@ -70,6 +73,7 @@ export function CreatePostScreen({ navigation, route }: Props) {
           image_urls: images,
           poll_options: pollOptions,
           post_as_community: target?.kind === 'community',
+          continues_post_id: after ?? null,
         }),
       });
       navigation.goBack();
@@ -190,8 +194,21 @@ export function CreatePostScreen({ navigation, route }: Props) {
   // Шаг сочинения.
   return (
     <ScrollView style={{ flex: 1, backgroundColor: palette.bg }} contentContainerStyle={{ padding: 16, gap: 14 }} keyboardShouldPersistTaps="handled">
+      {/* Пишем вслед — запись уйдёт под ту, которую продолжает (как в вебе). */}
+      {after ? (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 16, paddingHorizontal: 12, paddingVertical: 10, backgroundColor: `${palette.accent}1f` }}>
+          <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={palette.accent} strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round">
+            <Path d="M6 4v10a3 3 0 0 0 3 3h9" />
+            <Path d="m14 13 4 4-4 4" />
+          </Svg>
+          <Text style={{ flex: 1, fontSize: 13.5, lineHeight: 19, color: palette.text }}>
+            Запись уйдёт <Text style={{ fontWeight: '700', color: palette.accent }}>вслед</Text> за предыдущей и появится под ней.
+          </Text>
+        </View>
+      ) : null}
+
       {/* Куда уходит запись — строкой сверху, можно сменить назад. */}
-      {!preset ? (
+      {!preset && !after ? (
         <Pressable onPress={() => setStep('community')} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, alignSelf: 'flex-start' }}>
           <Avatar name={target?.kind === 'community' ? target.name || '?' : emailHandle} size={30} />
           <Text style={{ fontSize: 14, fontWeight: '600', color: palette.text }}>

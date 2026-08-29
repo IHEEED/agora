@@ -181,6 +181,8 @@ export function PostCard({
         isMine={isMine}
         onDeleted={() => setRemoved(true)}
         onStory={() => setStoryOpen(true)}
+        // Продолжить можно только своё и только без цепочки — как в вебе.
+        onContinue={isMine && !hasChain ? () => navigation.navigate('CreatePost', { after: post.id }) : undefined}
       />
 
       {/* Репост записи в свою историю — как в вебе. */}
