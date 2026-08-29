@@ -9,6 +9,7 @@ import { Community, Post } from '../lib/types';
 import { Avatar } from '../components/Avatar';
 import { VerifiedMark } from '../components/VerifiedMark';
 import { PostCard } from '../components/PostCard';
+import { TopBar, useTopBarInset } from '../components/TopBar';
 import { usePalette } from '../theme';
 import type { RootStackParamList } from '../navigation/types';
 
@@ -31,6 +32,7 @@ const SCOPES: { value: Scope; label: string }[] = [
 export function SearchScreen() {
   const palette = usePalette();
   const insets = useSafeAreaInsets();
+  const topInset = useTopBarInset();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
   const [query, setQuery] = useState('');
@@ -62,7 +64,8 @@ export function SearchScreen() {
   const nothing = q.length > 0 && !showPeople && !showCommunities && !showPosts;
 
   return (
-    <View style={{ flex: 1, backgroundColor: palette.bg, paddingTop: insets.top + 8 }}>
+    <View style={{ flex: 1, backgroundColor: palette.bg, paddingTop: topInset }}>
+      <TopBar back right="none" />
       {/* Строка поиска. */}
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginHorizontal: 16, marginBottom: 10, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 14, backgroundColor: palette.surface2 }}>
         <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={palette.textMuted} strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round">

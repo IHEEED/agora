@@ -6,6 +6,7 @@ import MaskedView from '@react-native-masked-view/masked-view';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import Svg, { Path } from 'react-native-svg';
 import { BellIcon, SearchIcon, GearIcon } from './icons';
 import { usePalette } from '../theme';
 import type { RootStackParamList } from '../navigation/types';
@@ -28,7 +29,7 @@ export function useTopBarInset() {
  * настройки). Знак моргает лёгким сжатием при появлении и по нажатию — тот же
  * приём, что и на сайте.
  */
-export function TopBar({ right = 'search' }: { right?: 'search' | 'settings' }) {
+export function TopBar({ right = 'search', back = false }: { right?: 'search' | 'settings' | 'none'; back?: boolean }) {
   const palette = usePalette();
   const insets = useSafeAreaInsets();
   const dark = useColorScheme() === 'dark';
@@ -85,9 +86,18 @@ export function TopBar({ right = 'search' }: { right?: 'search' | 'settings' }) 
           height: insets.top + TOP_BAR_HEIGHT,
         }}
       >
-        <Pressable onPress={() => navigation.navigate('Notifications')} hitSlop={10}>
-          <BellIcon size={26} color={palette.control} />
-        </Pressable>
+        {/* Слева на вложенных экранах — «назад», на вкладках — колокол. */}
+        {back ? (
+          <Pressable onPress={() => navigation.goBack()} hitSlop={10}>
+            <Svg width={26} height={26} viewBox="0 0 24 24" fill="none" stroke={palette.control} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+              <Path d="m15 6-6 6 6 6" />
+            </Svg>
+          </Pressable>
+        ) : (
+          <Pressable onPress={() => navigation.navigate('Notifications')} hitSlop={10}>
+            <BellIcon size={26} color={palette.control} />
+          </Pressable>
+        )}
 
         <Pressable onPress={play} hitSlop={10} style={{ flexDirection: 'row', alignItems: 'center' }}>
           <Animated.Text
@@ -119,10 +129,12 @@ export function TopBar({ right = 'search' }: { right?: 'search' | 'settings' }) 
           <Pressable onPress={() => navigation.navigate('Settings')} hitSlop={10}>
             <GearIcon size={26} color={palette.control} />
           </Pressable>
-        ) : (
+        ) : right === 'search' ? (
           <Pressable onPress={() => navigation.navigate('Search')} hitSlop={10}>
             <SearchIcon size={25} color={palette.control} />
           </Pressable>
+        ) : (
+          <View style={{ width: 26 }} />
         )}
       </View>
     </View>

@@ -44,11 +44,11 @@ export function RootNavigator() {
       <Stack.Screen name="Community" component={CommunityScreen} />
       <Stack.Screen name="Post" component={PostScreen} options={{ title: 'Пост' }} />
       <Stack.Screen name="Messages" component={MessagesScreen} options={{ title: 'Мессенджер' }} />
-      {/* Заголовок ставит сам экран из имени собеседника — см. навигацию. */}
+      {/* Шапку рисует сам экран (TopBar + строка собеседника). */}
       <Stack.Screen
         name="Chat"
         component={ChatScreen}
-        options={({ route }) => ({ title: route.params.username })}
+        options={{ headerShown: false }}
       />
       <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ headerShown: false }} />
       <Stack.Screen name="User" component={UserScreen} options={{ title: 'Профиль' }} />

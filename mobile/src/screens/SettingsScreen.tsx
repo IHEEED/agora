@@ -6,6 +6,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { apiFetch } from '../lib/api';
 import { ChevronIcon } from '../components/icons';
+import { TopBar, useTopBarInset } from '../components/TopBar';
 import { SETTINGS_GROUPS, SettingsSection } from '../lib/settingsSections';
 import { usePalette } from '../theme';
 import type { RootStackParamList } from '../navigation/types';
@@ -22,7 +23,7 @@ type Nav = NativeStackNavigationProp<RootStackParamList>;
  */
 export function SettingsScreen() {
   const palette = usePalette();
-  const insets = useSafeAreaInsets();
+  const topInset = useTopBarInset();
   const navigation = useNavigation<Nav>();
   const [isModerator, setIsModerator] = useState(false);
 
@@ -33,23 +34,12 @@ export function SettingsScreen() {
   }, []);
 
   return (
-    <ScrollView style={{ flex: 1, backgroundColor: palette.bg }} contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40, gap: 22 }}>
-      {/* Свой крупный заголовок с кружком-назад — как в вебе; нативная панель
-          на этом экране спрятана. */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, paddingTop: insets.top + 8, paddingBottom: 6 }}>
-        <Pressable
-          onPress={() => navigation.goBack()}
-          hitSlop={8}
-          style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: palette.surface, alignItems: 'center', justifyContent: 'center' }}
-        >
-          <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={palette.text} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
-            <Path d="m15 6-6 6 6 6" />
-          </Svg>
-        </Pressable>
-        <Text style={{ fontFamily: palette.displayFamily, fontSize: 32, color: palette.text }}>
-          Настройки<Text style={{ color: palette.accent }}>.</Text>
-        </Text>
-      </View>
+    <View style={{ flex: 1, backgroundColor: palette.bg }}>
+      <TopBar back right="none" />
+      <ScrollView contentContainerStyle={{ paddingTop: topInset, paddingHorizontal: 16, paddingBottom: 40, gap: 22 }} scrollIndicatorInsets={{ top: topInset }}>
+      <Text style={{ fontFamily: palette.displayFamily, fontSize: 32, color: palette.text, paddingBottom: 6 }}>
+        Настройки<Text style={{ color: palette.accent }}>.</Text>
+      </Text>
 
       {SETTINGS_GROUPS.map((group, groupIndex) => {
         const rows = group.filter((section) => !section.modOnly || isModerator);
@@ -68,7 +58,8 @@ export function SettingsScreen() {
           </View>
         );
       })}
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 

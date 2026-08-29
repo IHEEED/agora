@@ -13,6 +13,7 @@ import { uploadImage } from '../lib/uploadImage';
 import { useSession } from '../lib/useSession';
 import { Message, UserProfile } from '../lib/types';
 import { Avatar } from '../components/Avatar';
+import { TopBar, useTopBarInset } from '../components/TopBar';
 import { usePalette } from '../theme';
 import type { RootStackParamList } from '../navigation/types';
 
@@ -77,6 +78,7 @@ export function ChatScreen() {
   const [reacting, setReacting] = useState<{ id: string; x: number; y: number; mine: boolean } | null>(null);
   const [peerAvatar, setPeerAvatar] = useState<string | null>(null);
   const [playingId, setPlayingId] = useState<string | null>(null);
+  const topInset = useTopBarInset();
   const listRef = useRef<FlatList<Message>>(null);
   const playerRef = useRef<ReturnType<typeof createAudioPlayer> | null>(null);
 
@@ -97,17 +99,6 @@ export function ChatScreen() {
     }, [load, userId])
   );
 
-  // Лицо и имя собеседника в шапке — как в вебе, вместо одного имени.
-  useLayoutEffect(() => {
-    navigation.setOptions({
-      headerTitle: () => (
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <Avatar name={username} uri={peerAvatar} size={30} />
-          <Text style={{ fontSize: 16, fontWeight: '600', color: palette.text }}>{username}</Text>
-        </View>
-      ),
-    });
-  }, [navigation, username, peerAvatar, palette.text]);
 
   /** Поставить/снять реакцию на письмо. */
   async function react(messageId: string, emoji: string) {
@@ -212,6 +203,14 @@ export function ChatScreen() {
 
   return (
     <KeyboardAvoidingView style={{ flex: 1, backgroundColor: palette.bg }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <TopBar back right="none" />
+
+      {/* Собеседник — лицом и именем по центру под баром, как в вебе. */}
+      <View style={{ paddingTop: topInset - 8, paddingBottom: 8, alignItems: 'center', gap: 4, borderBottomWidth: 1, borderBottomColor: palette.border }}>
+        <Avatar name={username} uri={peerAvatar} size={34} />
+        <Text style={{ fontSize: 15, fontWeight: '600', color: palette.text }}>{username}</Text>
+      </View>
+
       <FlatList
         ref={listRef}
         data={messages}

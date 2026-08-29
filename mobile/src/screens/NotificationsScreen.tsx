@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { apiFetch } from '../lib/api';
 import { Avatar } from '../components/Avatar';
+import { TopBar, useTopBarInset } from '../components/TopBar';
 import { formatCompactAge } from '../lib/formatDate';
 import { usePalette } from '../theme';
 import type { RootStackParamList } from '../navigation/types';
@@ -44,6 +45,7 @@ const WHAT: Record<Notification['kind'], string> = {
 export function NotificationsScreen() {
   const palette = usePalette();
   const insets = useSafeAreaInsets();
+  const topInset = useTopBarInset();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
   const [items, setItems] = useState<Notification[]>([]);
@@ -73,26 +75,17 @@ export function NotificationsScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: palette.bg }}>
+      <TopBar back right="none" />
       <FlatList
         data={items}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={{ paddingBottom: insets.bottom + 24 }}
+        contentContainerStyle={{ paddingTop: topInset, paddingBottom: insets.bottom + 24 }}
+        scrollIndicatorInsets={{ top: topInset }}
         ListHeaderComponent={
-          <View style={{ paddingTop: insets.top + 8, paddingHorizontal: 16, paddingBottom: 8 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-              <Pressable
-                onPress={() => navigation.goBack()}
-                hitSlop={8}
-                style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: palette.surface, alignItems: 'center', justifyContent: 'center' }}
-              >
-                <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={palette.text} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
-                  <Path d="m15 6-6 6 6 6" />
-                </Svg>
-              </Pressable>
-              <Text style={{ fontFamily: palette.displayFamily, fontSize: 30, color: palette.text }}>
-                Уведомления<Text style={{ color: palette.accent }}>.</Text>
-              </Text>
-            </View>
+          <View style={{ paddingHorizontal: 16, paddingBottom: 8 }}>
+            <Text style={{ fontFamily: palette.displayFamily, fontSize: 30, color: palette.text }}>
+              Уведомления<Text style={{ color: palette.accent }}>.</Text>
+            </Text>
             {loading ? <Text style={{ paddingTop: 16, color: palette.textMuted }}>Загрузка…</Text> : null}
             {!loading && items.length === 0 ? (
               <Text style={{ paddingTop: 16, color: palette.textMuted }}>Новых уведомлений нет. Пока тихо.</Text>
