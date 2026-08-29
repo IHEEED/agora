@@ -8,6 +8,7 @@ import { apiFetch } from '../lib/api';
 import { ChevronIcon } from '../components/icons';
 import { TopBar, useTopBarInset } from '../components/TopBar';
 import { SETTINGS_GROUPS, SettingsSection } from '../lib/settingsSections';
+import { translate, useT } from '../lib/i18n';
 import { usePalette } from '../theme';
 import type { RootStackParamList } from '../navigation/types';
 
@@ -25,6 +26,7 @@ export function SettingsScreen() {
   const palette = usePalette();
   const topInset = useTopBarInset();
   const navigation = useNavigation<Nav>();
+  const { t } = useT();
   const [isModerator, setIsModerator] = useState(false);
 
   useEffect(() => {
@@ -38,7 +40,7 @@ export function SettingsScreen() {
       <TopBar back right="none" />
       <ScrollView contentContainerStyle={{ paddingTop: topInset, paddingHorizontal: 16, paddingBottom: 40, gap: 20 }} scrollIndicatorInsets={{ top: topInset }}>
       <Text style={{ fontFamily: palette.displayFamily, fontSize: 30, color: palette.text, paddingBottom: 6 }}>
-        Настройки<Text style={{ color: palette.accent }}>.</Text>
+        {t('Настройки')}<Text style={{ color: palette.accent }}>.</Text>
       </Text>
 
       {SETTINGS_GROUPS.map((group, groupIndex) => {
@@ -84,7 +86,7 @@ function Row({
       {!first ? <View style={{ height: 1, marginLeft: 16, backgroundColor: palette.border }} /> : null}
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 46, paddingHorizontal: 16, paddingVertical: 8.5 }}>
         <TintTile tint={section.tint} path={section.path} />
-        <Text style={{ flex: 1, fontSize: 16, color: palette.text }}>{section.label}</Text>
+        <Text style={{ flex: 1, fontSize: 16, color: palette.text }}>{translate(section.label)}</Text>
         <ChevronIcon size={17} color={palette.textMuted} />
       </View>
     </Pressable>

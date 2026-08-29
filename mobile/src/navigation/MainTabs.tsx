@@ -3,6 +3,7 @@ import { CommunitiesScreen } from '../screens/CommunitiesScreen';
 import { FeedScreen } from '../screens/FeedScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { MessagesScreen } from '../screens/MessagesScreen';
+import { useT } from '../lib/i18n';
 import { usePalette } from '../theme';
 import type { TabParamList } from './types';
 
@@ -19,6 +20,7 @@ const Tab = createNativeBottomTabNavigator<TabParamList>();
 
 export function MainTabs() {
   const palette = usePalette();
+  const { t } = useT();
 
   return (
     <Tab.Navigator
@@ -31,7 +33,7 @@ export function MainTabs() {
         name="Feed"
         component={FeedScreen}
         options={{
-          tabBarLabel: 'Главная',
+          tabBarLabel: t('Главная'),
           tabBarIcon: ({ focused }: { focused: boolean }) => ({
             type: 'sfSymbol' as const,
             name: focused ? 'house.fill' : 'house',
@@ -42,7 +44,7 @@ export function MainTabs() {
         name="Communities"
         component={CommunitiesScreen}
         options={{
-          tabBarLabel: 'Клубы',
+          tabBarLabel: t('Клубы'),
           tabBarIcon: ({ focused }: { focused: boolean }) => ({
             type: 'sfSymbol' as const,
             name: focused ? 'person.2.fill' : 'person.2',
@@ -53,7 +55,7 @@ export function MainTabs() {
         name="MessagesTab"
         component={MessagesScreen}
         options={{
-          tabBarLabel: 'Сообщения',
+          tabBarLabel: t('Сообщения'),
           tabBarIcon: ({ focused }: { focused: boolean }) => ({
             type: 'sfSymbol' as const,
             name: focused ? 'bubble.left.and.bubble.right.fill' : 'bubble.left.and.bubble.right',
@@ -64,7 +66,7 @@ export function MainTabs() {
         name="Profile"
         component={ProfileScreen}
         options={{
-          tabBarLabel: 'Профиль',
+          tabBarLabel: t('Профиль'),
           tabBarIcon: ({ focused }: { focused: boolean }) => ({
             type: 'sfSymbol' as const,
             name: focused ? 'person.crop.circle.fill' : 'person.crop.circle',

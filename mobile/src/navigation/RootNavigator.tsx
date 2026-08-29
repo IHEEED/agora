@@ -20,6 +20,7 @@ import { ProfileEditScreen } from '../screens/ProfileEditScreen';
 import { ModerationScreen } from '../screens/ModerationScreen';
 import { VerificationScreen } from '../screens/VerificationScreen';
 import { StatsScreen } from '../screens/StatsScreen';
+import { useT } from '../lib/i18n';
 import { usePalette } from '../theme';
 import type { RootStackParamList } from './types';
 
@@ -27,6 +28,7 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export function RootNavigator() {
   const palette = usePalette();
+  const { t } = useT();
 
   return (
     <Stack.Navigator
@@ -46,24 +48,24 @@ export function RootNavigator() {
     >
       <Stack.Screen name="MainTabs" component={MainTabs} options={{ headerShown: false }} />
       <Stack.Screen name="Community" component={CommunityScreen} options={{ headerShown: false }} />
-      <Stack.Screen name="CommunityAbout" component={CommunityAboutScreen} options={{ title: 'О клубе', presentation: 'modal' }} />
-      <Stack.Screen name="Post" component={PostScreen} options={{ title: 'Пост' }} />
-      <Stack.Screen name="Comments" component={CommentsScreen} options={{ title: 'Комментарии', presentation: 'modal' }} />
+      <Stack.Screen name="CommunityAbout" component={CommunityAboutScreen} options={{ title: t('О клубе'), presentation: 'modal' }} />
+      <Stack.Screen name="Post" component={PostScreen} options={{ title: t('Пост') }} />
+      <Stack.Screen name="Comments" component={CommentsScreen} options={{ title: t('Комментарии'), presentation: 'modal' }} />
       <Stack.Screen
         name="People"
         component={PeopleScreen}
         options={({ route }) => ({ title: route.params.title, presentation: 'modal' })}
       />
-      <Stack.Screen name="Messages" component={MessagesScreen} options={{ title: 'Мессенджер' }} />
+      <Stack.Screen name="Messages" component={MessagesScreen} options={{ title: t('Мессенджер') }} />
       {/* Шапку рисует сам экран (TopBar + строка собеседника). */}
       <Stack.Screen
         name="Chat"
         component={ChatScreen}
         options={{ headerShown: false }}
       />
-      <Stack.Screen name="NewMessage" component={NewMessageScreen} options={{ title: 'Кому написать', presentation: 'modal' }} />
+      <Stack.Screen name="NewMessage" component={NewMessageScreen} options={{ title: t('Кому написать'), presentation: 'modal' }} />
       <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ headerShown: false }} />
-      <Stack.Screen name="User" component={UserScreen} options={{ title: 'Профиль' }} />
+      <Stack.Screen name="User" component={UserScreen} options={{ title: t('Профиль') }} />
       <Stack.Screen name="Search" component={SearchScreen} options={{ headerShown: false }} />
       <Stack.Screen name="Settings" component={SettingsScreen} options={{ headerShown: false }} />
       <Stack.Screen
@@ -71,20 +73,20 @@ export function RootNavigator() {
         component={SettingsSectionScreen}
         options={{ headerShown: false }}
       />
-      <Stack.Screen name="ProfileEdit" component={ProfileEditScreen} options={{ title: 'Профиль' }} />
+      <Stack.Screen name="ProfileEdit" component={ProfileEditScreen} options={{ title: t('Профиль') }} />
       <Stack.Screen name="Moderation" component={ModerationScreen} options={{ headerShown: false }} />
       <Stack.Screen name="Verification" component={VerificationScreen} options={{ headerShown: false }} />
       <Stack.Screen name="Stats" component={StatsScreen} options={{ headerShown: false }} />
-      <Stack.Screen name="Login" component={LoginScreen} options={{ title: 'Вход' }} />
+      <Stack.Screen name="Login" component={LoginScreen} options={{ title: t('Вход') }} />
       <Stack.Screen
         name="CreateCommunity"
         component={CreateCommunityScreen}
-        options={{ title: 'Новый клуб', presentation: 'modal' }}
+        options={{ title: t('Новый клуб'), presentation: 'modal' }}
       />
       <Stack.Screen
         name="CreatePost"
         component={CreatePostScreen}
-        options={{ title: 'Новый пост', presentation: 'modal' }}
+        options={{ title: t('Новый пост'), presentation: 'modal' }}
       />
     </Stack.Navigator>
   );

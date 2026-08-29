@@ -14,6 +14,7 @@ import { InvitesPanel } from '../components/InvitesPanel';
 import { TopBar, useTopBarInset } from '../components/TopBar';
 import { ChevronIcon } from '../components/icons';
 import { SettingsSectionId } from '../lib/settingsSections';
+import { LOCALES, useT } from '../lib/i18n';
 import { useIsDark, usePalette } from '../theme';
 import type { RootStackParamList } from '../navigation/types';
 
@@ -33,12 +34,6 @@ const STYLES: { id: StyleId; label: string; hint: string; serif: boolean; light:
   { id: 'midnight', label: 'Полночь', hint: 'Синий полумрак и ледяной акцент', serif: false, light: ['#f6f7f9', '#ffffff', '#3457d5'], dark: ['#090b10', '#12151c', '#86a8ff'] },
   { id: 'garden', label: 'Сад', hint: 'Приглушённая зелень и тёплый небелый', serif: true, light: ['#f5f7f1', '#fdfefb', '#4a6b3a'], dark: ['#10130d', '#181c14', '#a3c47e'] },
   { id: 'signal', label: 'Сигнал', hint: 'Нейтральный холст и одна фиолетовая нота', serif: false, light: ['#fbfbfd', '#ffffff', '#5b3ad6'], dark: ['#0d0d11', '#16161d', '#a88cff'] },
-];
-
-const LOCALES = [
-  { id: 'ru', label: 'Русский', on: true },
-  { id: 'en', label: 'English', on: false },
-  { id: 'es', label: 'Español', on: false },
 ];
 
 /** Правила — три пункта, тем же текстом, что в вебе (AboutSheets). */
@@ -71,6 +66,7 @@ export function SettingsSectionScreen({ route }: Props) {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { session } = useSession();
   const section = route.params.section as SettingsSectionId;
+  const { t, locale, setLocale } = useT();
   const themePref = useThemePreference();
   const stylePref = useStylePreference();
   const dark = useIsDark();
@@ -87,14 +83,14 @@ export function SettingsSectionScreen({ route }: Props) {
       <Wrap palette={palette} title={route.params.title}>
         <Card palette={palette}>
           <View style={{ padding: 16, gap: 10 }}>
-            <Text style={{ fontSize: 15, color: palette.text }}>Тема</Text>
-            <SegmentedControl value={themePref} onChange={setThemePreference} options={THEMES} />
+            <Text style={{ fontSize: 15, color: palette.text }}>{t('Тема')}</Text>
+            <SegmentedControl value={themePref} onChange={setThemePreference} options={THEMES.map(([v, label]) => [v, t(label)] as const)} />
           </View>
         </Card>
 
-        <Text style={{ fontSize: 15, color: palette.text, marginTop: 6, marginHorizontal: 4 }}>Стиль</Text>
+        <Text style={{ fontSize: 15, color: palette.text, marginTop: 6, marginHorizontal: 4 }}>{t('Стиль')}</Text>
         <Text style={{ fontSize: 12.5, lineHeight: 18, color: palette.textMuted, marginHorizontal: 4 }}>
-          Фон, цвета, шрифт заголовков и фактура подобраны вместе — стиль меняется целиком.
+          {t('Фон, цвета, шрифт заголовков и фактура подобраны вместе — стиль меняется целиком.')}
         </Text>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
           {STYLES.map((s) => {
@@ -126,8 +122,8 @@ export function SettingsSectionScreen({ route }: Props) {
                   </View>
                 </View>
                 <View style={{ paddingHorizontal: 2 }}>
-                  <Text style={{ fontSize: 13.5, fontWeight: '600', color: selected ? palette.accent : palette.text }}>{s.label}</Text>
-                  <Text style={{ fontSize: 11.5, lineHeight: 15, color: palette.textMuted }}>{s.hint}</Text>
+                  <Text style={{ fontSize: 13.5, fontWeight: '600', color: selected ? palette.accent : palette.text }}>{t(s.label)}</Text>
+                  <Text style={{ fontSize: 11.5, lineHeight: 15, color: palette.textMuted }}>{t(s.hint)}</Text>
                 </View>
               </Pressable>
             );
@@ -144,7 +140,7 @@ export function SettingsSectionScreen({ route }: Props) {
           <Line palette={palette} label="Почта" hint={session?.user.email ?? ''} first />
           <Line palette={palette} label="Телефон" hint={phoneVerified ? 'Подтверждён' : 'Нужен, чтобы писать посты и комментарии'}>
             {phoneVerified ? (
-              <Text style={{ fontSize: 13, fontWeight: '600', color: palette.up }}>Готово</Text>
+              <Text style={{ fontSize: 13, fontWeight: '600', color: palette.up }}>{t('Готово')}</Text>
             ) : (
               <Pill palette={palette} label="Подтвердить" onPress={() => {}} />
             )}
@@ -156,7 +152,7 @@ export function SettingsSectionScreen({ route }: Props) {
           onPress={() => supabase.auth.signOut()}
           style={{ borderRadius: 999, paddingVertical: 14, alignItems: 'center', backgroundColor: `${palette.down}22` }}
         >
-          <Text style={{ fontSize: 15, fontWeight: '700', color: palette.down }}>Выйти из аккаунта</Text>
+          <Text style={{ fontSize: 15, fontWeight: '700', color: palette.down }}>{t('Выйти из аккаунта')}</Text>
         </Pressable>
       </Wrap>
     );
@@ -230,16 +226,15 @@ export function SettingsSectionScreen({ route }: Props) {
       <Wrap palette={palette} title={route.params.title}>
         <Card palette={palette}>
           {LOCALES.map((l, i) => (
-            <View key={l.id}>
+            <Pressable key={l.id} onPress={() => setLocale(l.id)}>
               {i > 0 ? <View style={{ height: 1, marginLeft: 16, backgroundColor: palette.border }} /> : null}
-              <View style={{ flexDirection: 'row', alignItems: 'center', minHeight: 46, paddingHorizontal: 16, paddingVertical: 9, opacity: l.on ? 1 : 0.5 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', minHeight: 46, paddingHorizontal: 16, paddingVertical: 9 }}>
                 <Text style={{ flex: 1, fontSize: 16, color: palette.text }}>{l.label}</Text>
-                {l.on ? <Check palette={palette} /> : null}
+                {locale === l.id ? <Check palette={palette} /> : null}
               </View>
-            </View>
+            </Pressable>
           ))}
         </Card>
-        <Note palette={palette}>Пока приложение говорит по-русски; выбор языка появится позже.</Note>
       </Wrap>
     );
   }
@@ -313,6 +308,7 @@ export function SettingsSectionScreen({ route }: Props) {
 
 function Wrap({ palette, title, children, onBump }: { palette: Palette; title: string; children: React.ReactNode; onBump?: () => void }) {
   const topInset = useTopBarInset();
+  const { t } = useT();
   const armed = useRef(true);
   const rearm = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -344,7 +340,7 @@ function Wrap({ palette, title, children, onBump }: { palette: Palette; title: s
       >
         {/* Имя раздела крупным заголовком с акцентной точкой — как ScreenTitle. */}
         <Text style={{ fontFamily: palette.displayFamily, fontSize: 30, color: palette.text, paddingBottom: 6 }}>
-          {title}<Text style={{ color: palette.accent }}>.</Text>
+          {t(title)}<Text style={{ color: palette.accent }}>.</Text>
         </Text>
         {children}
       </ScrollView>
@@ -374,14 +370,15 @@ function Line({
   mono?: boolean;
   children?: React.ReactNode;
 }) {
+  const { t } = useT();
   return (
     <Pressable onPress={onPress} disabled={!onPress} style={({ pressed }) => ({ backgroundColor: pressed && onPress ? palette.surface2 : 'transparent' })}>
       {/* Разделитель — волосяной, с отступом слева 16 (ios-group в вебе). */}
       {!first ? <View style={{ height: 1, marginLeft: 16, backgroundColor: palette.border }} /> : null}
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 46, paddingHorizontal: 16, paddingVertical: 9 }}>
         <View style={{ flex: 1 }}>
-          <Text style={{ fontSize: 15, color: palette.text, letterSpacing: mono ? 2 : 0 }}>{label}</Text>
-          {hint ? <Text style={{ fontSize: 12.5, color: palette.textMuted, marginTop: 1 }}>{hint}</Text> : null}
+          <Text style={{ fontSize: 15, color: palette.text, letterSpacing: mono ? 2 : 0 }}>{mono ? label : t(label)}</Text>
+          {hint ? <Text style={{ fontSize: 12.5, color: palette.textMuted, marginTop: 1 }}>{t(hint)}</Text> : null}
         </View>
         {children ?? (onPress ? <ChevronIcon size={16} color={palette.textMuted} /> : null)}
       </View>
@@ -390,12 +387,13 @@ function Line({
 }
 
 function Pill({ palette, label, onPress, muted = false }: { palette: Palette; label: string; onPress: () => void; muted?: boolean }) {
+  const { t } = useT();
   return (
     <Pressable
       onPress={onPress}
       style={{ borderRadius: 999, paddingHorizontal: 16, paddingVertical: 7, backgroundColor: muted ? palette.surface2 : palette.accent }}
     >
-      <Text style={{ fontSize: 13, fontWeight: '600', color: muted ? palette.text : palette.accentContrast }}>{label}</Text>
+      <Text style={{ fontSize: 13, fontWeight: '600', color: muted ? palette.text : palette.accentContrast }}>{t(label)}</Text>
     </Pressable>
   );
 }
@@ -409,7 +407,8 @@ function Check({ palette }: { palette: Palette }) {
 }
 
 function Note({ palette, children }: { palette: Palette; children: React.ReactNode }) {
-  return <Text style={{ fontSize: 13, lineHeight: 18, color: palette.textMuted, paddingHorizontal: 4 }}>{children}</Text>;
+  const { t } = useT();
+  return <Text style={{ fontSize: 13, lineHeight: 18, color: palette.textMuted, paddingHorizontal: 4 }}>{typeof children === 'string' ? t(children) : children}</Text>;
 }
 
 function LocalNote({ palette }: { palette: Palette }) {
