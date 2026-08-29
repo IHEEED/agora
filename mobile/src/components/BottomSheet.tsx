@@ -6,10 +6,10 @@ import { usePalette } from '../theme';
 /**
  * Шторка снизу — как в вебе (BottomSheet).
  *
- * Затемнённый фон, панель выезжает снизу, сверху палочка-ручка, за которую
- * можно стянуть шторку вниз, чтобы закрыть. Заголовок строкой, контент
- * прокручивается, футер (например кнопка «Сохранить») прижат к низу над
- * безопасной зоной. Тап по фону закрывает.
+ * Фон плавно затемняется (Modal fade), а панель отдельно выезжает снизу
+ * пружиной — без «слайда всего окна разом», отчего раньше было криво. Сверху
+ * палочка-ручка, за которую шторку стягивают вниз, чтобы закрыть. Контент
+ * прокручивается, футер прижат к низу над безопасной зоной.
  */
 export function BottomSheet({
   open,
@@ -26,38 +26,42 @@ export function BottomSheet({
 }) {
   const palette = usePalette();
   const insets = useSafeAreaInsets();
-  const y = useRef(new Animated.Value(0)).current;
+  const y = useRef(new Animated.Value(600)).current;
+  const height = useRef(600);
 
   useEffect(() => {
-    if (open) y.setValue(0);
+    if (open) {
+      y.setValue(height.current);
+      Animated.spring(y, { toValue: 0, useNativeDriver: true, friction: 11, tension: 90 }).start();
+    }
   }, [open, y]);
 
-  // Свайп вниз за ручку — тянет панель и закрывает, если увели достаточно далеко.
   const pan = useRef(
     PanResponder.create({
-      onMoveShouldSetPanResponder: (_, g) => g.dy > 4,
+      onMoveShouldSetPanResponder: (_, g) => g.dy > 4 && Math.abs(g.dy) > Math.abs(g.dx),
       onPanResponderMove: (_, g) => {
         if (g.dy > 0) y.setValue(g.dy);
       },
       onPanResponderRelease: (_, g) => {
-        if (g.dy > 120 || g.vy > 0.8) {
-          onClose();
-          y.setValue(0);
+        if (g.dy > 110 || g.vy > 0.8) {
+          Animated.timing(y, { toValue: height.current, duration: 160, useNativeDriver: true }).start(() => onClose());
         } else {
-          Animated.spring(y, { toValue: 0, useNativeDriver: true, friction: 9 }).start();
+          Animated.spring(y, { toValue: 0, useNativeDriver: true, friction: 11 }).start();
         }
       },
     })
   ).current;
 
   return (
-    <Modal visible={open} transparent animationType="slide" onRequestClose={onClose}>
+    <Modal visible={open} transparent animationType="fade" onRequestClose={onClose}>
       <Pressable onPress={onClose} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end' }}>
         <Animated.View style={{ transform: [{ translateY: y }] }}>
           <Pressable onPress={(e) => e.stopPropagation()}>
             <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-              <View style={{ backgroundColor: palette.surface, borderTopLeftRadius: 22, borderTopRightRadius: 22, paddingBottom: insets.bottom + 12, maxHeight: '88%' }}>
-                {/* Ручка + заголовок — за них тянут вниз. */}
+              <View
+                onLayout={(e) => { height.current = e.nativeEvent.layout.height; }}
+                style={{ backgroundColor: palette.surface, borderTopLeftRadius: 22, borderTopRightRadius: 22, paddingBottom: insets.bottom + 12, maxHeight: '90%' }}
+              >
                 <View {...pan.panHandlers} style={{ paddingTop: 10, paddingBottom: title ? 8 : 4 }}>
                   <View style={{ alignSelf: 'center', width: 40, height: 5, borderRadius: 3, backgroundColor: palette.border }} />
                   {title ? (
