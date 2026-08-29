@@ -299,13 +299,21 @@ export default function SearchPage() {
             <div className="flex flex-col divide-y divide-[var(--border)]">
               {foundPeople.map((person) => (
                 <div key={person.id} className="flex items-center gap-3 py-3">
-                  <DefaultAvatar name={person.username} size={40} src={person.avatar_url} />
-                  <div className="flex min-w-0 flex-1 flex-col">
-                    <span className="truncate font-medium text-[var(--text)]">{person.username}</span>
-                    <span className="text-[12px] text-[var(--text-muted)]">
-                      <span className="font-num">{person.karma}</span> influence
-                    </span>
-                  </div>
+                  {/* Лицо и имя ведут в профиль — как строки клубов и записей
+                      ниже. Кнопка подписки остаётся вне ссылки: нажатие на плюс
+                      не должно уводить с экрана. */}
+                  <Link
+                    href={`/u/${person.id}`}
+                    className="flex min-w-0 flex-1 items-center gap-3"
+                  >
+                    <DefaultAvatar name={person.username} size={40} src={person.avatar_url} />
+                    <div className="flex min-w-0 flex-1 flex-col">
+                      <span className="truncate font-medium text-[var(--text)]">{person.username}</span>
+                      <span className="text-[12px] text-[var(--text-muted)]">
+                        <span className="font-num">{person.karma}</span> influence
+                      </span>
+                    </div>
+                  </Link>
                   <FollowButton userId={person.id} initiallyFollowing={person.isFollowing} />
                 </div>
               ))}
