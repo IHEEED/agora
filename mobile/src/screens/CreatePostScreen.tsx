@@ -1,8 +1,10 @@
 import { useEffect, useLayoutEffect, useState } from 'react';
-import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Image, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
+import * as ImagePicker from 'expo-image-picker';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { apiFetch } from '../lib/api';
+import { uploadImage } from '../lib/uploadImage';
 import { useSession } from '../lib/useSession';
 import { Community, Post } from '../lib/types';
 import { Avatar } from '../components/Avatar';
@@ -32,6 +34,9 @@ export function CreatePostScreen({ navigation, route }: Props) {
   const [query, setQuery] = useState('');
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
+  const [images, setImages] = useState<string[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [poll, setPoll] = useState<string[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -54,12 +59,17 @@ export function CreatePostScreen({ navigation, route }: Props) {
     setError(null);
     setSubmitting(true);
     try {
+      const pollOptions = poll ? poll.map((o) => o.trim()).filter(Boolean) : [];
       await apiFetch<Post>('/posts', {
         method: 'POST',
         body: JSON.stringify({
           title: title.trim() || body.trim().split('\n')[0].slice(0, 300),
           body: (title.trim() ? body : body.split('\n').slice(1).join('\n')).trim() || null,
           community_id: target?.kind === 'community' ? target.id : null,
+          image_url: images[0] ?? null,
+          image_urls: images,
+          poll_options: pollOptions,
+          post_as_community: target?.kind === 'community',
         }),
       });
       navigation.goBack();
@@ -68,6 +78,31 @@ export function CreatePostScreen({ navigation, route }: Props) {
     } finally {
       setSubmitting(false);
     }
+  }
+
+  async function pickImages(fromCamera = false) {
+    const perm = fromCamera ? await ImagePicker.requestCameraPermissionsAsync() : await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) { setError('Нет доступа — разрешите в настройках телефона.'); return; }
+    const result = fromCamera
+      ? await ImagePicker.launchCameraAsync({ quality: 0.7, base64: true })
+      : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.7, base64: true, allowsMultipleSelection: true, selectionLimit: 4 });
+    if (result.canceled) return;
+    setUploading(true);
+    setError(null);
+    try {
+      const urls = await Promise.all(
+        result.assets.filter((a) => a.base64).map((a) => uploadImage(a.base64!, a.mimeType ?? 'image/jpeg', 'posts'))
+      );
+      setImages((prev) => [...prev, ...urls].slice(0, 4));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Не удалось загрузить картинку');
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  function togglePoll() {
+    setPoll((prev) => (prev ? null : ['', '']));
   }
 
   const emailHandle = session?.user.email?.split('@')[0] ?? '?';
@@ -166,6 +201,12 @@ export function CreatePostScreen({ navigation, route }: Props) {
         </Pressable>
       ) : null}
 
+      {target?.kind === 'community' ? (
+        <Text style={{ fontSize: 12.5, color: palette.textMuted }}>
+          Вы пишете от имени клуба <Text style={{ color: palette.accent, fontWeight: '600' }}>{target.name || 'клуб'}</Text>
+        </Text>
+      ) : null}
+
       <TextInput
         value={title}
         onChangeText={setTitle}
@@ -179,8 +220,71 @@ export function CreatePostScreen({ navigation, route }: Props) {
         placeholder="Что у вас на уме?"
         placeholderTextColor={palette.textMuted}
         multiline
-        style={{ fontSize: 16, lineHeight: 23, color: palette.text, minHeight: 160, textAlignVertical: 'top' }}
+        style={{ fontSize: 16, lineHeight: 23, color: palette.text, minHeight: 140, textAlignVertical: 'top' }}
       />
+
+      {/* Превью прикреплённых картинок. */}
+      {images.length > 0 ? (
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+          {images.map((uri) => (
+            <View key={uri}>
+              <Image source={{ uri }} style={{ width: 84, height: 84, borderRadius: 12 }} />
+              <Pressable onPress={() => setImages((prev) => prev.filter((u) => u !== uri))} hitSlop={6} style={{ position: 'absolute', top: -6, right: -6, width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center' }}>
+                <Svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2.4} strokeLinecap="round"><Path d="M6 6l12 12M18 6 6 18" /></Svg>
+              </Pressable>
+            </View>
+          ))}
+          {uploading ? <View style={{ width: 84, height: 84, borderRadius: 12, backgroundColor: palette.surface2, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator color={palette.accent} /></View> : null}
+        </View>
+      ) : null}
+
+      {/* Опрос: варианты 2–6. */}
+      {poll ? (
+        <View style={{ gap: 8, borderRadius: 14, backgroundColor: palette.surface2, padding: 12 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Text style={{ fontSize: 14, fontWeight: '600', color: palette.text }}>Опрос</Text>
+            <Pressable onPress={togglePoll}><Text style={{ fontSize: 13, color: palette.accent }}>Убрать</Text></Pressable>
+          </View>
+          {poll.map((option, index) => (
+            <View key={index} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <TextInput
+                value={option}
+                onChangeText={(v) => setPoll((prev) => prev!.map((o, i) => (i === index ? v : o)))}
+                placeholder={`Вариант ${index + 1}`}
+                placeholderTextColor={palette.textMuted}
+                style={{ flex: 1, borderWidth: 1, borderColor: palette.border, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 9, fontSize: 15, color: palette.text, backgroundColor: palette.bg }}
+              />
+              {poll.length > 2 ? (
+                <Pressable onPress={() => setPoll((prev) => prev!.filter((_, i) => i !== index))} hitSlop={6}>
+                  <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={palette.textMuted} strokeWidth={2.2} strokeLinecap="round"><Path d="M6 6l12 12M18 6 6 18" /></Svg>
+                </Pressable>
+              ) : null}
+            </View>
+          ))}
+          {poll.length < 6 ? (
+            <Pressable onPress={() => setPoll((prev) => [...prev!, ''])}><Text style={{ fontSize: 13.5, color: palette.accent }}>+ Добавить вариант</Text></Pressable>
+          ) : null}
+        </View>
+      ) : null}
+
+      {/* Панель вложений: картинка, камера, опрос. */}
+      <View style={{ flexDirection: 'row', gap: 8 }}>
+        <Pressable onPress={() => pickImages(false)} style={{ width: 42, height: 42, borderRadius: 12, backgroundColor: palette.surface2, alignItems: 'center', justifyContent: 'center' }}>
+          <Svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke={palette.textMuted} strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round">
+            <Path d="M4 5h16a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Z" /><Path d="m4 16 4.5-4.5 3 3L16 10l4 4" /><Circle cx="8" cy="9.5" r="1.4" fill={palette.textMuted} />
+          </Svg>
+        </Pressable>
+        <Pressable onPress={() => pickImages(true)} style={{ width: 42, height: 42, borderRadius: 12, backgroundColor: palette.surface2, alignItems: 'center', justifyContent: 'center' }}>
+          <Svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke={palette.textMuted} strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round">
+            <Path d="M4 8h3l1.5-2h7L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1Z" /><Circle cx="12" cy="13" r="3.2" />
+          </Svg>
+        </Pressable>
+        <Pressable onPress={togglePoll} style={{ width: 42, height: 42, borderRadius: 12, backgroundColor: poll ? `${palette.accent}22` : palette.surface2, alignItems: 'center', justifyContent: 'center' }}>
+          <Svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke={poll ? palette.accent : palette.textMuted} strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round">
+            <Path d="M7 20V10M12 20V4M17 20v-6" />
+          </Svg>
+        </Pressable>
+      </View>
 
       {error ? <Text style={{ color: palette.down }}>{error}</Text> : null}
 
