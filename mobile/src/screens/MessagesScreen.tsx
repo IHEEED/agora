@@ -29,13 +29,23 @@ export function MessagesScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
   const [threads, setThreads] = useState<Thread[]>([]);
+  const [notes, setNotes] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [menuFor, setMenuFor] = useState<Thread | null>(null);
 
   const load = useCallback(() => {
     apiFetch<Thread[]>('/messages/threads')
-      .then(setThreads)
+      .then((list) => {
+        setThreads(list);
+        // Мысли-облачка собеседников — одним запросом на весь список, как в вебе.
+        const ids = list.map((t) => t.user.id).join(',');
+        if (ids) {
+          apiFetch<{ author_id: string; body: string }[]>(`/notes?ids=${ids}`)
+            .then((rows) => setNotes(Object.fromEntries(rows.map((n) => [n.author_id, n.body]))))
+            .catch(() => {});
+        }
+      })
       .catch((err) => setError(err instanceof Error ? err.message : 'Не удалось загрузить'))
       .finally(() => setLoading(false));
   }, []);
@@ -107,7 +117,15 @@ export function MessagesScreen() {
               delayLongPress={280}
               style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 10, backgroundColor: pressed ? palette.surface2 : 'transparent' })}
             >
-              <Avatar name={name} uri={item.user.avatar_url} size={48} />
+              <View>
+                <Avatar name={name} uri={item.user.avatar_url} size={48} />
+                {notes[item.user.id] ? (
+                  // Облачко-мысль над лицом, как в вебе.
+                  <View style={{ position: 'absolute', top: -12, left: 20, maxWidth: 150, backgroundColor: palette.surface2, borderRadius: 12, borderBottomLeftRadius: 3, paddingHorizontal: 8, paddingVertical: 3 }}>
+                    <Text numberOfLines={1} style={{ fontSize: 11, color: palette.textMuted }}>{notes[item.user.id]}</Text>
+                  </View>
+                ) : null}
+              </View>
 
               <View style={{ flex: 1, minWidth: 0 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>

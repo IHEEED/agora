@@ -1,6 +1,6 @@
 import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 import { FlatList, Image, KeyboardAvoidingView, Modal, Platform, Pressable, Text, TextInput, View } from 'react-native';
-import Svg, { Path } from 'react-native-svg';
+import Svg, { Circle, Path } from 'react-native-svg';
 import * as ImagePicker from 'expo-image-picker';
 import { useAudioRecorder, useAudioRecorderState, RecordingPresets, createAudioPlayer, setAudioModeAsync, requestRecordingPermissionsAsync } from 'expo-audio';
 import { File } from 'expo-file-system';
@@ -77,6 +77,7 @@ export function ChatScreen() {
   const [error, setError] = useState<string | null>(null);
   const [reacting, setReacting] = useState<{ id: string; x: number; y: number; mine: boolean } | null>(null);
   const [peerAvatar, setPeerAvatar] = useState<string | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [playingId, setPlayingId] = useState<string | null>(null);
   const topInset = useTopBarInset();
   const listRef = useRef<FlatList<Message>>(null);
@@ -203,12 +204,22 @@ export function ChatScreen() {
 
   return (
     <KeyboardAvoidingView style={{ flex: 1, backgroundColor: palette.bg }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <TopBar back right="none" />
+      <TopBar right="search" />
 
-      {/* Собеседник — лицом и именем по центру под баром, как в вебе. */}
-      <View style={{ paddingTop: topInset - 8, paddingBottom: 8, alignItems: 'center', gap: 4, borderBottomWidth: 1, borderBottomColor: palette.border }}>
-        <Avatar name={username} uri={peerAvatar} size={34} />
-        <Text style={{ fontSize: 15, fontWeight: '600', color: palette.text }}>{username}</Text>
+      {/* Строка собеседника: «назад» кружком, ник с лицом пилюлей, «ещё»
+          кружком — как в вебе. */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingTop: topInset, paddingHorizontal: 12, paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: palette.border }}>
+        <Pressable onPress={() => navigation.goBack()} hitSlop={6} style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: palette.surface, alignItems: 'center', justifyContent: 'center' }}>
+          <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={palette.text} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round"><Path d="m15 6-6 6 6 6" /></Svg>
+        </Pressable>
+        <Pressable onPress={() => navigation.navigate('User', { userId })} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: palette.surface, borderRadius: 999, paddingLeft: 4, paddingRight: 14, paddingVertical: 4 }}>
+          <Avatar name={username} uri={peerAvatar} size={30} />
+          <Text style={{ fontSize: 15, fontWeight: '600', color: palette.text }}>{username}</Text>
+        </Pressable>
+        <View style={{ flex: 1 }} />
+        <Pressable onPress={() => setMenuOpen(true)} hitSlop={6} style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: palette.surface, alignItems: 'center', justifyContent: 'center' }}>
+          <Svg width={20} height={20} viewBox="0 0 24 24" fill={palette.text}><Circle cx="5" cy="12" r="1.7" /><Circle cx="12" cy="12" r="1.7" /><Circle cx="19" cy="12" r="1.7" /></Svg>
+        </Pressable>
       </View>
 
       <FlatList
@@ -292,43 +303,55 @@ export function ChatScreen() {
           </Pressable>
         </View>
       ) : (
-        <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8, paddingHorizontal: 12, paddingVertical: 8, borderTopWidth: 1, borderTopColor: palette.border, backgroundColor: palette.surface }}>
-          <Pressable onPress={sendImage} hitSlop={8} style={{ width: 38, height: 38, alignItems: 'center', justifyContent: 'center' }}>
-            <Svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke={palette.textMuted} strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round">
-              <Path d="M4 5h16a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Z" />
-              <Path d="m4 16 4.5-4.5 3 3L16 10l4 4" />
-              <Path d="M9 9.5a1.2 1.2 0 1 1-2.4 0 1.2 1.2 0 0 1 2.4 0Z" fill={palette.textMuted} />
-            </Svg>
-          </Pressable>
-          <TextInput
-            value={body}
-            onChangeText={setBody}
-            placeholder="Сообщение"
-            placeholderTextColor={palette.textMuted}
-            multiline
-            style={{ flex: 1, maxHeight: 120, fontSize: 15, color: palette.text, backgroundColor: palette.surface2, borderRadius: 18, paddingHorizontal: 14, paddingVertical: 10 }}
-          />
-          {body.trim() ? (
-            <Pressable
-              onPress={send}
-              disabled={sending}
-              style={{ width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: palette.accent, opacity: sending ? 0.4 : 1 }}
-            >
-              <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={palette.accentContrast} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
-                <Path d="M12 19V5M6 11l6-6 6 6" />
+        <View style={{ paddingHorizontal: 12, paddingVertical: 8, borderTopWidth: 1, borderTopColor: palette.border, backgroundColor: palette.surface }}>
+          {/* Поле-овал: слева картинка, посередине текст, справа микрофон или
+              отправка — всё внутри одной обоймы, как в вебе. */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: palette.surface2, borderRadius: 24, paddingLeft: 8, paddingRight: 6, paddingVertical: 4 }}>
+            <Pressable onPress={sendImage} hitSlop={8} style={{ width: 34, height: 34, alignItems: 'center', justifyContent: 'center' }}>
+              <Svg width={23} height={23} viewBox="0 0 24 24" fill="none" stroke={palette.textMuted} strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round">
+                <Path d="M4 5h16a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Z" />
+                <Path d="m4 16 4.5-4.5 3 3L16 10l4 4" />
+                <Path d="M9 9.5a1.2 1.2 0 1 1-2.4 0 1.2 1.2 0 0 1 2.4 0Z" fill={palette.textMuted} />
               </Svg>
             </Pressable>
-          ) : (
-            // Пусто — микрофон: тап начинает запись голосового.
-            <Pressable onPress={startRecording} hitSlop={4} style={{ width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: palette.surface2 }}>
-              <Svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke={palette.text} strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round">
-                <Path d="M12 3a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3Z" />
-                <Path d="M5 11a7 7 0 0 0 14 0M12 18v3" />
-              </Svg>
-            </Pressable>
-          )}
+            <TextInput
+              value={body}
+              onChangeText={setBody}
+              placeholder="Сообщение"
+              placeholderTextColor={palette.textMuted}
+              multiline
+              style={{ flex: 1, maxHeight: 110, fontSize: 15, color: palette.text, paddingVertical: 8 }}
+            />
+            {body.trim() ? (
+              <Pressable onPress={send} disabled={sending} style={{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: palette.accent, opacity: sending ? 0.4 : 1 }}>
+                <Svg width={19} height={19} viewBox="0 0 24 24" fill="none" stroke={palette.accentContrast} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round"><Path d="M12 19V5M6 11l6-6 6 6" /></Svg>
+              </Pressable>
+            ) : (
+              <Pressable onPress={startRecording} hitSlop={4} style={{ width: 34, height: 34, alignItems: 'center', justifyContent: 'center' }}>
+                <Svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke={palette.textMuted} strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round">
+                  <Path d="M12 3a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3Z" />
+                  <Path d="M5 11a7 7 0 0 0 14 0M12 18v3" />
+                </Svg>
+              </Pressable>
+            )}
+          </View>
         </View>
       )}
+
+      {/* Меню чата по «…»: пожаловаться. */}
+      <Modal visible={menuOpen} transparent animationType="fade" onRequestClose={() => setMenuOpen(false)}>
+        <Pressable onPress={() => setMenuOpen(false)} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' }}>
+          <Pressable onPress={(e) => e.stopPropagation()} style={{ backgroundColor: palette.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingTop: 10, paddingBottom: 34 }}>
+            <View style={{ alignSelf: 'center', width: 40, height: 5, borderRadius: 3, backgroundColor: palette.border, marginBottom: 8 }} />
+            <Pressable
+              onPress={() => { setMenuOpen(false); apiFetch('/reports', { method: 'POST', body: JSON.stringify({ reason: 'abuse', userId }) }).catch(() => {}); }}
+              style={({ pressed }) => ({ paddingHorizontal: 20, paddingVertical: 15, backgroundColor: pressed ? palette.surface2 : 'transparent' })}
+            >
+              <Text style={{ fontSize: 16, color: palette.down }}>Пожаловаться</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
