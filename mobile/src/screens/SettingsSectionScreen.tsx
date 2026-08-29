@@ -1,7 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
-import * as Clipboard from 'expo-clipboard';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -11,6 +10,7 @@ import { useSession } from '../lib/useSession';
 import { setStylePreference, setThemePreference, StyleId, ThemePreference, useStylePreference, useThemePreference } from '../lib/appearance';
 import { LocalToggle } from '../components/LocalToggle';
 import { SegmentedControl } from '../components/SegmentedControl';
+import { InvitesPanel } from '../components/InvitesPanel';
 import { TopBar, useTopBarInset } from '../components/TopBar';
 import { ChevronIcon } from '../components/icons';
 import { SettingsSectionId } from '../lib/settingsSections';
@@ -19,8 +19,6 @@ import type { RootStackParamList } from '../navigation/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'SettingsSection'>;
 type Palette = ReturnType<typeof usePalette>;
-
-const WEB_URL = process.env.EXPO_PUBLIC_WEB_URL ?? '';
 
 const THEMES: ReadonlyArray<readonly [ThemePreference, string]> = [
   ['light', 'Светлая'],
@@ -78,21 +76,7 @@ export function SettingsSectionScreen({ route }: Props) {
   const dark = useIsDark();
 
   const [sheet, setSheet] = useState<null | 'rules' | 'support'>(null);
-  const [inviteCode, setInviteCode] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
   const phoneVerified = Boolean((session?.user as { phone_confirmed_at?: string } | undefined)?.phone_confirmed_at);
-
-  useEffect(() => {
-    if (section !== 'account') return;
-    apiFetch<{ code: string }>('/invites/mine').then((data) => setInviteCode(data.code)).catch(() => {});
-  }, [section]);
-
-  async function copyInvite() {
-    if (!inviteCode) return;
-    await Clipboard.setStringAsync(`${WEB_URL}/?code=${inviteCode}`);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
-  }
 
   if (section === 'appearance') {
     return (
@@ -161,9 +145,7 @@ export function SettingsSectionScreen({ route }: Props) {
               <Pill palette={palette} label="Подтвердить" onPress={() => {}} />
             )}
           </Line>
-          <Line palette={palette} label={inviteCode ?? '••••••'} hint="Ваш код. Один на всех, кого позовёте" mono>
-            <Pill palette={palette} label={copied ? 'Скопировано' : 'Ссылка'} muted onPress={copyInvite} />
-          </Line>
+          <InvitesPanel />
         </Card>
 
         <Pressable

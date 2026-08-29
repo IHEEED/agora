@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Animated, Dimensions, Image, Pressable, ScrollView, Share, Text, View } from 'react-native';
+import { Animated, Dimensions, Image, Pressable, ScrollView, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Post, postImages } from '../lib/types';
@@ -13,6 +13,9 @@ import { VoteBlock } from './VoteBlock';
 import { PostMenuSheet } from './PostMenuSheet';
 import { ImageViewer } from './ImageViewer';
 import { StoryComposer } from './StoryComposer';
+import { ShareSheet } from './ShareSheet';
+
+const WEB_URL = process.env.EXPO_PUBLIC_WEB_URL ?? '';
 import {
   ChevronIcon,
   CommentIcon,
@@ -67,6 +70,7 @@ export function PostCard({
   const [commentCount] = useState(post.commentCount);
   const [menuOpen, setMenuOpen] = useState(false);
   const [storyOpen, setStoryOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   const [removed, setRemoved] = useState(false);
   const spin = useRef(new Animated.Value(0)).current;
   // Мягкое появление карточки: проявляется и чуть поднимается при монтировании.
@@ -185,6 +189,9 @@ export function PostCard({
         onClose={() => setStoryOpen(false)}
       />
 
+      {/* Поделиться — шторка с мессенджерами и ссылкой, как в вебе. */}
+      <ShareSheet open={shareOpen} onClose={() => setShareOpen(false)} url={`${WEB_URL}/posts/${post.id}`} text={post.title} />
+
       {/* Заголовок антиквой, тело обычной гарнитурой. */}
       <View style={{ gap: 6 }}>
         <Text style={{ fontFamily: palette.displayFamily, fontWeight: '700', fontSize: 16, color: palette.text, lineHeight: 22 }}>
@@ -241,7 +248,7 @@ export function PostCard({
             <Text style={{ fontSize: 15, color: reposted ? palette.repost : palette.control }}>{repostCount}</Text>
           </Pressable>
           <Pressable
-            onPress={() => Share.share({ message: post.title }).catch(() => {})}
+            onPress={() => setShareOpen(true)}
             hitSlop={4}
             style={{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center' }}
           >
