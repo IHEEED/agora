@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, Text, View } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -9,23 +9,26 @@ import { PostCard } from '../components/PostCard';
 import { Avatar } from '../components/Avatar';
 import { StoriesBar } from '../components/StoriesBar';
 import { SuggestedPeople } from '../components/SuggestedPeople';
+import { SegmentedControl } from '../components/SegmentedControl';
+import { SkeletonPost } from '../components/SkeletonPost';
 import { TopBar, useTopBarInset } from '../components/TopBar';
 import { useSession } from '../lib/useSession';
 import { usePalette } from '../theme';
 import type { RootStackParamList } from '../navigation/types';
 
 /**
- * Три способа сортировки, те же и в том же порядке, что в вебе.
+ * Лента — перенесена с веба (app/page.tsx) один в один.
  *
- * «Горячее» с его формулой затухания убрано намеренно: понять по нему, почему
- * запись стоит именно здесь, нельзя даже автору. Оставшиеся три объяснимы одним
- * словом каждый. «Свежие» первыми и по умолчанию.
+ * Полоса историй, строка-вход в создание записи волосяной чертой, переключатель
+ * сортировки едущей каплей (Свежие/Обсуждаемые/Популярные), рекомендации и
+ * сплошной список записей, разделённый полосками. «Горячее» с формулой
+ * затухания убрано намеренно: три оставшихся порядка объяснимы одним словом.
  */
-const SORTS: { value: PostSort; label: string }[] = [
-  { value: 'new', label: 'Свежие' },
-  { value: 'commented', label: 'Обсуждаемые' },
-  { value: 'viewed', label: 'Популярные' },
-];
+const SORTS = [
+  ['new', 'Свежие'],
+  ['commented', 'Обсуждаемые'],
+  ['viewed', 'Популярные'],
+] as const satisfies ReadonlyArray<readonly [PostSort, string]>;
 
 export function FeedScreen() {
   const palette = usePalette();
@@ -50,121 +53,80 @@ export function FeedScreen() {
       });
   }, [sort]);
 
-  useFocusEffect(
-    useCallback(() => {
-      load();
-    }, [load])
-  );
+  useFocusEffect(useCallback(() => load(), [load]));
 
   const emailHandle = session?.user.email?.split('@')[0] ?? '?';
+  const hairline = useMemo(() => palette.border, [palette.border]);
+
+  const header = (
+    <View style={{ gap: 16, paddingTop: 4 }}>
+      <StoriesBar />
+
+      {/* Вход в создание записи — строкой с волосяной чертой во всю ширину
+          (field-line в вебе), а не плашкой. */}
+      <Pressable
+        onPress={() => navigation.navigate('CreatePost', { communityId: '' })}
+        style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 20, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: hairline }}
+      >
+        <Avatar name={emailHandle} size={32} />
+        <Text style={{ fontSize: 15, color: palette.textMuted }}>Напишите пару фраз…</Text>
+      </Pressable>
+
+      <View style={{ paddingHorizontal: 16 }}>
+        <SegmentedControl value={sort} options={SORTS} onChange={setSort} />
+      </View>
+
+      <SuggestedPeople />
+
+      {error ? <Text style={{ paddingHorizontal: 16, color: palette.down }}>{error}</Text> : null}
+    </View>
+  );
 
   return (
     <View style={{ flex: 1, backgroundColor: palette.bg }}>
       <TopBar right="search" />
 
-      <FlatList
-        data={posts}
-        keyExtractor={(post) => post.id}
-        contentContainerStyle={{ paddingTop: topInset, paddingBottom: insets.bottom + 72 }}
-        scrollIndicatorInsets={{ top: topInset }}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={() => {
-              setRefreshing(true);
-              load();
-            }}
-            tintColor={palette.accent}
-          />
-        }
-        ListHeaderComponent={
-          <View>
-            <StoriesBar />
-
-            {/* Строка «напишите пару фраз» — вход в создание записи, как в вебе. */}
-            <Pressable
-              onPress={() => navigation.navigate('CreatePost', { communityId: '' })}
-              style={{
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 12,
-                paddingHorizontal: 16,
-                paddingVertical: 12,
-                borderBottomWidth: 1,
-                borderBottomColor: palette.border,
-              }}
-            >
-              <Avatar name={emailHandle} size={32} />
-              <Text style={{ fontSize: 15, color: palette.textMuted }}>Напишите пару фраз…</Text>
-            </Pressable>
-
-            {/* Сегменты сортировки. */}
-            <View style={{ flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingVertical: 12 }}>
-              {SORTS.map((option) => {
-                const on = sort === option.value;
-                return (
-                  <Pressable
-                    key={option.value}
-                    onPress={() => setSort(option.value)}
-                    style={({ pressed }) => ({
-                      paddingHorizontal: 14,
-                      paddingVertical: 7,
-                      borderRadius: 999,
-                      backgroundColor: on ? palette.accent : palette.surface2,
-                      transform: [{ scale: pressed ? 0.94 : 1 }],
-                    })}
-                  >
-                    <Text
-                      style={{
-                        fontSize: 13,
-                        fontWeight: '600',
-                        color: on ? palette.accentContrast : palette.textMuted,
-                      }}
-                    >
-                      {option.label}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-
-            <SuggestedPeople />
-
-            {loading ? (
-              <Text style={{ paddingHorizontal: 16, paddingVertical: 8, color: palette.textMuted }}>
-                Загрузка…
-              </Text>
-            ) : null}
-            {error ? (
-              <Text style={{ paddingHorizontal: 16, paddingVertical: 8, color: palette.down }}>
-                {error}
-              </Text>
-            ) : null}
+      {loading ? (
+        // Скелетоны геометрией настоящих карточек: подмена не двигает раскладку.
+        <View style={{ paddingTop: topInset }}>
+          {header}
+          <View style={{ marginTop: 4 }}>
+            <SkeletonPost />
+            <SkeletonPost />
+            <SkeletonPost />
           </View>
-        }
-        renderItem={({ item }) => <PostCard post={item} />}
-      />
+        </View>
+      ) : (
+        <FlatList
+          data={posts}
+          keyExtractor={(post) => post.id}
+          contentContainerStyle={{ paddingTop: topInset, paddingBottom: insets.bottom + 72 }}
+          scrollIndicatorInsets={{ top: topInset }}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={palette.accent} progressViewOffset={topInset} />
+          }
+          ListHeaderComponent={header}
+          ListEmptyComponent={
+            !error ? (
+              <View style={{ alignItems: 'center', gap: 14, paddingVertical: 64 }}>
+                <Text style={{ color: palette.textMuted }}>В ленте пока пусто.</Text>
+                <Pressable
+                  onPress={() => navigation.navigate('Communities' as never)}
+                  style={{ backgroundColor: palette.accent, borderRadius: 999, paddingHorizontal: 20, paddingVertical: 10 }}
+                >
+                  <Text style={{ fontSize: 14, fontWeight: '600', color: palette.accentContrast }}>Найти клубы</Text>
+                </Pressable>
+              </View>
+            ) : null
+          }
+          renderItem={({ item }) => <PostCard post={item} />}
+        />
+      )}
 
-      {/* Создание записи — плавающая кнопка над стеклянным баром: нативная
-          панель не даёт вставить в себя действие вместо экрана. */}
+      {/* Создание записи — плавающая кнопка над стеклянным баром. */}
       <Pressable
         onPress={() => navigation.navigate('CreatePost', { communityId: '' })}
-        style={{
-          position: 'absolute',
-          right: 20,
-          bottom: insets.bottom + 80,
-          width: 56,
-          height: 56,
-          borderRadius: 28,
-          backgroundColor: palette.accent,
-          alignItems: 'center',
-          justifyContent: 'center',
-          shadowColor: '#000',
-          shadowOpacity: 0.2,
-          shadowRadius: 8,
-          shadowOffset: { width: 0, height: 3 },
-          elevation: 4,
-        }}
+        style={{ position: 'absolute', right: 20, bottom: insets.bottom + 80, width: 56, height: 56, borderRadius: 28, backgroundColor: palette.accent, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 4 }}
       >
         <Text style={{ fontSize: 30, lineHeight: 34, color: palette.accentContrast }}>+</Text>
       </Pressable>
