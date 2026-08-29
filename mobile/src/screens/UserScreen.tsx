@@ -1,5 +1,5 @@
 import { useCallback, useLayoutEffect, useMemo, useState } from 'react';
-import { FlatList, Modal, Pressable, Text, View } from 'react-native';
+import { FlatList, Pressable, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
@@ -13,6 +13,8 @@ import { VerifiedMark } from '../components/VerifiedMark';
 import { VoteBlock } from '../components/VoteBlock';
 import { PostCard } from '../components/PostCard';
 import { SegmentedControl } from '../components/SegmentedControl';
+import { PersonMenuSheet } from '../components/PersonMenuSheet';
+import { setBlocked, useIsBlocked } from '../lib/blockedUsers';
 import { CommentIcon, MoreIcon } from '../components/icons';
 import { usePalette } from '../theme';
 import type { RootStackParamList } from '../navigation/types';
@@ -21,14 +23,6 @@ type Props = NativeStackScreenProps<RootStackParamList, 'User'>;
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 type Tab = 'posts' | 'comments' | 'reposts';
-
-const REPORT_REASONS = [
-  { key: 'spam', label: 'Спам' },
-  { key: 'abuse', label: 'Оскорбления' },
-  { key: 'impersonation', label: 'Выдаёт себя за другого' },
-  { key: 'threats', label: 'Угрозы' },
-  { key: 'other', label: 'Другое' },
-];
 
 /**
  * Чужой профиль — один в один с вебом (/u/[userId]).
@@ -89,14 +83,7 @@ export function UserScreen({ route }: Props) {
     }
   }
 
-  async function report(reason: string) {
-    setMenuOpen(false);
-    try {
-      await apiFetch('/reports', { method: 'POST', body: JSON.stringify({ reason, userId }) });
-    } catch {
-      // молча
-    }
-  }
+  const blocked = useIsBlocked(userId);
 
   const handle = profile?.username ?? posts[0]?.author.username ?? '';
   const displayName = profile?.display_name || profile?.username || handle || '—';
@@ -111,6 +98,19 @@ export function UserScreen({ route }: Props) {
 
   const header = (
     <View style={{ paddingTop: 8 }}>
+      {/* Заблокированного не прячем целиком: человек пришёл сам, и пустой экран
+          выглядел бы поломкой. Достаточно сказать, что записи скрыты, и дать снять. */}
+      {blocked ? (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginHorizontal: 10, marginBottom: 10, borderRadius: 16, paddingHorizontal: 16, paddingVertical: 12, backgroundColor: palette.surface2 }}>
+          <Text style={{ flex: 1, fontSize: 13.5, lineHeight: 19, color: palette.textMuted }}>
+            Вы заблокировали этого человека. Его записи скрыты.
+          </Text>
+          <Pressable onPress={() => { void setBlocked(userId, false).catch(() => {}); }} style={{ borderRadius: 999, paddingHorizontal: 12, paddingVertical: 7, backgroundColor: palette.accent }}>
+            <Text style={{ fontSize: 13, fontWeight: '600', color: palette.accentContrast }}>Разблокировать</Text>
+          </Pressable>
+        </View>
+      ) : null}
+
       {/* Блок 1 — карточка с обложкой-заливкой, аватаром и метриками, как в
           своём профиле. У чужого обложка не показывается картинкой (как в
           вебе) — только акцентная заливка, сходящая на нет книзу. */}
@@ -206,19 +206,7 @@ export function UserScreen({ route }: Props) {
     tab === 'posts' ? 'Здесь пока нет записей.' : tab === 'comments' ? 'Здесь пока нет комментариев.' : 'Репостов пока нет.';
 
   const reportSheet = (
-    <Modal visible={menuOpen} transparent animationType="fade" onRequestClose={() => setMenuOpen(false)}>
-      <Pressable onPress={() => setMenuOpen(false)} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' }}>
-        <Pressable onPress={(e) => e.stopPropagation()} style={{ backgroundColor: palette.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingTop: 10, paddingBottom: 34 }}>
-          <View style={{ alignSelf: 'center', width: 40, height: 5, borderRadius: 3, backgroundColor: palette.border, marginBottom: 8 }} />
-          <Text style={{ paddingHorizontal: 20, paddingVertical: 10, fontSize: 13, color: palette.textMuted }}>Пожаловаться на человека</Text>
-          {REPORT_REASONS.map((r) => (
-            <Pressable key={r.key} onPress={() => report(r.key)} style={({ pressed }) => ({ paddingHorizontal: 20, paddingVertical: 15, backgroundColor: pressed ? palette.surface2 : 'transparent' })}>
-              <Text style={{ fontSize: 16, color: palette.text }}>{r.label}</Text>
-            </Pressable>
-          ))}
-        </Pressable>
-      </Pressable>
-    </Modal>
+    <PersonMenuSheet open={menuOpen} onClose={() => setMenuOpen(false)} userId={userId} username={displayName} />
   );
 
   if (tab === 'comments') {

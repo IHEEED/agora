@@ -14,6 +14,7 @@ import { uploadImage } from '../lib/uploadImage';
 import { useSession } from '../lib/useSession';
 import { Message, UserProfile } from '../lib/types';
 import { Avatar } from '../components/Avatar';
+import { PersonMenuSheet } from '../components/PersonMenuSheet';
 import { TopBar, useTopBarInset } from '../components/TopBar';
 import { usePalette } from '../theme';
 import type { RootStackParamList } from '../navigation/types';
@@ -107,6 +108,16 @@ export function ChatScreen() {
       .then(setMessages)
       .catch((err) => setError(err instanceof Error ? err.message : 'Не удалось загрузить'));
   }, [userId]);
+
+  // Очистка переписки: удаляются только свои сообщения (как в вебе).
+  async function clearChat() {
+    try {
+      await apiFetch(`/messages/thread/${userId}`, { method: 'DELETE' });
+      setMessages((prev) => prev.filter((m) => m.sender_id !== me));
+    } catch {
+      load();
+    }
+  }
 
   useFocusEffect(
     useCallback(() => {
@@ -360,20 +371,14 @@ export function ChatScreen() {
       )}
       </View>
 
-      {/* Меню чата по «…»: пожаловаться. */}
-      <Modal visible={menuOpen} transparent animationType="fade" onRequestClose={() => setMenuOpen(false)}>
-        <Pressable onPress={() => setMenuOpen(false)} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' }}>
-          <Pressable onPress={(e) => e.stopPropagation()} style={{ backgroundColor: palette.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingTop: 10, paddingBottom: 34 }}>
-            <View style={{ alignSelf: 'center', width: 40, height: 5, borderRadius: 3, backgroundColor: palette.border, marginBottom: 8 }} />
-            <Pressable
-              onPress={() => { setMenuOpen(false); apiFetch('/reports', { method: 'POST', body: JSON.stringify({ reason: 'abuse', userId }) }).catch(() => {}); }}
-              style={({ pressed }) => ({ paddingHorizontal: 20, paddingVertical: 15, backgroundColor: pressed ? palette.surface2 : 'transparent' })}
-            >
-              <Text style={{ fontSize: 16, color: palette.down }}>Пожаловаться</Text>
-            </Pressable>
-          </Pressable>
-        </Pressable>
-      </Modal>
+      {/* Меню чата по «…» — то же, что в чужом профиле, плюс очистка переписки. */}
+      <PersonMenuSheet
+        open={menuOpen}
+        onClose={() => setMenuOpen(false)}
+        userId={userId}
+        username={username}
+        onClearChat={clearChat}
+      />
     </View>
   );
 }
