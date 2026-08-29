@@ -61,6 +61,9 @@ const PALETTES: Record<string, Palette> = {
   garden_D: { bg: '#080a06', surface: '#141810', surface2: '#1e2318', border: 'rgba(225, 235, 210, 0.12)', text: '#ebefe4', textMuted: '#939b87', accent: '#a3c47e', accentContrast: '#10130d', up: '#43d489', down: '#ff7a70', control: '#c2c6bc', repost: '#f0b429', avatarBg: '#2d3523', avatarInk: '#98a784', displayFamily: 'Georgia' },
   signal_L: { bg: '#fbfbfd', surface: '#ffffff', surface2: '#f0f0f5', border: '#e3e3ec', text: '#14141a', textMuted: '#66667a', accent: '#5b3ad6', accentContrast: '#ffffff', up: '#1f9d55', down: '#c8453d', control: '#3e3e43', repost: '#c98a06', avatarBg: '#e3e0f2', avatarInk: '#625799', displayFamily: 'System' },
   signal_D: { bg: '#08080b', surface: '#141419', surface2: '#1e1e26', border: 'rgba(222, 222, 245, 0.12)', text: '#f2f2f7', textMuted: '#8b8b9e', accent: '#a88cff', accentContrast: '#0d0d11', up: '#43d489', down: '#ff7a70', control: '#c8c8cd', repost: '#f0b429', avatarBg: '#2d2a3e', avatarInk: '#948bbb', displayFamily: 'System' },
+  // «Гламур» — скрытое шестое оформление (пасхалка). Розовое, антиквой.
+  glam_L: { bg: '#fff5f9', surface: '#ffffff', surface2: '#ffe6f0', border: '#ffd0e2', text: '#3d0a26', textMuted: '#96556f', accent: '#e0338c', accentContrast: '#ffffff', up: '#1f9d55', down: '#c8453d', control: '#7a3a55', repost: '#c98a06', avatarBg: '#ffd9e8', avatarInk: '#b05a80', displayFamily: 'Georgia' },
+  glam_D: { bg: '#14060f', surface: '#220c1a', surface2: '#2f1224', border: 'rgba(255, 190, 225, 0.16)', text: '#ffe8f4', textMuted: '#c894b0', accent: '#ff7ec2', accentContrast: '#14060f', up: '#43d489', down: '#ff7a70', control: '#d8b0c6', repost: '#f0b429', avatarBg: '#3a1a2c', avatarInk: '#c894b0', displayFamily: 'Georgia' },
 };
 
 /** Тёмная ли сейчас тема — с учётом настройки и системы. */

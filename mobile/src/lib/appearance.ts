@@ -10,11 +10,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
  * перерисовался у всех разом при смене.
  */
 export type ThemePreference = 'system' | 'light' | 'dark';
-export type StyleId = 'chronicle' | 'atelier' | 'midnight' | 'garden' | 'signal';
+// 'glam' — шестое, скрытое оформление: в списке настроек его нет, оно
+// открывается пасхалкой на дне раздела «О приложении» (как в вебе).
+export type StyleId = 'chronicle' | 'atelier' | 'midnight' | 'garden' | 'signal' | 'glam';
 
 const THEME_KEY = 'parafraz-theme';
 const STYLE_KEY = 'parafraz-style';
-const STYLE_IDS: StyleId[] = ['chronicle', 'atelier', 'midnight', 'garden', 'signal'];
+const STYLE_IDS: StyleId[] = ['chronicle', 'atelier', 'midnight', 'garden', 'signal', 'glam'];
 
 let currentTheme: ThemePreference = 'system';
 let currentStyle: StyleId = 'chronicle';

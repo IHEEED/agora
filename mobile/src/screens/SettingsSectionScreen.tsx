@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { useNavigation } from '@react-navigation/native';
@@ -76,6 +76,10 @@ export function SettingsSectionScreen({ route }: Props) {
   const dark = useIsDark();
 
   const [sheet, setSheet] = useState<null | 'rules' | 'support'>(null);
+  // Пасхалка «Гламур»: сколько раз упёрлись в дно раздела «О приложении».
+  const [bumps, setBumps] = useState(0);
+  const glamUnlocked = bumps >= 3;
+  const glamOn = stylePref === 'glam';
   const phoneVerified = Boolean((session?.user as { phone_confirmed_at?: string } | undefined)?.phone_confirmed_at);
 
   if (section === 'appearance') {
@@ -242,7 +246,7 @@ export function SettingsSectionScreen({ route }: Props) {
 
   // about
   return (
-    <Wrap palette={palette} title={route.params.title}>
+    <Wrap palette={palette} title={route.params.title} onBump={() => setBumps((b) => b + 1)}>
       <Card palette={palette}>
         <Line palette={palette} label="Версия" hint="PARAFRAZ, сборка для разработки" first />
         <Line palette={palette} label="Правила" onPress={() => setSheet('rules')} />
@@ -279,14 +283,53 @@ export function SettingsSectionScreen({ route }: Props) {
           </View>
         )}
       </Sheet>
+
+      {/* Дно и то, что в нём спрятано. Пролистав до конца, человек упирается в
+          настоящее дно; упрётся трижды (bounce внизу) — приложение уступит и
+          покажет кнопку «Гламура» (пасхалка из веба). */}
+      <View style={{ height: 320 }} />
+      {glamUnlocked || glamOn ? (
+        <View style={{ alignItems: 'center', gap: 12, paddingBottom: 24 }}>
+          <Text style={{ fontSize: 13, lineHeight: 19, textAlign: 'center', color: palette.textMuted }}>
+            {glamOn ? 'Розовое включено. Выключить можно здесь же.' : 'Дно уступило. Держите.'}
+          </Text>
+          {glamUnlocked || glamOn ? (
+            <Pressable
+              onPress={() => setStylePreference(glamOn ? 'chronicle' : 'glam')}
+              style={{ borderRadius: 999, paddingHorizontal: 20, paddingVertical: 11, backgroundColor: glamOn ? palette.surface2 : '#e0338c' }}
+            >
+              <Text style={{ fontSize: 14, fontWeight: '700', color: glamOn ? palette.text : '#fff' }}>
+                {glamOn ? 'Хватит' : 'Забрать'}
+              </Text>
+            </Pressable>
+          ) : null}
+        </View>
+      ) : null}
     </Wrap>
   );
 }
 
 /* ── Кусочки ──────────────────────────────────────────────────────────── */
 
-function Wrap({ palette, title, children }: { palette: Palette; title: string; children: React.ReactNode }) {
+function Wrap({ palette, title, children, onBump }: { palette: Palette; title: string; children: React.ReactNode; onBump?: () => void }) {
   const topInset = useTopBarInset();
+  const armed = useRef(true);
+  const rearm = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Один непрерывный «упор» в дно (bounce ниже конца) = один вызов onBump.
+  // Пауза 380 мс, чтобы десятки событий одного жеста не набрали счёт разом.
+  function onScroll(e: { nativeEvent: { contentOffset: { y: number }; contentSize: { height: number }; layoutMeasurement: { height: number } } }) {
+    if (!onBump) return;
+    const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
+    const overshoot = contentOffset.y + layoutMeasurement.height - contentSize.height;
+    if (overshoot > 40 && armed.current) {
+      armed.current = false;
+      if (rearm.current) clearTimeout(rearm.current);
+      rearm.current = setTimeout(() => { armed.current = true; }, 380);
+      onBump();
+    }
+  }
+
   return (
     <View style={{ flex: 1, backgroundColor: palette.bg }}>
       {/* Та же стеклянная шапка, что на ленте (колокол, :P, действие) —
@@ -296,6 +339,8 @@ function Wrap({ palette, title, children }: { palette: Palette; title: string; c
         style={{ flex: 1 }}
         contentContainerStyle={{ paddingTop: topInset, paddingHorizontal: 16, paddingBottom: 40, gap: 12 }}
         scrollIndicatorInsets={{ top: topInset }}
+        onScroll={onBump ? onScroll : undefined}
+        scrollEventThrottle={16}
       >
         {/* Имя раздела крупным заголовком с акцентной точкой — как ScreenTitle. */}
         <Text style={{ fontFamily: palette.displayFamily, fontSize: 30, color: palette.text, paddingBottom: 6 }}>
