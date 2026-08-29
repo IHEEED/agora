@@ -11,6 +11,7 @@ import { AvatarFollow } from './AvatarFollow';
 import { VerifiedMark } from './VerifiedMark';
 import { VoteBlock } from './VoteBlock';
 import { PostMenuSheet } from './PostMenuSheet';
+import { ImageViewer } from './ImageViewer';
 import {
   ChevronIcon,
   CommentIcon,
@@ -251,6 +252,8 @@ export function PostCard({
 function ImageStrip({ images }: { images: string[] }) {
   const width = Dimensions.get('window').width - 32;
   const [shown, setShown] = useState(0);
+  // Какой кадр открыт во весь экран. −1 — закрыто.
+  const [viewing, setViewing] = useState(-1);
 
   return (
     <View style={{ borderRadius: 16, overflow: 'hidden' }}>
@@ -261,9 +264,13 @@ function ImageStrip({ images }: { images: string[] }) {
         onMomentumScrollEnd={(e) => setShown(Math.round(e.nativeEvent.contentOffset.x / width))}
       >
         {images.map((src, index) => (
-          <Image key={`${src}-${index}`} source={{ uri: src }} style={{ width, height: 340 }} resizeMode="cover" />
+          <Pressable key={`${src}-${index}`} onPress={() => setViewing(index)}>
+            <Image source={{ uri: src }} style={{ width, height: 340 }} resizeMode="cover" />
+          </Pressable>
         ))}
       </ScrollView>
+
+      <ImageViewer images={images} index={viewing} onClose={() => setViewing(-1)} />
 
       {images.length > 1 ? (
         <>
