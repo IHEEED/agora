@@ -87,6 +87,16 @@ export const DICTIONARY: Record<Exclude<Locale, 'ru'>, Record<string, string>> =
     'Пока никто не подписался.': 'No followers yet.',
     'Пока ни на кого не подписан.': 'Not following anyone yet.',
     'Что такое influence-очки': 'What are influence points',
+    'Редактировать профиль': 'Edit profile',
+    'Добавить фон профиля': 'Add profile background',
+    'подписчиков': 'followers',
+    'подписок': 'following',
+    'постов': 'posts',
+    'Мысль дня': 'Thought of the day',
+    'Что у вас на уме?': "What's on your mind?",
+    'Вы не вошли в аккаунт.': "You're not signed in.",
+    'Чтобы публиковать посты и комментарии, подтвердите номер телефона.': 'To post and comment, verify your phone number.',
+    'Подтвердить телефон': 'Verify phone',
     'Influence-очки — сумма голосов за все ваши записи. Каждый голос «за» добавляет очко, «против» — отнимает. Чем полезнее ваши записи, тем их больше.':
       'Influence is the sum of votes on all your posts. Each upvote adds a point, each downvote takes one away. The more useful your posts, the higher it grows.',
 
@@ -292,6 +302,16 @@ export const DICTIONARY: Record<Exclude<Locale, 'ru'>, Record<string, string>> =
     'Пока никто не подписался.': 'Aún no hay seguidores.',
     'Пока ни на кого не подписан.': 'Aún no sigues a nadie.',
     'Что такое influence-очки': 'Qué son los puntos de influencia',
+    'Редактировать профиль': 'Editar perfil',
+    'Добавить фон профиля': 'Añadir fondo de perfil',
+    'подписчиков': 'seguidores',
+    'подписок': 'siguiendo',
+    'постов': 'publicaciones',
+    'Мысль дня': 'Idea del día',
+    'Что у вас на уме?': '¿Qué estás pensando?',
+    'Вы не вошли в аккаунт.': 'No has iniciado sesión.',
+    'Чтобы публиковать посты и комментарии, подтвердите номер телефона.': 'Para publicar y comentar, verifica tu número de teléfono.',
+    'Подтвердить телефон': 'Verificar teléfono',
     'Influence-очки — сумма голосов за все ваши записи. Каждый голос «за» добавляет очко, «против» — отнимает. Чем полезнее ваши записи, тем их больше.':
       'La influencia es la suma de los votos de todas tus publicaciones. Cada voto a favor suma un punto y cada voto en contra resta uno. Cuanto más útiles sean tus publicaciones, mayor será.',
 

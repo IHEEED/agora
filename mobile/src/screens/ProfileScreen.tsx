@@ -17,6 +17,7 @@ import { VoteBlock } from '../components/VoteBlock';
 import { PostCard } from '../components/PostCard';
 import { SuggestedPeople } from '../components/SuggestedPeople';
 import { SegmentedControl } from '../components/SegmentedControl';
+import { useT } from '../lib/i18n';
 import { TopBar, useTopBarInset } from '../components/TopBar';
 import { CommentIcon, ChevronIcon } from '../components/icons';
 import { usePalette } from '../theme';
@@ -49,6 +50,7 @@ const INFLUENCE_EXPLAIN =
  */
 export function ProfileScreen() {
   const palette = usePalette();
+  const { t } = useT();
   const insets = useSafeAreaInsets();
   const topInset = useTopBarInset();
   const navigation = useNavigation<Nav>();
@@ -99,7 +101,7 @@ export function ProfileScreen() {
   if (loading) {
     return (
       <View style={{ flex: 1, backgroundColor: palette.bg, paddingTop: insets.top + 40 }}>
-        <Text style={{ padding: 16, color: palette.textMuted }}>Загрузка…</Text>
+        <Text style={{ padding: 16, color: palette.textMuted }}>{t('Загрузка…')}</Text>
       </View>
     );
   }
@@ -107,12 +109,12 @@ export function ProfileScreen() {
   if (!session) {
     return (
       <View style={{ flex: 1, backgroundColor: palette.bg, paddingTop: insets.top + 40, paddingHorizontal: 20, gap: 12 }}>
-        <Text style={{ fontSize: 16, color: palette.text }}>Вы не вошли в аккаунт.</Text>
+        <Text style={{ fontSize: 16, color: palette.text }}>{t('Вы не вошли в аккаунт.')}</Text>
         <Pressable
           onPress={goToLogin}
           style={{ alignSelf: 'flex-start', backgroundColor: palette.accent, borderRadius: 999, paddingHorizontal: 20, paddingVertical: 11 }}
         >
-          <Text style={{ color: palette.accentContrast, fontWeight: '600' }}>Войти</Text>
+          <Text style={{ color: palette.accentContrast, fontWeight: '600' }}>{t('Войти')}</Text>
         </Pressable>
       </View>
     );
@@ -129,10 +131,10 @@ export function ProfileScreen() {
     userId &&
     rootNav()?.navigate('People', {
       endpoint: `/users/${userId}/${mode}`,
-      title: mode === 'followers' ? 'Подписчики' : 'Подписки',
-      emptyText: mode === 'followers' ? 'Пока никто не подписался.' : 'Пока ни на кого не подписан.',
+      title: mode === 'followers' ? t('Подписчики') : t('Подписки'),
+      emptyText: mode === 'followers' ? t('Пока никто не подписался.') : t('Пока ни на кого не подписан.'),
     });
-  const showInfluence = () => Alert.alert('Что такое influence-очки', INFLUENCE_EXPLAIN);
+  const showInfluence = () => Alert.alert(t('Что такое influence-очки'), t(INFLUENCE_EXPLAIN));
 
   const header = (
     <View style={{ paddingTop: 8 }}>
@@ -167,7 +169,7 @@ export function ProfileScreen() {
             <Svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2.1} strokeLinecap="round">
               <Path d="M12 6v12M6 12h12" />
             </Svg>
-            <Text style={{ fontSize: 12.5, fontWeight: '600', color: '#fff' }}>Добавить фон профиля</Text>
+            <Text style={{ fontSize: 12.5, fontWeight: '600', color: '#fff' }}>{t('Добавить фон профиля')}</Text>
           </Pressable>
         ) : null}
 
@@ -203,17 +205,17 @@ export function ProfileScreen() {
           <View style={{ flexDirection: 'row', gap: 16 }}>
             <Pressable onPress={() => openPeople('followers')} style={{ flexDirection: 'row', alignItems: 'baseline', gap: 6 }}>
               <Text style={{ fontSize: 16, fontWeight: '600', color: palette.text }}>{profile?.followers ?? 0}</Text>
-              <Text style={{ fontSize: 13.5, color: palette.textMuted }}>подписчиков</Text>
+              <Text style={{ fontSize: 13.5, color: palette.textMuted }}>{t('подписчиков')}</Text>
             </Pressable>
             <Pressable onPress={() => openPeople('following')} style={{ flexDirection: 'row', alignItems: 'baseline', gap: 6 }}>
               <Text style={{ fontSize: 16, fontWeight: '600', color: palette.text }}>{profile?.following ?? 0}</Text>
-              <Text style={{ fontSize: 13.5, color: palette.textMuted }}>подписок</Text>
+              <Text style={{ fontSize: 13.5, color: palette.textMuted }}>{t('подписок')}</Text>
             </Pressable>
           </View>
 
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             <Text style={{ fontSize: 13, color: palette.textMuted }}>
-              <Text style={{ color: palette.text }}>{posts.length}</Text> постов
+              <Text style={{ color: palette.text }}>{posts.length}</Text> {t('постов')}
             </Text>
             <Text style={{ color: palette.textMuted }}>·</Text>
             <Text style={{ fontSize: 13, color: palette.textMuted }}>
@@ -233,7 +235,7 @@ export function ProfileScreen() {
             onPress={openEdit}
             style={{ borderWidth: 1, borderColor: palette.border, borderRadius: 999, paddingVertical: 9, alignItems: 'center' }}
           >
-            <Text style={{ fontSize: 14, fontWeight: '500', color: palette.text }}>Редактировать профиль</Text>
+            <Text style={{ fontSize: 14, fontWeight: '500', color: palette.text }}>{t('Редактировать профиль')}</Text>
           </Pressable>
         </View>
       </View>
@@ -249,7 +251,7 @@ export function ProfileScreen() {
           value={tab}
           onChange={setTab}
           options={TABS.map(
-            ([value, label]) => [value, value === tab ? `${label} ${counts[value]}` : label] as const
+            ([value, label]) => [value, value === tab ? `${t(label)} ${counts[value]}` : t(label)] as const
           )}
         />
       </View>
@@ -266,11 +268,11 @@ export function ProfileScreen() {
           <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1, justifyContent: 'flex-end' }}>
             <View style={{ backgroundColor: palette.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, paddingBottom: 36, gap: 12 }}>
               <View style={{ alignSelf: 'center', width: 40, height: 5, borderRadius: 3, backgroundColor: palette.border }} />
-              <Text style={{ fontSize: 17, fontWeight: '700', color: palette.text }}>Мысль дня</Text>
+              <Text style={{ fontSize: 17, fontWeight: '700', color: palette.text }}>{t('Мысль дня')}</Text>
               <TextInput
                 value={noteDraft}
                 onChangeText={setNoteDraft}
-                placeholder="Что у вас на уме?"
+                placeholder={t('Что у вас на уме?')}
                 placeholderTextColor={palette.textMuted}
                 maxLength={80}
                 autoFocus
@@ -279,7 +281,7 @@ export function ProfileScreen() {
                 style={{ borderWidth: 1, borderColor: palette.border, borderRadius: 12, padding: 12, fontSize: 15, color: palette.text, backgroundColor: palette.surface }}
               />
               <Pressable onPress={saveNote} style={{ alignSelf: 'flex-start', backgroundColor: palette.accent, borderRadius: 999, paddingHorizontal: 20, paddingVertical: 11 }}>
-                <Text style={{ color: palette.accentContrast, fontWeight: '600', fontSize: 15 }}>Сохранить</Text>
+                <Text style={{ color: palette.accentContrast, fontWeight: '600', fontSize: 15 }}>{t('Сохранить')}</Text>
               </Pressable>
             </View>
           </KeyboardAvoidingView>
@@ -294,18 +296,18 @@ export function ProfileScreen() {
       return (
         <View style={{ alignItems: 'center', gap: 14, paddingHorizontal: 32, paddingTop: 32 }}>
           <Text style={{ textAlign: 'center', fontSize: 14.5, lineHeight: 21, color: palette.textMuted }}>
-            Чтобы публиковать посты и комментарии, подтвердите номер телефона.
+            {t('Чтобы публиковать посты и комментарии, подтвердите номер телефона.')}
           </Text>
           <Pressable
             onPress={() => navigation.getParent<NativeStackNavigationProp<RootStackParamList>>()?.navigate('Settings')}
             style={{ backgroundColor: palette.accent, borderRadius: 999, paddingHorizontal: 22, paddingVertical: 12 }}
           >
-            <Text style={{ fontSize: 14, fontWeight: '600', color: palette.accentContrast }}>Подтвердить телефон</Text>
+            <Text style={{ fontSize: 14, fontWeight: '600', color: palette.accentContrast }}>{t('Подтвердить телефон')}</Text>
           </Pressable>
         </View>
       );
     }
-    const text = tab === 'posts' ? 'Постов пока нет.' : tab === 'comments' ? 'Комментариев пока нет.' : 'Репостов пока нет.';
+    const text = t(tab === 'posts' ? 'Постов пока нет.' : tab === 'comments' ? 'Комментариев пока нет.' : 'Репостов пока нет.');
     return <Text style={{ paddingHorizontal: 16, color: palette.textMuted }}>{text}</Text>;
   };
 

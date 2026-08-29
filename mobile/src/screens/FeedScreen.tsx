@@ -13,6 +13,7 @@ import { SegmentedControl } from '../components/SegmentedControl';
 import { SkeletonPost } from '../components/SkeletonPost';
 import { TopBar, useTopBarInset } from '../components/TopBar';
 import { useSession } from '../lib/useSession';
+import { useT } from '../lib/i18n';
 import { usePalette } from '../theme';
 import type { RootStackParamList } from '../navigation/types';
 
@@ -32,6 +33,7 @@ const SORTS = [
 
 export function FeedScreen() {
   const palette = usePalette();
+  const { t } = useT();
   const insets = useSafeAreaInsets();
   const topInset = useTopBarInset();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -73,7 +75,7 @@ export function FeedScreen() {
       </Pressable>
 
       <View style={{ paddingHorizontal: 16 }}>
-        <SegmentedControl value={sort} options={SORTS} onChange={setSort} />
+        <SegmentedControl value={sort} options={SORTS.map(([v, l]) => [v, t(l)] as const)} onChange={setSort} />
       </View>
 
       <SuggestedPeople />
