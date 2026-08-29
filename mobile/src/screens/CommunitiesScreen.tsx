@@ -11,7 +11,6 @@ import { useSession } from '../lib/useSession';
 import { Community } from '../lib/types';
 import { Avatar } from '../components/Avatar';
 import { TopBar, useTopBarInset } from '../components/TopBar';
-import { CreateCommunitySheet } from '../components/CreateCommunitySheet';
 import { usePalette } from '../theme';
 import type { RootStackParamList, TabParamList } from '../navigation/types';
 
@@ -38,7 +37,6 @@ export function CommunitiesScreen() {
   const [query, setQuery] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [creating, setCreating] = useState(false);
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -56,7 +54,10 @@ export function CommunitiesScreen() {
   );
 
   function openCreate() {
-    setCreating(true);
+    // Нативным модал-экраном (presentation: 'modal') — он выезжает и тянется
+    // вниз тем же красивым жестом, что и «новый пост».
+    const parent = navigation.getParent<NativeStackNavigationProp<RootStackParamList>>();
+    (parent ?? navigation).navigate('CreateCommunity');
   }
 
   return (
@@ -148,12 +149,6 @@ export function CommunitiesScreen() {
             </View>
           </Pressable>
         )}
-      />
-
-      <CreateCommunitySheet
-        open={creating}
-        onClose={() => setCreating(false)}
-        onCreated={(community) => setCommunities((prev) => [community, ...prev])}
       />
     </View>
   );
