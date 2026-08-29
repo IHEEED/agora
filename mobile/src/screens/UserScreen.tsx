@@ -1,5 +1,7 @@
 import { useCallback, useLayoutEffect, useMemo, useState } from 'react';
 import { FlatList, Modal, Pressable, Text, View } from 'react-native';
+import Svg, { Path } from 'react-native-svg';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -10,20 +12,15 @@ import { Avatar } from '../components/Avatar';
 import { VerifiedMark } from '../components/VerifiedMark';
 import { VoteBlock } from '../components/VoteBlock';
 import { PostCard } from '../components/PostCard';
-import { CommentIcon, ChevronIcon, MoreIcon } from '../components/icons';
+import { SegmentedControl } from '../components/SegmentedControl';
+import { CommentIcon, MoreIcon } from '../components/icons';
 import { usePalette } from '../theme';
 import type { RootStackParamList } from '../navigation/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'User'>;
 type Nav = NativeStackNavigationProp<RootStackParamList>;
-type Palette = ReturnType<typeof usePalette>;
 
 type Tab = 'posts' | 'comments' | 'reposts';
-const TABS: { value: Tab; label: string }[] = [
-  { value: 'posts', label: 'Записи' },
-  { value: 'comments', label: 'Комментарии' },
-  { value: 'reposts', label: 'Репосты' },
-];
 
 const REPORT_REASONS = [
   { key: 'spam', label: 'Спам' },
@@ -34,10 +31,13 @@ const REPORT_REASONS = [
 ];
 
 /**
- * Профиль другого человека — по образцу веба /u/[id].
+ * Чужой профиль — один в один с вебом (/u/[userId]).
  *
- * То же, что свой профиль, плюс подписка и «Написать», а вместо шестерёнки —
- * меню с жалобой. Открывается тапом по автору записи или комментария.
+ * Та же карточка, что и в своём профиле: обложка-заливка, растворяющаяся в
+ * стекло, аватар на ней, метрики. Отличие — вместо «Редактировать» здесь пара
+ * «Написать» + подписка, а вместо шестерёнки — меню (три точки) с жалобой.
+ * Подписи/цифры и переключатель вкладок совпадают со своим профилем, только у
+ * чужого счётчик стоит лишь у вкладки «Посты».
  */
 export function UserScreen({ route }: Props) {
   const { userId } = route.params;
@@ -98,79 +98,112 @@ export function UserScreen({ route }: Props) {
     }
   }
 
-  const handle = profile?.username ?? '';
-  const displayName = profile?.display_name || profile?.username || '';
-  const bio = profile?.bio || '';
+  const handle = profile?.username ?? posts[0]?.author.username ?? '';
+  const displayName = profile?.display_name || profile?.username || handle || '—';
   const counts: Record<Tab, number> = { posts: posts.length, comments: comments.length, reposts: reposts.length };
 
+  const openPeople = (mode: 'followers' | 'following') =>
+    navigation.navigate('People', {
+      endpoint: `/users/${userId}/${mode}`,
+      title: mode === 'followers' ? 'Подписчики' : 'Подписки',
+      emptyText: mode === 'followers' ? 'Пока никто не подписался.' : 'Пока ни на кого не подписан.',
+    });
+
   const header = (
-    <View>
-      <View style={{ paddingHorizontal: 16, paddingTop: 12, gap: 12 }}>
-        <Avatar name={handle} uri={profile?.avatar_url} size={88} />
+    <View style={{ paddingTop: 8 }}>
+      {/* Блок 1 — карточка с обложкой-заливкой, аватаром и метриками, как в
+          своём профиле. У чужого обложка не показывается картинкой (как в
+          вебе) — только акцентная заливка, сходящая на нет книзу. */}
+      <View style={{ marginHorizontal: 10, borderRadius: 18, overflow: 'hidden', backgroundColor: palette.surface }}>
+        <LinearGradient
+          colors={[`${palette.accent}5c`, `${palette.accent}1a`, `${palette.accent}00`]}
+          locations={[0, 0.55, 0.9]}
+          start={{ x: 0.5, y: 0 }}
+          end={{ x: 0.5, y: 1 }}
+          style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 190 }}
+        />
 
-        <View style={{ gap: 2 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-            <Text style={{ fontSize: 20, fontWeight: '700', color: palette.text }}>{displayName}</Text>
-            <VerifiedMark verified={profile?.verified_at} size={19} />
+        <View style={{ paddingHorizontal: 16, paddingTop: 108, paddingBottom: 16, gap: 12 }}>
+          {/* Аватар приподнят на обложку, в ободке цвета поверхности. */}
+          <View style={{ marginTop: -44, borderRadius: 999, backgroundColor: palette.surface, padding: 3, alignSelf: 'flex-start' }}>
+            <Avatar name={handle || '?'} uri={profile?.avatar_url} size={88} />
           </View>
-          <Text style={{ fontSize: 13, fontWeight: '600', color: palette.accent }}>@{handle}</Text>
-          {bio ? <Text style={{ marginTop: 4, fontSize: 14, lineHeight: 19, color: palette.text }}>{bio}</Text> : null}
-        </View>
 
-        <View style={{ flexDirection: 'row', gap: 16 }}>
-          <Stat palette={palette} value={profile?.followers ?? 0} label="подписчиков" />
-          <Stat palette={palette} value={profile?.following ?? 0} label="подписок" />
-        </View>
+          <View style={{ gap: 2 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+              <Text style={{ fontSize: 20, fontWeight: '700', color: palette.text }}>{displayName}</Text>
+              <VerifiedMark verified={profile?.verified_at} size={19} />
+            </View>
+            <Text style={{ fontSize: 13, fontWeight: '600', color: palette.accent }}>@{handle}</Text>
+          </View>
 
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-          <Text style={{ fontSize: 13, color: palette.textMuted }}>
-            <Text style={{ color: palette.text }}>{posts.length}</Text> записей
-          </Text>
-          <Text style={{ color: palette.textMuted }}>·</Text>
-          <Text style={{ fontSize: 13, color: palette.textMuted }}>
-            <Text style={{ color: palette.text }}>{influence}</Text> influence
-          </Text>
-        </View>
+          <View style={{ flexDirection: 'row', gap: 16 }}>
+            <Pressable onPress={() => openPeople('followers')} style={{ flexDirection: 'row', alignItems: 'baseline', gap: 6 }}>
+              <Text style={{ fontSize: 16, fontWeight: '600', color: palette.text }}>{profile?.followers ?? 0}</Text>
+              <Text style={{ fontSize: 13.5, color: palette.textMuted }}>подписчиков</Text>
+            </Pressable>
+            <Pressable onPress={() => openPeople('following')} style={{ flexDirection: 'row', alignItems: 'baseline', gap: 6 }}>
+              <Text style={{ fontSize: 16, fontWeight: '600', color: palette.text }}>{profile?.following ?? 0}</Text>
+              <Text style={{ fontSize: 13.5, color: palette.textMuted }}>подписок</Text>
+            </Pressable>
+          </View>
 
-        {/* Подписка и сообщение. */}
-        <View style={{ flexDirection: 'row', gap: 10 }}>
-          <Pressable
-            onPress={toggleFollow}
-            style={{ flex: 1, borderRadius: 999, paddingVertical: 10, alignItems: 'center', backgroundColor: following ? palette.surface2 : palette.accent }}
-          >
-            <Text style={{ fontSize: 14, fontWeight: '600', color: following ? palette.text : palette.accentContrast }}>
-              {following ? 'Вы подписаны' : 'Подписаться'}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Text style={{ fontSize: 13, color: palette.textMuted }}>
+              <Text style={{ color: palette.text }}>{posts.length}</Text> постов
             </Text>
-          </Pressable>
-          <Pressable
-            onPress={() => navigation.navigate('Chat', { userId, username: displayName || handle })}
-            style={{ flex: 1, borderRadius: 999, paddingVertical: 10, alignItems: 'center', borderWidth: 1, borderColor: palette.border }}
-          >
-            <Text style={{ fontSize: 14, fontWeight: '600', color: palette.text }}>Написать</Text>
-          </Pressable>
+            <Text style={{ color: palette.textMuted }}>·</Text>
+            <Text style={{ fontSize: 13, color: palette.textMuted }}>
+              <Text style={{ color: palette.text }}>{profile?.karma ?? influence}</Text> influence
+            </Text>
+          </View>
+
+          {/* Написать + подписка — знаком и словом, как в вебе. */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <Pressable
+              onPress={() => navigation.navigate('Chat', { userId, username: displayName || handle })}
+              style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 999, paddingVertical: 11, backgroundColor: `${palette.accent}1f` }}
+            >
+              <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={palette.accent} strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round">
+                <Path d="M14 9a2 2 0 0 1-2 2H6l-4 3.5V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2Z" />
+                <Path d="M18 9h2a2 2 0 0 1 2 2v10.5L18 18h-6a2 2 0 0 1-2-2v-1" />
+              </Svg>
+              <Text style={{ fontSize: 14, fontWeight: '600', color: palette.accent }}>Написать</Text>
+            </Pressable>
+
+            <Pressable
+              onPress={toggleFollow}
+              style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 999, paddingVertical: 11, backgroundColor: following ? palette.surface2 : palette.accent }}
+            >
+              <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={following ? palette.textMuted : palette.accentContrast} strokeWidth={2.4} strokeLinecap="round">
+                <Path d="M5 12h14" />
+                {!following ? <Path d="M12 5v14" /> : null}
+              </Svg>
+              <Text style={{ fontSize: 14, fontWeight: '600', color: following ? palette.textMuted : palette.accentContrast }}>
+                {following ? 'Вы подписаны' : 'Подписаться'}
+              </Text>
+            </Pressable>
+          </View>
         </View>
       </View>
 
-      <View style={{ flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingVertical: 12 }}>
-        {TABS.map((option) => {
-          const on = tab === option.value;
-          return (
-            <Pressable
-              key={option.value}
-              onPress={() => setTab(option.value)}
-              style={{ paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999, backgroundColor: on ? palette.accent : palette.surface2 }}
-            >
-              <Text style={{ fontSize: 13, fontWeight: '600', color: on ? palette.accentContrast : palette.textMuted }}>
-                {option.label}{on ? ` ${counts[option.value]}` : ''}
-              </Text>
-            </Pressable>
-          );
-        })}
+      {/* Переключатель-«гусеница»: счётчик — только у «Постов» (как в вебе). */}
+      <View style={{ paddingHorizontal: 16, paddingVertical: 12 }}>
+        <SegmentedControl
+          value={tab}
+          onChange={setTab}
+          options={[
+            ['posts', `Посты ${counts.posts}`],
+            ['comments', 'Комменты'],
+            ['reposts', 'Репосты'],
+          ]}
+        />
       </View>
     </View>
   );
 
-  const emptyText = tab === 'posts' ? 'Записей пока нет.' : tab === 'comments' ? 'Комментариев пока нет.' : 'Репостов пока нет.';
+  const emptyText =
+    tab === 'posts' ? 'Здесь пока нет записей.' : tab === 'comments' ? 'Здесь пока нет комментариев.' : 'Репостов пока нет.';
 
   const reportSheet = (
     <Modal visible={menuOpen} transparent animationType="fade" onRequestClose={() => setMenuOpen(false)}>
@@ -195,9 +228,9 @@ export function UserScreen({ route }: Props) {
           data={comments}
           keyExtractor={(item) => item.id}
           ListHeaderComponent={header}
-          ListEmptyComponent={<Text style={{ paddingHorizontal: 16, color: palette.textMuted }}>{emptyText}</Text>}
+          ListEmptyComponent={<Text style={{ paddingVertical: 48, textAlign: 'center', color: palette.textMuted }}>{emptyText}</Text>}
           renderItem={({ item }) => (
-            <View style={{ gap: 8, paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: palette.border }}>
+            <View style={{ gap: 8, paddingHorizontal: 16, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: palette.border }}>
               {item.post ? (
                 <Pressable
                   onPress={() => navigation.navigate('Post', { postId: item.post!.id })}
@@ -205,13 +238,12 @@ export function UserScreen({ route }: Props) {
                 >
                   <CommentIcon size={15} color={palette.textMuted} />
                   <Text numberOfLines={1} style={{ flex: 1, fontSize: 13, color: palette.textMuted }}>{item.post.title}</Text>
-                  <ChevronIcon size={15} color={palette.textMuted} />
                 </Pressable>
               ) : null}
               <Text style={{ fontSize: 14.5, lineHeight: 21, color: palette.text }}>{item.body}</Text>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginLeft: -8 }}>
                 <VoteBlock id={item.id} score={item.score} myVote={item.myVote} kind="comment" compact />
-                <Text style={{ fontSize: 12, color: palette.textMuted }}>{formatCompactAge(item.created_at)}</Text>
+                <Text style={{ fontSize: 12.5, color: palette.textMuted }}>{formatCompactAge(item.created_at)}</Text>
               </View>
             </View>
           )}
@@ -229,19 +261,10 @@ export function UserScreen({ route }: Props) {
         data={list}
         keyExtractor={(post) => post.id}
         ListHeaderComponent={header}
-        ListEmptyComponent={<Text style={{ paddingHorizontal: 16, color: palette.textMuted }}>{emptyText}</Text>}
+        ListEmptyComponent={<Text style={{ paddingVertical: 48, textAlign: 'center', color: palette.textMuted }}>{emptyText}</Text>}
         renderItem={({ item }) => <PostCard post={item} />}
       />
       {reportSheet}
-    </View>
-  );
-}
-
-function Stat({ palette, value, label }: { palette: Palette; value: number; label: string }) {
-  return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-      <Text style={{ fontSize: 15, fontWeight: '700', color: palette.text }}>{value}</Text>
-      <Text style={{ fontSize: 14, color: palette.textMuted }}>{label}</Text>
     </View>
   );
 }
