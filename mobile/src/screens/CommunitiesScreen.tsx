@@ -11,6 +11,7 @@ import { useSession } from '../lib/useSession';
 import { Community } from '../lib/types';
 import { Avatar } from '../components/Avatar';
 import { TopBar, useTopBarInset } from '../components/TopBar';
+import { useT } from '../lib/i18n';
 import { usePalette } from '../theme';
 import type { RootStackParamList, TabParamList } from '../navigation/types';
 
@@ -28,6 +29,7 @@ type Nav = CompositeNavigationProp<
  */
 export function CommunitiesScreen() {
   const palette = usePalette();
+  const { t } = useT();
   const insets = useSafeAreaInsets();
   const topInset = useTopBarInset();
   const navigation = useNavigation<Nav>();
@@ -75,7 +77,7 @@ export function CommunitiesScreen() {
             {/* Заголовок и «плюс» — уезжают под стеклянную шапку при прокрутке. */}
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 6, paddingBottom: 12 }}>
               <Text style={{ fontFamily: palette.displayFamily, fontSize: 30, color: palette.text }}>
-                Клубы<Text style={{ color: palette.accent }}>.</Text>
+                {t('Клубы')}<Text style={{ color: palette.accent }}>.</Text>
               </Text>
               {session ? (
                 <Pressable
@@ -98,7 +100,7 @@ export function CommunitiesScreen() {
                   <Path d="M11 4a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13Z" />
                   <Path d="m20 20-4.3-4.3" />
                 </Svg>
-                <Text style={{ fontSize: 15, color: palette.textMuted }}>Поиск</Text>
+                <Text style={{ fontSize: 15, color: palette.textMuted }}>{t('Поиск')}</Text>
                 <TextInput
                   value={query}
                   onChangeText={setQuery}
@@ -107,7 +109,7 @@ export function CommunitiesScreen() {
               </View>
             ) : null}
 
-            {loading ? <Text style={{ paddingHorizontal: 10, color: palette.textMuted }}>Загрузка…</Text> : null}
+            {loading ? <Text style={{ paddingHorizontal: 10, color: palette.textMuted }}>{t('Загрузка…')}</Text> : null}
             {error ? <Text style={{ paddingHorizontal: 10, color: palette.down }}>{error}</Text> : null}
           </View>
         }
@@ -115,7 +117,7 @@ export function CommunitiesScreen() {
           !loading && !error ? (
             <View style={{ marginHorizontal: 6, borderRadius: 16, backgroundColor: palette.surface, padding: 24 }}>
               <Text style={{ color: palette.textMuted, textAlign: 'center' }}>
-                {query ? 'Ничего не нашлось.' : 'Клубов пока нет.'}
+                {query ? t('Ничего не нашлось.') : t('Клубов пока нет.')}
               </Text>
             </View>
           ) : null

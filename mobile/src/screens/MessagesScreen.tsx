@@ -9,6 +9,7 @@ import { Thread } from '../lib/types';
 import { Avatar } from '../components/Avatar';
 import { VerifiedMark } from '../components/VerifiedMark';
 import { TopBar, useTopBarInset } from '../components/TopBar';
+import { useT } from '../lib/i18n';
 import { usePalette } from '../theme';
 import { formatCompactAge } from '../lib/formatDate';
 import type { RootStackParamList } from '../navigation/types';
@@ -24,6 +25,7 @@ import type { RootStackParamList } from '../navigation/types';
  */
 export function MessagesScreen() {
   const palette = usePalette();
+  const { t } = useT();
   const insets = useSafeAreaInsets();
   const topInset = useTopBarInset();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -64,10 +66,10 @@ export function MessagesScreen() {
 
   function confirmDelete(thread: Thread) {
     setMenuFor(null);
-    Alert.alert('Удалить переписку?', 'Все письма исчезнут у обоих. Вернуть их будет нечем.', [
-      { text: 'Отмена', style: 'cancel' },
+    Alert.alert(t('Удалить переписку?'), t('Все письма исчезнут у обоих. Вернуть их будет нечем.'), [
+      { text: t('Отмена'), style: 'cancel' },
       {
-        text: 'Удалить',
+        text: t('Удалить'),
         style: 'destructive',
         onPress: () => {
           setThreads((prev) => prev.filter((t) => t.user.id !== thread.user.id));
@@ -89,7 +91,7 @@ export function MessagesScreen() {
         ListHeaderComponent={
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingBottom: 8 }}>
             <Text style={{ fontFamily: palette.displayFamily, fontSize: 30, color: palette.text }}>
-              Мессенджер<Text style={{ color: palette.accent }}>.</Text>
+              {t('Мессенджер')}<Text style={{ color: palette.accent }}>.</Text>
             </Text>
             <Pressable
               onPress={() => navigation.navigate('NewMessage')}
@@ -104,9 +106,9 @@ export function MessagesScreen() {
         ListEmptyComponent={
           !loading && !error ? (
             <Text style={{ paddingHorizontal: 16, paddingVertical: 40, textAlign: 'center', lineHeight: 21, color: palette.textMuted }}>
-              Переписок пока нет.{'\n'}Напишите первому — кнопка справа сверху.
+              {t('Переписок пока нет.')}{'\n'}{t('Напишите первому — кнопка справа сверху.')}
             </Text>
-          ) : loading ? <Text style={{ paddingHorizontal: 16, color: palette.textMuted }}>Загрузка…</Text> : null
+          ) : loading ? <Text style={{ paddingHorizontal: 16, color: palette.textMuted }}>{t('Загрузка…')}</Text> : null
         }
         renderItem={({ item }) => {
           const name = item.user.display_name || item.user.username;
@@ -139,7 +141,7 @@ export function MessagesScreen() {
                   ) : null}
                 </View>
                 <Text numberOfLines={1} style={{ fontSize: 13, color: item.unread > 0 ? palette.text : palette.textMuted }}>
-                  {item.lastMessage.mine ? 'Вы: ' : ''}{item.lastMessage.body}
+                  {item.lastMessage.mine ? t('Вы: ') : ''}{item.lastMessage.body}
                 </Text>
               </View>
 
@@ -182,9 +184,10 @@ export function MessagesScreen() {
 }
 
 function Item({ palette, label, onPress, danger = false }: { palette: ReturnType<typeof usePalette>; label: string; onPress: () => void; danger?: boolean }) {
+  const { t } = useT();
   return (
     <Pressable onPress={onPress} style={({ pressed }) => ({ paddingHorizontal: 20, paddingVertical: 15, backgroundColor: pressed ? palette.surface2 : 'transparent' })}>
-      <Text style={{ fontSize: 16, color: danger ? palette.down : palette.text }}>{label}</Text>
+      <Text style={{ fontSize: 16, color: danger ? palette.down : palette.text }}>{t(label)}</Text>
     </Pressable>
   );
 }

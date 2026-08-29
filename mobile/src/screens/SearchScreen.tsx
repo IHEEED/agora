@@ -13,6 +13,7 @@ import { VerifiedMark } from '../components/VerifiedMark';
 import { FollowButton } from '../components/FollowButton';
 import { SuggestedPeople } from '../components/SuggestedPeople';
 import { TopBar, useTopBarInset } from '../components/TopBar';
+import { useT } from '../lib/i18n';
 import { usePalette } from '../theme';
 import type { RootStackParamList } from '../navigation/types';
 
@@ -38,6 +39,7 @@ const HISTORY_KEY = 'parafraz-search-history';
  */
 export function SearchScreen() {
   const palette = usePalette();
+  const { t } = useT();
   const insets = useSafeAreaInsets();
   const topInset = useTopBarInset();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -113,7 +115,7 @@ export function SearchScreen() {
       {/* Крупный заголовок с акцентной точкой — как ScreenTitle в вебе. */}
       <View style={{ paddingHorizontal: 16, paddingBottom: 12 }}>
         <Text style={{ fontFamily: palette.displayFamily, fontSize: 30, color: palette.text }}>
-          Поиск<Text style={{ color: palette.accent }}>.</Text>
+          {t('Поиск')}<Text style={{ color: palette.accent }}>.</Text>
         </Text>
       </View>
 
@@ -140,7 +142,7 @@ export function SearchScreen() {
           onFocus={() => setFocused(true)}
           onBlur={() => { setFocused(false); remember(query); }}
           onSubmitEditing={() => remember(query)}
-          placeholder="Посты, люди, клубы…"
+          placeholder={t('Посты, люди, клубы…')}
           placeholderTextColor={palette.textMuted}
           returnKeyType="search"
           autoFocus
@@ -158,7 +160,7 @@ export function SearchScreen() {
               onPress={() => setScope(value)}
               style={{ flex: 1, borderRadius: 999, paddingVertical: 6, alignItems: 'center', backgroundColor: on ? palette.accent : 'transparent' }}
             >
-              <Text style={{ fontSize: 13, fontWeight: '600', color: on ? palette.accentContrast : palette.textMuted }}>{label}</Text>
+              <Text style={{ fontSize: 13, fontWeight: '600', color: on ? palette.accentContrast : palette.textMuted }}>{t(label)}</Text>
             </Pressable>
           );
         })}
@@ -176,7 +178,7 @@ export function SearchScreen() {
             {history.length > 0 ? (
               <View style={{ paddingHorizontal: 16 }}>
                 <Text style={{ paddingBottom: 4, fontSize: 13, fontWeight: '600', letterSpacing: 0.5, textTransform: 'uppercase', color: palette.textMuted }}>
-                  История поиска
+                  {t('История поиска')}
                 </Text>
                 {history.map((item) => (
                   <View key={item} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -204,7 +206,7 @@ export function SearchScreen() {
         ) : null}
 
         {showPeople ? (
-          <Section title="Люди" palette={palette}>
+          <Section title={t('Люди')} palette={palette}>
             {foundPeople.map((person) => (
               <View key={person.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 8 }}>
                 <Pressable onPress={() => navigation.navigate('User', { userId: person.id })}>
@@ -226,7 +228,7 @@ export function SearchScreen() {
         ) : null}
 
         {showCommunities ? (
-          <Section title="Клубы" palette={palette}>
+          <Section title={t('Клубы')} palette={palette}>
             {foundCommunities.map((community) => (
               <Pressable
                 key={community.id}
@@ -246,7 +248,7 @@ export function SearchScreen() {
         ) : null}
 
         {showPosts ? (
-          <Section title="Посты" palette={palette}>
+          <Section title={t('Посты')} palette={palette}>
             {foundPosts.map((post) => (
               <Pressable
                 key={post.id}
@@ -264,7 +266,7 @@ export function SearchScreen() {
 
         {nothing ? (
           <Text style={{ paddingVertical: 40, textAlign: 'center', color: palette.textMuted }}>
-            По запросу «{query.trim()}» ничего не нашлось.
+            {t('По запросу «')}{query.trim()}{t('» ничего не нашлось.')}
           </Text>
         ) : null}
       </ScrollView>

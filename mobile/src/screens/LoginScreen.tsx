@@ -3,6 +3,7 @@ import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput,
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { supabase } from '../lib/supabase';
+import { useT } from '../lib/i18n';
 import { usePalette } from '../theme';
 import type { RootStackParamList } from '../navigation/types';
 
@@ -18,6 +19,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'Login'>;
  */
 export function LoginScreen({ navigation }: Props) {
   const palette = usePalette();
+  const { t } = useT();
   const insets = useSafeAreaInsets();
   const [signup, setSignup] = useState(false);
   const [email, setEmail] = useState('');
@@ -61,7 +63,7 @@ export function LoginScreen({ navigation }: Props) {
 
         <View style={{ width: '100%', maxWidth: 380, borderRadius: 20, padding: 22, backgroundColor: palette.surface2, gap: 12 }}>
           <Text style={{ textAlign: 'center', fontSize: 15, fontWeight: '600', color: palette.text, marginBottom: 6 }}>
-            {signup ? 'Новый аккаунт' : 'С возвращением'}
+            {signup ? t('Новый аккаунт') : t('С возвращением')}
           </Text>
 
           <Text style={{ fontSize: 13, color: palette.textMuted }}>Email</Text>
@@ -74,7 +76,7 @@ export function LoginScreen({ navigation }: Props) {
             style={field}
           />
 
-          <Text style={{ fontSize: 13, color: palette.textMuted }}>Пароль</Text>
+          <Text style={{ fontSize: 13, color: palette.textMuted }}>{t('Пароль')}</Text>
           <TextInput
             value={password}
             onChangeText={setPassword}
@@ -98,14 +100,14 @@ export function LoginScreen({ navigation }: Props) {
             }}
           >
             <Text style={{ color: palette.accentContrast, fontWeight: '600', fontSize: 15 }}>
-              {loading ? 'Секунду…' : signup ? 'Завести аккаунт' : 'Войти'}
+              {loading ? t('Секунду…') : signup ? t('Завести аккаунт') : t('Войти')}
             </Text>
           </Pressable>
 
           <Pressable onPress={() => setSignup((v) => !v)} style={{ marginTop: 6, alignItems: 'center' }}>
             <Text style={{ fontSize: 13, color: palette.textMuted }}>
-              {signup ? 'Уже есть аккаунт? ' : 'Нет аккаунта? '}
-              <Text style={{ color: palette.accent, fontWeight: '600' }}>{signup ? 'Войти' : 'Завести'}</Text>
+              {signup ? t('Уже есть аккаунт? ') : t('Нет аккаунта? ')}
+              <Text style={{ color: palette.accent, fontWeight: '600' }}>{signup ? t('Войти') : t('Завести')}</Text>
             </Text>
           </Pressable>
         </View>

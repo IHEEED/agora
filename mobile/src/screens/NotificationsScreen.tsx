@@ -9,6 +9,7 @@ import { Avatar } from '../components/Avatar';
 import { VerifiedMark } from '../components/VerifiedMark';
 import { SuggestedPeople } from '../components/SuggestedPeople';
 import { TopBar, useTopBarInset } from '../components/TopBar';
+import { useT } from '../lib/i18n';
 import { usePalette } from '../theme';
 import type { RootStackParamList } from '../navigation/types';
 
@@ -61,6 +62,7 @@ function when(iso: string): string {
 
 export function NotificationsScreen() {
   const palette = usePalette();
+  const { t } = useT();
   const insets = useSafeAreaInsets();
   const topInset = useTopBarInset();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -101,9 +103,9 @@ export function NotificationsScreen() {
         ListHeaderComponent={
           <View style={{ paddingHorizontal: 16, paddingBottom: 8 }}>
             <Text style={{ fontFamily: palette.displayFamily, fontSize: 30, color: palette.text }}>
-              Уведомления<Text style={{ color: palette.accent }}>.</Text>
+              {t('Уведомления')}<Text style={{ color: palette.accent }}>.</Text>
             </Text>
-            {loading ? <Text style={{ paddingTop: 16, color: palette.textMuted }}>Загрузка…</Text> : null}
+            {loading ? <Text style={{ paddingTop: 16, color: palette.textMuted }}>{t('Загрузка…')}</Text> : null}
           </View>
         }
         ListFooterComponent={
@@ -117,7 +119,7 @@ export function NotificationsScreen() {
                   </Svg>
                 </View>
                 <Text style={{ flex: 1, fontSize: 14, lineHeight: 19, color: palette.textMuted }}>
-                  Новых уведомлений нет. Пока тихо — вот кого можно почитать.
+                  {t('Новых уведомлений нет. Пока тихо — вот кого можно почитать.')}
                 </Text>
               </View>
               <SuggestedPeople />
@@ -143,10 +145,10 @@ export function NotificationsScreen() {
               <View style={{ flex: 1, minWidth: 0 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                   <Text numberOfLines={1} style={{ flexShrink: 1, fontSize: 14.5, fontWeight: '600', color: palette.text }}>
-                    {item.actor?.username ?? 'кто-то'}
+                    {item.actor?.username ?? t('кто-то')}
                   </Text>
                   <VerifiedMark verified={item.actor?.verified_at} size={14} />
-                  <Text numberOfLines={1} style={{ flexShrink: 1, fontSize: 14.5, color: palette.text }}> {WHAT[item.kind]}</Text>
+                  <Text numberOfLines={1} style={{ flexShrink: 1, fontSize: 14.5, color: palette.text }}> {t(WHAT[item.kind])}</Text>
                 </View>
                 {context ? <Text numberOfLines={1} style={{ fontSize: 13, color: palette.textMuted }}>{context}</Text> : null}
               </View>
