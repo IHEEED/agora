@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Modal, Pressable, Text, View } from 'react-native';
-import Svg, { Path, Rect } from 'react-native-svg';
+import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import * as Clipboard from 'expo-clipboard';
 import { apiFetch } from '../lib/api';
 import { usePalette } from '../theme';
@@ -30,12 +30,15 @@ export function PostMenuSheet({
   postId,
   isMine,
   onDeleted,
+  onStory,
 }: {
   open: boolean;
   onClose: () => void;
   postId: string;
   isMine: boolean;
   onDeleted?: () => void;
+  /** Открыть репост записи в историю. Без него пункт «В историю» не показываем. */
+  onStory?: () => void;
 }) {
   const palette = usePalette();
   const [reporting, setReporting] = useState(false);
@@ -102,6 +105,12 @@ export function PostMenuSheet({
                 <Rect x="9" y="9" width="11" height="11" rx="2.5" />
                 <Path d="M15 5.5A2.5 2.5 0 0 0 12.5 3h-7A2.5 2.5 0 0 0 3 5.5v7A2.5 2.5 0 0 0 5.5 15" />
               </Item>
+              {isMine && onStory ? (
+                <Item palette={palette} label="В историю" onPress={() => { onClose(); onStory(); }}>
+                  <Circle cx="12" cy="12" r="8.6" strokeDasharray="4.6 3.4" />
+                  <Path d="M12 8.6v6.8M8.6 12h6.8" />
+                </Item>
+              ) : null}
               <Item palette={palette} label="Пожаловаться" danger onPress={() => setReporting(true)}>
                 <Path d="M5 21V4.5h9l-.8 3.2H19l-1 4.6H6" />
                 <Path d="M5 4.5h.01" />

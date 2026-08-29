@@ -12,6 +12,7 @@ import { VerifiedMark } from './VerifiedMark';
 import { VoteBlock } from './VoteBlock';
 import { PostMenuSheet } from './PostMenuSheet';
 import { ImageViewer } from './ImageViewer';
+import { StoryComposer } from './StoryComposer';
 import {
   ChevronIcon,
   CommentIcon,
@@ -65,6 +66,7 @@ export function PostCard({
   const [repostCount, setRepostCount] = useState(post.repostCount ?? 0);
   const [commentCount] = useState(post.commentCount);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [storyOpen, setStoryOpen] = useState(false);
   const [removed, setRemoved] = useState(false);
   const spin = useRef(new Animated.Value(0)).current;
   // Мягкое появление карточки: проявляется и чуть поднимается при монтировании.
@@ -174,6 +176,13 @@ export function PostCard({
         postId={post.id}
         isMine={isMine}
         onDeleted={() => setRemoved(true)}
+        onStory={() => setStoryOpen(true)}
+      />
+
+      {/* Репост записи в свою историю — как в вебе. */}
+      <StoryComposer
+        draft={storyOpen ? { postId: post.id, title: post.title, body: post.body, image: images[0] ?? null } : null}
+        onClose={() => setStoryOpen(false)}
       />
 
       {/* Заголовок антиквой, тело обычной гарнитурой. */}
