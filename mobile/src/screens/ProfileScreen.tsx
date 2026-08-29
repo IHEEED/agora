@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
-import { FlatList, Image, Modal, Pressable, Text, TextInput, View } from 'react-native';
-import Svg, { Path } from 'react-native-svg';
+import { Alert, FlatList, Image, Modal, Pressable, Text, TextInput, View } from 'react-native';
+import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
@@ -16,6 +16,7 @@ import { VerifiedMark } from '../components/VerifiedMark';
 import { VoteBlock } from '../components/VoteBlock';
 import { PostCard } from '../components/PostCard';
 import { SuggestedPeople } from '../components/SuggestedPeople';
+import { SegmentedControl } from '../components/SegmentedControl';
 import { TopBar, useTopBarInset } from '../components/TopBar';
 import { CommentIcon, ChevronIcon } from '../components/icons';
 import { usePalette } from '../theme';
@@ -28,11 +29,15 @@ type Nav = CompositeNavigationProp<
 
 type Tab = 'posts' | 'comments' | 'reposts';
 
-const TABS: { value: Tab; label: string }[] = [
-  { value: 'posts', label: 'Посты' },
-  { value: 'comments', label: 'Комменты' },
-  { value: 'reposts', label: 'Репосты' },
+const TABS: ReadonlyArray<readonly [Tab, string]> = [
+  ['posts', 'Посты'],
+  ['comments', 'Комменты'],
+  ['reposts', 'Репосты'],
 ];
+
+/** Пояснение к influence — тем же текстом, что тултип ⓘ в вебе. */
+const INFLUENCE_EXPLAIN =
+  'Influence-очки — сумма голосов за все ваши записи. Каждый голос «за» добавляет очко, «против» — отнимает. Чем полезнее ваши записи, тем их больше.';
 
 /**
  * Профиль — по образцу веба.
@@ -118,7 +123,16 @@ export function ProfileScreen() {
   const bio = profile?.bio || '';
   const counts: Record<Tab, number> = { posts: posts.length, comments: comments.length, reposts: reposts.length };
   const phoneVerified = Boolean((session.user as { phone_confirmed_at?: string }).phone_confirmed_at);
-  const openEdit = () => navigation.getParent<NativeStackNavigationProp<RootStackParamList>>()?.navigate('ProfileEdit');
+  const rootNav = () => navigation.getParent<NativeStackNavigationProp<RootStackParamList>>();
+  const openEdit = () => rootNav()?.navigate('ProfileEdit');
+  const openPeople = (mode: 'followers' | 'following') =>
+    userId &&
+    rootNav()?.navigate('People', {
+      endpoint: `/users/${userId}/${mode}`,
+      title: mode === 'followers' ? 'Подписчики' : 'Подписки',
+      emptyText: mode === 'followers' ? 'Пока никто не подписался.' : 'Пока ни на кого не подписан.',
+    });
+  const showInfluence = () => Alert.alert('Что такое influence-очки', INFLUENCE_EXPLAIN);
 
   const header = (
     <View style={{ paddingTop: 8 }}>
@@ -142,21 +156,26 @@ export function ProfileScreen() {
           />
         )}
 
-        <Pressable
-          onPress={openEdit}
-          style={{ position: 'absolute', top: 12, right: 12, zIndex: 2, flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 7, backgroundColor: 'rgba(0,0,0,0.32)' }}
-        >
-          <Svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2.1} strokeLinecap="round">
-            <Path d="M12 6v12M6 12h12" />
-          </Svg>
-          <Text style={{ fontSize: 12.5, fontWeight: '600', color: '#fff' }}>Добавить фон профиля</Text>
-        </Pressable>
+        {/* Кнопка «добавить фон» — только пока фона нет. С поставленной
+            обложкой она закрывала бы ровно то, ради чего её ставили; заменить и
+            подогнать можно из «Редактировать профиль» (как в вебе). */}
+        {!profile?.cover_url ? (
+          <Pressable
+            onPress={openEdit}
+            style={{ position: 'absolute', top: 12, right: 12, zIndex: 2, flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 7, backgroundColor: 'rgba(0,0,0,0.32)' }}
+          >
+            <Svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2.1} strokeLinecap="round">
+              <Path d="M12 6v12M6 12h12" />
+            </Svg>
+            <Text style={{ fontSize: 12.5, fontWeight: '600', color: '#fff' }}>Добавить фон профиля</Text>
+          </Pressable>
+        ) : null}
 
         <View style={{ paddingHorizontal: 16, paddingTop: 108, paddingBottom: 16, gap: 12 }}>
           {/* Аватар приподнят на обложку; облачко-мысль над ним. Кольца нет —
               оно означает непросмотренные истории, а их у своего профиля нет. */}
           <View style={{ marginTop: -44, width: 96, height: 96 }}>
-            <View style={{ position: 'absolute', left: 0, top: 0, width: 96, height: 96, alignItems: 'center', justifyContent: 'center' }}>
+            <View style={{ position: 'absolute', left: 0, top: 0, borderRadius: 999, backgroundColor: palette.surface, padding: 3 }}>
               <Avatar name={handle} uri={profile?.avatar_url} size={88} />
             </View>
             <Pressable
@@ -178,15 +197,18 @@ export function ProfileScreen() {
             {bio ? <Text style={{ marginTop: 4, fontSize: 14, lineHeight: 19, color: palette.text }}>{bio}</Text> : null}
           </View>
 
+          {/* Люди отдельно от цифр: за подписчиками ходят (нажимаются, ведут в
+              список), а посты и influence — справка о профиле, по ней не
+              нажимают. */}
           <View style={{ flexDirection: 'row', gap: 16 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-              <Text style={{ fontSize: 15, fontWeight: '700', color: palette.text }}>{profile?.followers ?? 0}</Text>
-              <Text style={{ fontSize: 14, color: palette.textMuted }}>подписчиков</Text>
-            </View>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-              <Text style={{ fontSize: 15, fontWeight: '700', color: palette.text }}>{profile?.following ?? 0}</Text>
-              <Text style={{ fontSize: 14, color: palette.textMuted }}>подписок</Text>
-            </View>
+            <Pressable onPress={() => openPeople('followers')} style={{ flexDirection: 'row', alignItems: 'baseline', gap: 6 }}>
+              <Text style={{ fontSize: 16, fontWeight: '600', color: palette.text }}>{profile?.followers ?? 0}</Text>
+              <Text style={{ fontSize: 13.5, color: palette.textMuted }}>подписчиков</Text>
+            </Pressable>
+            <Pressable onPress={() => openPeople('following')} style={{ flexDirection: 'row', alignItems: 'baseline', gap: 6 }}>
+              <Text style={{ fontSize: 16, fontWeight: '600', color: palette.text }}>{profile?.following ?? 0}</Text>
+              <Text style={{ fontSize: 13.5, color: palette.textMuted }}>подписок</Text>
+            </Pressable>
           </View>
 
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
@@ -197,6 +219,14 @@ export function ProfileScreen() {
             <Text style={{ fontSize: 13, color: palette.textMuted }}>
               <Text style={{ color: palette.text }}>{influence}</Text> influence
             </Text>
+            {/* Серая «i»: коротко объясняет, откуда берётся число (как в вебе). */}
+            <Pressable onPress={showInfluence} hitSlop={8}>
+              <Svg width={15} height={15} viewBox="0 0 16 16" fill="none">
+                <Circle cx={8} cy={8} r={7} fill={palette.textMuted} opacity={0.16} />
+                <Circle cx={8} cy={4.6} r={1.05} fill={palette.textMuted} />
+                <Rect x={7.05} y={6.7} width={1.9} height={5} rx={0.95} fill={palette.textMuted} />
+              </Svg>
+            </Pressable>
           </View>
 
           <Pressable
@@ -211,22 +241,17 @@ export function ProfileScreen() {
       {/* «Кого почитать» — той же лентой, что и на главной, как в вебе. */}
       <SuggestedPeople />
 
-      {/* Переключатель вкладок: у выбранной — число рядом с подписью. */}
-      <View style={{ flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingVertical: 12 }}>
-        {TABS.map((option) => {
-          const on = tab === option.value;
-          return (
-            <Pressable
-              key={option.value}
-              onPress={() => setTab(option.value)}
-              style={{ paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999, backgroundColor: on ? palette.accent : palette.surface2 }}
-            >
-              <Text style={{ fontSize: 13, fontWeight: '600', color: on ? palette.accentContrast : palette.textMuted }}>
-                {option.label}{on ? ` ${counts[option.value]}` : ''}
-              </Text>
-            </Pressable>
-          );
-        })}
+      {/* Тот же переключатель-«гусеница», что в вебе и в остальном приложении.
+          Счётчик — только у выбранной вкладки: со счётчиками у всех трёх
+          подписи переставали помещаться в колонку и обрезались. */}
+      <View style={{ paddingHorizontal: 16, paddingVertical: 12 }}>
+        <SegmentedControl
+          value={tab}
+          onChange={setTab}
+          options={TABS.map(
+            ([value, label]) => [value, value === tab ? `${label} ${counts[value]}` : label] as const
+          )}
+        />
       </View>
 
       {/* Редактор заметки-облачка. */}

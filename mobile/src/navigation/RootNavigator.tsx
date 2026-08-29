@@ -4,6 +4,7 @@ import { CommunityScreen } from '../screens/CommunityScreen';
 import { CommunityAboutScreen } from '../screens/CommunityAboutScreen';
 import { PostScreen } from '../screens/PostScreen';
 import { CommentsScreen } from '../screens/CommentsScreen';
+import { PeopleScreen } from '../screens/PeopleScreen';
 import { LoginScreen } from '../screens/LoginScreen';
 import { CreateCommunityScreen } from '../screens/CreateCommunityScreen';
 import { CreatePostScreen } from '../screens/CreatePostScreen';
@@ -48,6 +49,11 @@ export function RootNavigator() {
       <Stack.Screen name="CommunityAbout" component={CommunityAboutScreen} options={{ title: 'О клубе', presentation: 'modal' }} />
       <Stack.Screen name="Post" component={PostScreen} options={{ title: 'Пост' }} />
       <Stack.Screen name="Comments" component={CommentsScreen} options={{ title: 'Комментарии', presentation: 'modal' }} />
+      <Stack.Screen
+        name="People"
+        component={PeopleScreen}
+        options={({ route }) => ({ title: route.params.title, presentation: 'modal' })}
+      />
       <Stack.Screen name="Messages" component={MessagesScreen} options={{ title: 'Мессенджер' }} />
       {/* Шапку рисует сам экран (TopBar + строка собеседника). */}
       <Stack.Screen
