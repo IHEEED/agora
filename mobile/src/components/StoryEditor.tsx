@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { apiFetch } from '../lib/api';
 import { uploadImage } from '../lib/uploadImage';
+import { useT } from '../lib/i18n';
 import { usePalette } from '../theme';
 
 const HOURS = [6, 12, 24] as const;
@@ -31,6 +32,7 @@ export function StoryEditor({
   onPublished: () => void;
 }) {
   const palette = usePalette();
+  const { t } = useT();
   const insets = useSafeAreaInsets();
   const [caption, setCaption] = useState('');
   const [hours, setHours] = useState<(typeof HOURS)[number]>(24);
@@ -86,7 +88,7 @@ export function StoryEditor({
               <TextInput
                 value={caption}
                 onChangeText={setCaption}
-                placeholder="Добавить подпись…"
+                placeholder={t('Добавить подпись…')}
                 placeholderTextColor="rgba(255,255,255,0.6)"
                 maxLength={200}
                 multiline
@@ -95,7 +97,7 @@ export function StoryEditor({
 
               {/* Срок жизни. */}
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)' }}>Показывать:</Text>
+                <Text style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)' }}>{t('Показывать:')}</Text>
                 {HOURS.map((value) => {
                   const on = hours === value;
                   return (
@@ -115,7 +117,7 @@ export function StoryEditor({
               >
                 {busy ? <ActivityIndicator color={palette.accentContrast} /> : null}
                 <Text style={{ fontSize: 15, fontWeight: '700', color: palette.accentContrast }}>
-                  {busy ? 'Публикуем…' : 'В историю'}
+                  {busy ? t('Публикуем…') : t('В историю')}
                 </Text>
               </Pressable>
             </View>

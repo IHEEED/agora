@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Linking, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import * as Clipboard from 'expo-clipboard';
+import { useT } from '../lib/i18n';
 import { usePalette } from '../theme';
 
 /**
@@ -52,6 +53,7 @@ const TARGETS: Target[] = [
 
 export function ShareSheet({ open, onClose, url, text }: { open: boolean; onClose: () => void; url: string; text: string }) {
   const palette = usePalette();
+  const { t } = useT();
   const [copied, setCopied] = useState(false);
 
   async function copy() {
@@ -71,7 +73,7 @@ export function ShareSheet({ open, onClose, url, text }: { open: boolean; onClos
         <Pressable onPress={onClose} style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.4)' }]} />
         <View style={{ marginTop: 'auto', backgroundColor: palette.surface, borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingTop: 10, paddingBottom: 36 }}>
           <View style={{ alignSelf: 'center', width: 40, height: 5, borderRadius: 3, backgroundColor: palette.border, marginBottom: 8 }} />
-          <Text style={{ paddingHorizontal: 20, paddingBottom: 8, fontSize: 16, fontWeight: '700', color: palette.text }}>Поделиться в</Text>
+          <Text style={{ paddingHorizontal: 20, paddingBottom: 8, fontSize: 16, fontWeight: '700', color: palette.text }}>{t('Поделиться в')}</Text>
 
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 10, paddingVertical: 8 }}>
             {TARGETS.map((target) => (
@@ -92,7 +94,7 @@ export function ShareSheet({ open, onClose, url, text }: { open: boolean; onClos
                   <Path d="M6 15H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v1" />
                 </Svg>
               </View>
-              <Text style={{ fontSize: 12, color: palette.textMuted }}>{copied ? 'Скопировано' : 'Ссылка'}</Text>
+              <Text style={{ fontSize: 12, color: palette.textMuted }}>{copied ? t('Скопировано') : t('Ссылка')}</Text>
             </Pressable>
           </View>
         </View>

@@ -3,6 +3,7 @@ import { Modal, Pressable, Text, View } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import * as Clipboard from 'expo-clipboard';
 import { apiFetch } from '../lib/api';
+import { useT } from '../lib/i18n';
 import { usePalette } from '../theme';
 
 /**
@@ -44,6 +45,7 @@ export function PostMenuSheet({
   onContinue?: () => void;
 }) {
   const palette = usePalette();
+  const { t } = useT();
   const [reporting, setReporting] = useState(false);
   const [done, setDone] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -91,12 +93,12 @@ export function PostMenuSheet({
 
           {done ? (
             <Text style={{ textAlign: 'center', paddingVertical: 24, fontSize: 15, color: palette.text }}>
-              Жалоба отправлена. Спасибо.
+              {t('Жалоба отправлена. Спасибо.')}
             </Text>
           ) : reporting ? (
             <>
               <Text style={{ paddingHorizontal: 20, paddingVertical: 10, fontSize: 13, color: palette.textMuted }}>
-                За что жалуетесь?
+                {t('За что жалуетесь?')}
               </Text>
               {REASONS.map((r) => (
                 <Item key={r.key} palette={palette} label={r.label} onPress={() => report(r.key)} />
@@ -151,6 +153,7 @@ function Item({
   danger?: boolean;
   children?: React.ReactNode;
 }) {
+  const { t } = useT();
   const color = danger ? palette.down : palette.text;
   return (
     <Pressable
@@ -169,7 +172,7 @@ function Item({
           {children}
         </Svg>
       ) : null}
-      <Text style={{ fontSize: 16, color }}>{label}</Text>
+      <Text style={{ fontSize: 16, color }}>{t(label)}</Text>
     </Pressable>
   );
 }

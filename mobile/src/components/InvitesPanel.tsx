@@ -3,6 +3,7 @@ import { Pressable, Text, View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 import * as Clipboard from 'expo-clipboard';
 import { apiFetch } from '../lib/api';
+import { useT } from '../lib/i18n';
 import { usePalette } from '../theme';
 
 const WEB_URL = process.env.EXPO_PUBLIC_WEB_URL ?? '';
@@ -17,6 +18,7 @@ const WEB_URL = process.env.EXPO_PUBLIC_WEB_URL ?? '';
  */
 export function InvitesPanel({ first = false }: { first?: boolean }) {
   const palette = usePalette();
+  const { t } = useT();
   const [code, setCode] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
@@ -52,13 +54,13 @@ export function InvitesPanel({ first = false }: { first?: boolean }) {
             {loading ? '••••••' : code ?? '—'}
           </Text>
           <Text style={{ fontSize: 12.5, lineHeight: 17, color: palette.textMuted }}>
-            Ваш код. Один на всех, кого позовёте
+            {t('Ваш код. Один на всех, кого позовёте')}
           </Text>
         </View>
 
         {code ? (
           <Pressable onPress={copy} style={{ borderRadius: 999, paddingHorizontal: 16, paddingVertical: 7, backgroundColor: palette.surface2 }}>
-            <Text style={{ fontSize: 13, fontWeight: '600', color: palette.text }}>{copied ? 'Скопировано' : 'Ссылка'}</Text>
+            <Text style={{ fontSize: 13, fontWeight: '600', color: palette.text }}>{copied ? t('Скопировано') : t('Ссылка')}</Text>
           </Pressable>
         ) : null}
       </View>

@@ -4,6 +4,7 @@ import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import * as Clipboard from 'expo-clipboard';
 import { apiFetch } from '../lib/api';
 import { setBlocked, useIsBlocked } from '../lib/blockedUsers';
+import { useT } from '../lib/i18n';
 import { usePalette } from '../theme';
 
 const WEB_URL = process.env.EXPO_PUBLIC_WEB_URL ?? '';
@@ -39,6 +40,7 @@ export function PersonMenuSheet({
   onClearChat?: () => Promise<void> | void;
 }) {
   const palette = usePalette();
+  const { t } = useT();
   const blocked = useIsBlocked(userId);
   const [step, setStep] = useState<Step>('menu');
   const [copied, setCopied] = useState(false);
@@ -64,7 +66,7 @@ export function PersonMenuSheet({
   }
 
   const title =
-    step === 'menu' ? username : step === 'report' ? 'Что не так?' : step === 'clear' ? 'Очистить переписку?' : 'Жалоба принята';
+    step === 'menu' ? username : t(step === 'report' ? 'Что не так?' : step === 'clear' ? 'Очистить переписку?' : 'Жалоба принята');
 
   return (
     <Modal visible={open} transparent animationType="fade" onRequestClose={close}>
@@ -120,7 +122,7 @@ export function PersonMenuSheet({
           {step === 'report' ? (
             REASONS.map((r) => (
               <Pressable key={r.key} onPress={() => report(r.key)} style={({ pressed }) => ({ paddingHorizontal: 20, paddingVertical: 15, backgroundColor: pressed ? palette.surface2 : 'transparent' })}>
-                <Text style={{ fontSize: 16, color: palette.text }}>{r.label}</Text>
+                <Text style={{ fontSize: 16, color: palette.text }}>{t(r.label)}</Text>
               </Pressable>
             ))
           ) : null}
@@ -133,10 +135,10 @@ export function PersonMenuSheet({
                 </Svg>
               </View>
               <Text style={{ textAlign: 'center', fontSize: 14.5, lineHeight: 21, color: palette.textMuted }}>
-                Спасибо, мы посмотрим. Жалоба ушла модераторам.
+                {t('Спасибо, мы посмотрим. Жалоба ушла модераторам.')}
               </Text>
               <Pressable onPress={close} style={{ borderRadius: 999, paddingHorizontal: 22, paddingVertical: 11, backgroundColor: palette.accent }}>
-                <Text style={{ fontSize: 14, fontWeight: '600', color: palette.accentContrast }}>Понятно</Text>
+                <Text style={{ fontSize: 14, fontWeight: '600', color: palette.accentContrast }}>{t('Понятно')}</Text>
               </Pressable>
             </View>
           ) : null}
@@ -144,14 +146,14 @@ export function PersonMenuSheet({
           {step === 'clear' ? (
             <View style={{ gap: 16, paddingHorizontal: 20, paddingVertical: 14 }}>
               <Text style={{ fontSize: 14.5, lineHeight: 21, color: palette.textMuted }}>
-                Ваши сообщения в этой переписке будут удалены без возможности вернуть. Реплики собеседника останутся: они принадлежат ему.
+                {t('Ваши сообщения в этой переписке будут удалены без возможности вернуть. Реплики собеседника останутся: они принадлежат ему.')}
               </Text>
               <View style={{ flexDirection: 'row', gap: 10 }}>
                 <Pressable onPress={() => setStep('menu')} style={{ flex: 1, borderRadius: 999, paddingVertical: 13, alignItems: 'center', backgroundColor: palette.surface2 }}>
-                  <Text style={{ fontSize: 15, fontWeight: '600', color: palette.text }}>Отмена</Text>
+                  <Text style={{ fontSize: 15, fontWeight: '600', color: palette.text }}>{t('Отмена')}</Text>
                 </Pressable>
                 <Pressable onPress={async () => { await onClearChat?.(); close(); }} style={{ flex: 1, borderRadius: 999, paddingVertical: 13, alignItems: 'center', backgroundColor: `${palette.down}29` }}>
-                  <Text style={{ fontSize: 15, fontWeight: '700', color: palette.down }}>Удалить</Text>
+                  <Text style={{ fontSize: 15, fontWeight: '700', color: palette.down }}>{t('Удалить')}</Text>
                 </Pressable>
               </View>
             </View>
@@ -163,6 +165,7 @@ export function PersonMenuSheet({
 }
 
 function Item({ palette, label, hint, onPress, danger = false, children }: { palette: ReturnType<typeof usePalette>; label: string; hint?: string; onPress: () => void; danger?: boolean; children: React.ReactNode }) {
+  const { t } = useT();
   const color = danger ? palette.down : palette.text;
   return (
     <Pressable onPress={onPress} style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 20, paddingVertical: 13, backgroundColor: pressed ? palette.surface2 : 'transparent' })}>
@@ -170,8 +173,8 @@ function Item({ palette, label, hint, onPress, danger = false, children }: { pal
         {children}
       </Svg>
       <View style={{ flex: 1 }}>
-        <Text style={{ fontSize: 15, color }}>{label}</Text>
-        {hint ? <Text style={{ fontSize: 12.5, color: palette.textMuted, marginTop: 1 }}>{hint}</Text> : null}
+        <Text style={{ fontSize: 15, color }}>{t(label)}</Text>
+        {hint ? <Text style={{ fontSize: 12.5, color: palette.textMuted, marginTop: 1 }}>{t(hint)}</Text> : null}
       </View>
     </Pressable>
   );

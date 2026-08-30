@@ -9,6 +9,7 @@ import { Avatar } from './Avatar';
 import { StoryViewer } from './StoryViewer';
 import { StoryEditor } from './StoryEditor';
 import { SegmentRing } from './SegmentRing';
+import { useT } from '../lib/i18n';
 import { usePalette } from '../theme';
 
 /**
@@ -23,6 +24,7 @@ import { usePalette } from '../theme';
  */
 export function StoriesBar() {
   const palette = usePalette();
+  const { t } = useT();
   const [groups, setGroups] = useState<StoryGroup[]>([]);
   const [viewing, setViewing] = useState<number | null>(null);
   const [editing, setEditing] = useState<{ uri: string; base64: string; mime: string } | null>(null);
@@ -66,7 +68,7 @@ export function StoriesBar() {
               </Svg>
             </View>
           </View>
-          <Text numberOfLines={1} style={{ fontSize: 11.5, color: palette.textMuted }}>Ваша история</Text>
+          <Text numberOfLines={1} style={{ fontSize: 11.5, color: palette.textMuted }}>{t('Ваша история')}</Text>
         </Pressable>
 
         {groups.map((group, index) => (

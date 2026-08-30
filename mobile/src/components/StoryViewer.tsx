@@ -7,6 +7,7 @@ import { StoryGroup } from '../lib/types';
 import { Avatar } from './Avatar';
 import { VerifiedMark } from './VerifiedMark';
 import { formatCompactAge } from '../lib/formatDate';
+import { useT } from '../lib/i18n';
 import { usePalette } from '../theme';
 
 /**
@@ -32,6 +33,7 @@ export function StoryViewer({
   onClose: () => void;
 }) {
   const palette = usePalette();
+  const { t } = useT();
   const insets = useSafeAreaInsets();
   const [groupIndex, setGroupIndex] = useState(startIndex);
   const [itemIndex, setItemIndex] = useState(0);
@@ -195,13 +197,13 @@ export function StoryViewer({
                 onChangeText={setReplyText}
                 onFocus={() => setReplying(true)}
                 onBlur={() => { if (!replyText.trim()) setReplying(false); }}
-                placeholder={replySent ? 'Отправлено' : 'Ответить…'}
+                placeholder={replySent ? t('Отправлено') : t('Ответить…')}
                 placeholderTextColor="rgba(255,255,255,0.6)"
                 style={{ flex: 1, paddingVertical: 7, fontSize: 15, color: '#fff' }}
               />
               {replyText.trim() ? (
                 <Pressable onPress={sendReply} hitSlop={8}>
-                  <Text style={{ fontSize: 14, fontWeight: '700', color: '#fff' }}>Отпр.</Text>
+                  <Text style={{ fontSize: 14, fontWeight: '700', color: '#fff' }}>{t('Отпр.')}</Text>
                 </Pressable>
               ) : null}
             </View>

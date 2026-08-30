@@ -259,6 +259,22 @@ export const DICTIONARY: Record<Exclude<Locale, 'ru'>, Record<string, string>> =
     'Уже есть аккаунт? ': 'Already have an account? ',
     'Нет аккаунта? ': "Don't have an account? ",
 
+    // Компоненты: истории, меню, приглашение
+    'Ваш код. Один на всех, кого позовёте': 'Your code. One for everyone you bring',
+    'Добавить подпись — необязательно': 'Add a caption — optional',
+    'История опубликована и будет видна сутки.': 'Story published and visible for a day.',
+    'Добавить подпись…': 'Add a caption…',
+    'Показывать:': 'Show for:',
+    'Отпр.': 'Send',
+    'Ваша история': 'Your story',
+    'Поиск людей': 'Search people',
+    'Жалоба отправлена. Спасибо.': 'Report sent. Thank you.',
+    'За что жалуетесь?': 'What are you reporting?',
+    'Спасибо, мы посмотрим. Жалоба ушла модераторам.': "Thanks, we'll take a look. The report went to the moderators.",
+    'Понятно': 'Got it',
+    'Ваши сообщения в этой переписке будут удалены без возможности вернуть. Реплики собеседника останутся: они принадлежат ему.':
+      'Your messages in this chat will be deleted for good. Their replies stay: they belong to them.',
+
     // Клубы / чат
     'участн.': 'members',
     'записей': 'posts',
@@ -508,6 +524,21 @@ export const DICTIONARY: Record<Exclude<Locale, 'ru'>, Record<string, string>> =
     'С возвращением': 'Bienvenido de nuevo',
     'Уже есть аккаунт? ': '¿Ya tienes una cuenta? ',
     'Нет аккаунта? ': '¿No tienes una cuenta? ',
+
+    'Ваш код. Один на всех, кого позовёте': 'Tu código. Uno para todos los que traigas',
+    'Добавить подпись — необязательно': 'Añadir un pie — opcional',
+    'История опубликована и будет видна сутки.': 'Historia publicada, visible durante un día.',
+    'Добавить подпись…': 'Añadir un pie…',
+    'Показывать:': 'Mostrar durante:',
+    'Отпр.': 'Enviar',
+    'Ваша история': 'Tu historia',
+    'Поиск людей': 'Buscar personas',
+    'Жалоба отправлена. Спасибо.': 'Denuncia enviada. Gracias.',
+    'За что жалуетесь?': '¿Qué quieres denunciar?',
+    'Спасибо, мы посмотрим. Жалоба ушла модераторам.': 'Gracias, lo revisaremos. La denuncia llegó a los moderadores.',
+    'Понятно': 'Entendido',
+    'Ваши сообщения в этой переписке будут удалены без возможности вернуть. Реплики собеседника останутся: они принадлежат ему.':
+      'Tus mensajes en este chat se eliminarán para siempre. Las respuestas de la otra persona permanecen: le pertenecen.',
 
     'участн.': 'miembros',
     'записей': 'publicaciones',

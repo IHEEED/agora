@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Pressable, Text } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { apiFetch } from '../lib/api';
+import { useT } from '../lib/i18n';
 import { usePalette } from '../theme';
 
 /**
@@ -22,6 +23,7 @@ export function FollowButton({
   withLabel?: boolean;
 }) {
   const palette = usePalette();
+  const { t } = useT();
   const [following, setFollowing] = useState(initiallyFollowing);
   const [busy, setBusy] = useState(false);
 
@@ -58,7 +60,7 @@ export function FollowButton({
       </Svg>
       {withLabel ? (
         <Text style={{ fontSize: 14, fontWeight: '600', color: fg }}>
-          {following ? 'Вы подписаны' : 'Подписаться'}
+          {following ? t('Вы подписаны') : t('Подписаться')}
         </Text>
       ) : null}
     </Pressable>

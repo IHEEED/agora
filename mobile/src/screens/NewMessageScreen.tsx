@@ -5,6 +5,7 @@ import type { NativeStackScreenProps, NativeStackNavigationProp } from '@react-n
 import { apiFetch } from '../lib/api';
 import { Avatar } from '../components/Avatar';
 import { VerifiedMark } from '../components/VerifiedMark';
+import { useT } from '../lib/i18n';
 import { usePalette } from '../theme';
 import type { RootStackParamList } from '../navigation/types';
 
@@ -17,6 +18,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'NewMessage'>;
  */
 export function NewMessageScreen({ navigation }: Props) {
   const palette = usePalette();
+  const { t } = useT();
   const [people, setPeople] = useState<Person[]>([]);
   const [query, setQuery] = useState('');
 
@@ -41,7 +43,7 @@ export function NewMessageScreen({ navigation }: Props) {
           <Circle cx="11" cy="11" r="6.5" />
           <Path d="m20 20-4.3-4.3" />
         </Svg>
-        <TextInput value={query} onChangeText={setQuery} placeholder="Поиск людей" placeholderTextColor={palette.textMuted} autoFocus style={{ flex: 1, fontSize: 15, color: palette.text }} />
+        <TextInput value={query} onChangeText={setQuery} placeholder={t('Поиск людей')} placeholderTextColor={palette.textMuted} autoFocus style={{ flex: 1, fontSize: 15, color: palette.text }} />
       </View>
 
       <FlatList
