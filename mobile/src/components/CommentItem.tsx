@@ -10,6 +10,7 @@ import { Comment } from '../lib/types';
 import { Avatar } from './Avatar';
 import { VerifiedMark } from './VerifiedMark';
 import { VoteBlock } from './VoteBlock';
+import { useT } from '../lib/i18n';
 import { usePalette } from '../theme';
 import type { RootStackParamList } from '../navigation/types';
 
@@ -35,6 +36,7 @@ export function CommentItem({
   depth?: number;
 }) {
   const palette = usePalette();
+  const { t } = useT();
   const { session } = useSession();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
@@ -96,7 +98,7 @@ export function CommentItem({
             {session ? (
               <Pressable onPress={() => setReplying((v) => !v)} hitSlop={6} style={{ paddingHorizontal: 8, paddingVertical: 4 }}>
                 <Text style={{ fontSize: 12.5, fontWeight: '600', color: palette.textMuted }}>
-                  {replying ? 'Отмена' : 'Ответить'}
+                  {replying ? t('Отмена') : t('Ответить')}
                 </Text>
               </Pressable>
             ) : null}
@@ -108,7 +110,7 @@ export function CommentItem({
                 autoFocus
                 value={body}
                 onChangeText={setBody}
-                placeholder="Напишите ответ…"
+                placeholder={t('Напишите ответ…')}
                 placeholderTextColor={palette.textMuted}
                 multiline
                 style={{
@@ -136,7 +138,7 @@ export function CommentItem({
                   opacity: submitting || !body.trim() ? 0.5 : 1,
                 }}
               >
-                <Text style={{ color: palette.accentContrast, fontSize: 13, fontWeight: '600' }}>Отправить</Text>
+                <Text style={{ color: palette.accentContrast, fontSize: 13, fontWeight: '600' }}>{t('Отправить')}</Text>
               </Pressable>
             </View>
           ) : null}
@@ -184,7 +186,7 @@ export function CommentItem({
             style={{ alignSelf: 'flex-start', paddingLeft: 22, paddingVertical: 6, marginTop: collapsed ? 0 : 8 }}
           >
             <Text style={{ fontSize: 13, fontWeight: '600', color: palette.accent }}>
-              {collapsed ? `Показать ${replyCount} ${pluralizeReplies(replyCount)}` : 'Свернуть'}
+              {collapsed ? `${t('Показать')} ${replyCount} ${t(pluralizeReplies(replyCount))}` : t('Свернуть')}
             </Text>
           </Pressable>
         </View>

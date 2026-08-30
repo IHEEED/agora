@@ -225,6 +225,19 @@ export const DICTIONARY: Record<Exclude<Locale, 'ru'>, Record<string, string>> =
     'поделился записью': 'shared a post',
     'кто-то': 'someone',
 
+    // Комментарии
+    'Комментариев пока нет. Будьте первым.': 'No comments yet. Be the first.',
+    'Напишите комментарий…': 'Write a comment…',
+    'Поделитесь своим мнением': 'Share your thoughts',
+    'Напишите ответ…': 'Write a reply…',
+    'Показать': 'Show',
+    'ответ': 'reply',
+    'ответа': 'replies',
+    'ответов': 'replies',
+    'комментарий': 'comment',
+    'комментария': 'comments',
+    'комментариев': 'comments',
+
     // Уведомления / поиск / клубы / сообщения / вход
     'Новых уведомлений нет. Пока тихо — вот кого можно почитать.': 'No new notifications. Quiet for now — here are some people to read.',
     'История поиска': 'Search history',
@@ -454,6 +467,17 @@ export const DICTIONARY: Record<Exclude<Locale, 'ru'>, Record<string, string>> =
     'поделился записью': 'compartió una publicación',
     'кто-то': 'alguien',
 
+    'Комментариев пока нет. Будьте первым.': 'Aún no hay comentarios. Sé el primero.',
+    'Напишите комментарий…': 'Escribe un comentario…',
+    'Поделитесь своим мнением': 'Comparte tu opinión',
+    'Напишите ответ…': 'Escribe una respuesta…',
+    'Показать': 'Mostrar',
+    'ответ': 'respuesta',
+    'ответа': 'respuestas',
+    'ответов': 'respuestas',
+    'комментарий': 'comentario',
+    'комментария': 'comentarios',
+    'комментариев': 'comentarios',
     'Новых уведомлений нет. Пока тихо — вот кого можно почитать.': 'No hay notificaciones nuevas. Todo tranquilo: aquí tienes a quién leer.',
     'История поиска': 'Historial de búsqueda',
     'Посты, люди, клубы…': 'Publicaciones, personas, clubes…',

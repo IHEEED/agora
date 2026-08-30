@@ -7,6 +7,7 @@ import { apiFetch } from '../lib/api';
 import { useSession } from '../lib/useSession';
 import { Comment } from '../lib/types';
 import { CommentItem } from '../components/CommentItem';
+import { useT } from '../lib/i18n';
 import { usePalette } from '../theme';
 import type { RootStackParamList } from '../navigation/types';
 
@@ -26,6 +27,7 @@ const QUICK_EMOJI = ['❤️', '🙌', '🔥', '👏', '😢', '😍', '😮', '
 export function CommentsScreen({ route }: Props) {
   const { postId } = route.params;
   const palette = usePalette();
+  const { t } = useT();
   const insets = useSafeAreaInsets();
   const { session } = useSession();
 
@@ -84,10 +86,10 @@ export function CommentsScreen({ route }: Props) {
         ItemSeparatorComponent={() => <View style={{ height: 20 }} />}
         ListEmptyComponent={
           loading ? (
-            <Text style={{ paddingVertical: 24, textAlign: 'center', color: palette.textMuted }}>Загрузка…</Text>
+            <Text style={{ paddingVertical: 24, textAlign: 'center', color: palette.textMuted }}>{t('Загрузка…')}</Text>
           ) : (
             <Text style={{ paddingVertical: 48, textAlign: 'center', color: palette.textMuted }}>
-              Комментариев пока нет. Будьте первым.
+              {t('Комментариев пока нет. Будьте первым.')}
             </Text>
           )
         }
@@ -135,7 +137,7 @@ export function CommentsScreen({ route }: Props) {
               onChangeText={setText}
               onFocus={() => setFocused(true)}
               onBlur={() => setFocused(false)}
-              placeholder="Напишите комментарий…"
+              placeholder={t('Напишите комментарий…')}
               placeholderTextColor={palette.textMuted}
               returnKeyType="send"
               onSubmitEditing={() => submit(text)}

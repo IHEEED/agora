@@ -10,6 +10,7 @@ import { PostCard } from '../components/PostCard';
 import { CommentItem } from '../components/CommentItem';
 import { SegmentedControl } from '../components/SegmentedControl';
 import { SkeletonPost } from '../components/SkeletonPost';
+import { useT } from '../lib/i18n';
 import { usePalette } from '../theme';
 import type { RootStackParamList } from '../navigation/types';
 
@@ -31,6 +32,7 @@ const COMMENT_SORT_OPTIONS: ReadonlyArray<readonly [CommentSort, string]> = [
 export function PostScreen({ route }: Props) {
   const { postId } = route.params;
   const palette = usePalette();
+  const { t } = useT();
   const { session } = useSession();
 
   const [post, setPost] = useState<Post | null>(null);
@@ -117,9 +119,9 @@ export function PostScreen({ route }: Props) {
               }}
             >
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-                <Text style={{ fontSize: 17, fontWeight: '700', color: palette.text }}>Комментарии</Text>
+                <Text style={{ fontSize: 17, fontWeight: '700', color: palette.text }}>{t('Комментарии')}</Text>
                 <View style={{ width: 176 }}>
-                  <SegmentedControl value={commentSort} options={COMMENT_SORT_OPTIONS} onChange={setCommentSort} />
+                  <SegmentedControl value={commentSort} options={COMMENT_SORT_OPTIONS.map(([v, l]) => [v, t(l)] as const)} onChange={setCommentSort} />
                 </View>
               </View>
 
@@ -140,7 +142,7 @@ export function PostScreen({ route }: Props) {
                       onChangeText={setBody}
                       onFocus={() => setInputFocused(true)}
                       onBlur={() => setInputFocused(false)}
-                      placeholder="Поделитесь своим мнением"
+                      placeholder={t('Поделитесь своим мнением')}
                       placeholderTextColor={palette.textMuted}
                       returnKeyType="send"
                       onSubmitEditing={handleSubmit}
@@ -163,7 +165,7 @@ export function PostScreen({ route }: Props) {
 
               {!commentsLoading && comments.length === 0 ? (
                 <Text style={{ paddingVertical: 32, textAlign: 'center', color: palette.textMuted }}>
-                  Комментариев пока нет. Будьте первым.
+                  {t('Комментариев пока нет. Будьте первым.')}
                 </Text>
               ) : null}
             </View>
