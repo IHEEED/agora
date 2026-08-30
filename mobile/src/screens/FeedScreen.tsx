@@ -71,7 +71,7 @@ export function FeedScreen() {
         style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 20, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: hairline }}
       >
         <Avatar name={emailHandle} size={32} />
-        <Text style={{ fontSize: 15, color: palette.textMuted }}>Напишите пару фраз…</Text>
+        <Text style={{ fontSize: 15, color: palette.textMuted }}>{t('Напишите пару фраз…')}</Text>
       </Pressable>
 
       <View style={{ paddingHorizontal: 16 }}>
@@ -111,12 +111,12 @@ export function FeedScreen() {
           ListEmptyComponent={
             !error ? (
               <View style={{ alignItems: 'center', gap: 14, paddingVertical: 64 }}>
-                <Text style={{ color: palette.textMuted }}>В ленте пока пусто.</Text>
+                <Text style={{ color: palette.textMuted }}>{t('В ленте пока пусто.')}</Text>
                 <Pressable
                   onPress={() => navigation.navigate('Communities' as never)}
                   style={{ backgroundColor: palette.accent, borderRadius: 999, paddingHorizontal: 20, paddingVertical: 10 }}
                 >
-                  <Text style={{ fontSize: 14, fontWeight: '600', color: palette.accentContrast }}>Найти клубы</Text>
+                  <Text style={{ fontSize: 14, fontWeight: '600', color: palette.accentContrast }}>{t('Найти клубы')}</Text>
                 </Pressable>
               </View>
             ) : null

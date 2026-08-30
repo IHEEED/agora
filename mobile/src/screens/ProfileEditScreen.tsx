@@ -9,6 +9,7 @@ import { uploadImage } from '../lib/uploadImage';
 import { useSession } from '../lib/useSession';
 import { UserProfile } from '../lib/types';
 import { Avatar } from '../components/Avatar';
+import { useT } from '../lib/i18n';
 import { usePalette } from '../theme';
 import type { RootStackParamList } from '../navigation/types';
 
@@ -22,6 +23,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'ProfileEdit'>;
  */
 export function ProfileEditScreen({ navigation }: Props) {
   const palette = usePalette();
+  const { t } = useT();
   const { session } = useSession();
   const userId = session?.user.id;
 
@@ -122,14 +124,14 @@ export function ProfileEditScreen({ navigation }: Props) {
           {busy === 'cover' ? <ActivityIndicator size="small" color="#fff" /> : (
             <Svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2.1} strokeLinecap="round"><Path d="M12 6v12M6 12h12" /></Svg>
           )}
-          <Text style={{ fontSize: 12.5, fontWeight: '600', color: '#fff' }}>{coverUrl ? 'Сменить фон' : 'Добавить фон'}</Text>
+          <Text style={{ fontSize: 12.5, fontWeight: '600', color: '#fff' }}>{coverUrl ? t('Сменить фон') : t('Добавить фон')}</Text>
         </View>
         {coverUrl ? (
           <Pressable
             onPress={(e) => { e.stopPropagation?.(); setCoverUrl(null); }}
             style={{ position: 'absolute', top: 12, left: 12, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 7, backgroundColor: 'rgba(0,0,0,0.4)' }}
           >
-            <Text style={{ fontSize: 12.5, fontWeight: '600', color: '#fff' }}>Убрать фон</Text>
+            <Text style={{ fontSize: 12.5, fontWeight: '600', color: '#fff' }}>{t('Убрать фон')}</Text>
           </Pressable>
         ) : null}
       </Pressable>
@@ -151,19 +153,19 @@ export function ProfileEditScreen({ navigation }: Props) {
       {/* Убрать фото — красным, без подтверждения: восстановить в два нажатия. */}
       {avatarUrl ? (
         <Pressable onPress={() => setAvatarUrl(null)} style={{ marginLeft: 16, marginTop: 8 }}>
-          <Text style={{ fontSize: 12.5, color: palette.down }}>Убрать фото</Text>
+          <Text style={{ fontSize: 12.5, color: palette.down }}>{t('Убрать фото')}</Text>
         </Pressable>
       ) : null}
 
       <View style={{ padding: 20, gap: 10 }}>
-        <Text style={{ fontSize: 13, color: palette.textMuted }}>Показываемое имя</Text>
-        <TextInput value={displayName} onChangeText={setDisplayName} maxLength={40} placeholder="Как вас зовут" placeholderTextColor={palette.textMuted} style={field} />
+        <Text style={{ fontSize: 13, color: palette.textMuted }}>{t('Показываемое имя')}</Text>
+        <TextInput value={displayName} onChangeText={setDisplayName} maxLength={40} placeholder={t('Как вас зовут')} placeholderTextColor={palette.textMuted} style={field} />
 
-        <Text style={{ fontSize: 13, color: palette.textMuted, marginTop: 6 }}>Подпись</Text>
-        <TextInput value={bio} onChangeText={setBio} maxLength={160} multiline placeholder="Пара слов о себе" placeholderTextColor={palette.textMuted} style={{ ...field, minHeight: 90, textAlignVertical: 'top' }} />
+        <Text style={{ fontSize: 13, color: palette.textMuted, marginTop: 6 }}>{t('Подпись')}</Text>
+        <TextInput value={bio} onChangeText={setBio} maxLength={160} multiline placeholder={t('Пара слов о себе')} placeholderTextColor={palette.textMuted} style={{ ...field, minHeight: 90, textAlignVertical: 'top' }} />
         <Text style={{ fontSize: 12, color: palette.textMuted, textAlign: 'right' }}>{bio.length}/160</Text>
 
-        <Text style={{ fontSize: 13, color: palette.textMuted, marginTop: 6 }}>Имя пользователя</Text>
+        <Text style={{ fontSize: 13, color: palette.textMuted, marginTop: 6 }}>{t('Имя пользователя')}</Text>
         <View style={{ flexDirection: 'row', alignItems: 'center', ...field }}>
           <Text style={{ fontSize: 15, color: palette.textMuted }}>@</Text>
           <TextInput
@@ -172,7 +174,7 @@ export function ProfileEditScreen({ navigation }: Props) {
             maxLength={24}
             autoCapitalize="none"
             autoCorrect={false}
-            placeholder="ник"
+            placeholder={t('ник')}
             placeholderTextColor={palette.textMuted}
             style={{ flex: 1, fontSize: 15, color: palette.text, padding: 0, marginLeft: 2 }}
           />
@@ -181,7 +183,7 @@ export function ProfileEditScreen({ navigation }: Props) {
         {error ? <Text style={{ color: palette.down }}>{error}</Text> : null}
 
         <Pressable onPress={save} disabled={saving} style={{ marginTop: 6, backgroundColor: palette.accent, borderRadius: 999, paddingVertical: 13, alignItems: 'center', opacity: saving ? 0.4 : 1 }}>
-          <Text style={{ color: palette.accentContrast, fontWeight: '600', fontSize: 15 }}>{saving ? 'Секунду…' : 'Сохранить'}</Text>
+          <Text style={{ color: palette.accentContrast, fontWeight: '600', fontSize: 15 }}>{saving ? t('Секунду…') : t('Сохранить')}</Text>
         </Pressable>
       </View>
     </ScrollView>

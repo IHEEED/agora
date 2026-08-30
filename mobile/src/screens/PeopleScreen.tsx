@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { apiFetch } from '../lib/api';
 import { AvatarFollow } from '../components/AvatarFollow';
+import { useT } from '../lib/i18n';
 import { usePalette } from '../theme';
 import type { RootStackParamList } from '../navigation/types';
 
@@ -28,6 +29,7 @@ type Person = {
 export function PeopleScreen({ route, navigation }: Props) {
   const { endpoint, emptyText } = route.params;
   const palette = usePalette();
+  const { t } = useT();
   const insets = useSafeAreaInsets();
 
   const [people, setPeople] = useState<Person[] | null>(null);
@@ -50,7 +52,7 @@ export function PeopleScreen({ route, navigation }: Props) {
           error ? (
             <Text style={{ paddingVertical: 24, color: palette.down }}>{error}</Text>
           ) : people === null ? (
-            <Text style={{ paddingVertical: 24, textAlign: 'center', color: palette.textMuted }}>Загрузка…</Text>
+            <Text style={{ paddingVertical: 24, textAlign: 'center', color: palette.textMuted }}>{t('Загрузка…')}</Text>
           ) : (
             <Text style={{ paddingVertical: 48, textAlign: 'center', color: palette.textMuted }}>{emptyText}</Text>
           )

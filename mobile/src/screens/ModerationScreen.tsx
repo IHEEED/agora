@@ -174,7 +174,7 @@ function ReportCard({ palette, report, active, onDone, onUser }: { palette: Pale
                 </Pressable>
               ))}
               <Pressable onPress={() => setBanOpen(false)} style={{ borderRadius: 999, paddingHorizontal: 14, paddingVertical: 8 }}>
-                <Text style={{ fontSize: 13, color: palette.textMuted }}>Отмена</Text>
+                <Text style={{ fontSize: 13, color: palette.textMuted }}>{tr('Отмена')}</Text>
               </Pressable>
             </View>
           </View>

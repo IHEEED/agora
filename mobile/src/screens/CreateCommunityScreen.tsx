@@ -3,6 +3,7 @@ import { Pressable, ScrollView, Text, TextInput } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { apiFetch } from '../lib/api';
 import { Community } from '../lib/types';
+import { useT } from '../lib/i18n';
 import { usePalette } from '../theme';
 import type { RootStackParamList } from '../navigation/types';
 
@@ -10,6 +11,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'CreateCommunity'>;
 
 export function CreateCommunityScreen({ navigation }: Props) {
   const palette = usePalette();
+  const { t } = useT();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -49,10 +51,10 @@ export function CreateCommunityScreen({ navigation }: Props) {
       contentContainerStyle={{ padding: 20, gap: 12 }}
       keyboardShouldPersistTaps="handled"
     >
-      <Text style={{ fontSize: 13, color: palette.textMuted }}>Название</Text>
+      <Text style={{ fontSize: 13, color: palette.textMuted }}>{t('Название')}</Text>
       <TextInput value={name} onChangeText={setName} style={field} placeholderTextColor={palette.textMuted} />
 
-      <Text style={{ fontSize: 13, color: palette.textMuted }}>Описание (необязательно)</Text>
+      <Text style={{ fontSize: 13, color: palette.textMuted }}>{t('Описание (необязательно)')}</Text>
       <TextInput
         value={description}
         onChangeText={setDescription}
@@ -76,7 +78,7 @@ export function CreateCommunityScreen({ navigation }: Props) {
         }}
       >
         <Text style={{ color: palette.accentContrast, fontWeight: '600', fontSize: 15 }}>
-          {submitting ? 'Секунду…' : 'Создать'}
+          {submitting ? t('Секунду…') : t('Создать')}
         </Text>
       </Pressable>
     </ScrollView>

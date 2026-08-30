@@ -59,7 +59,7 @@ export function CommunityAboutScreen({ route, navigation }: Props) {
       <View style={{ gap: 8 }}>
         {community.creator ? (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <Text style={{ fontSize: 13.5, color: palette.textMuted }}>Создатель</Text>
+            <Text style={{ fontSize: 13.5, color: palette.textMuted }}>{t('Создатель')}</Text>
             <Pressable onPress={() => community.creator.id && openUser(community.creator.id)}>
               <Text style={{ fontSize: 13.5, fontWeight: '600', color: palette.accent }}>{community.creator.username}</Text>
             </Pressable>
@@ -67,7 +67,7 @@ export function CommunityAboutScreen({ route, navigation }: Props) {
         ) : null}
         {created ? (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <Text style={{ fontSize: 13.5, color: palette.textMuted }}>Создано</Text>
+            <Text style={{ fontSize: 13.5, color: palette.textMuted }}>{t('Создано')}</Text>
             <Text style={{ fontSize: 13.5, color: palette.text }}>{created}</Text>
           </View>
         ) : null}
@@ -89,7 +89,7 @@ export function CommunityAboutScreen({ route, navigation }: Props) {
             ) : null}
           </View>
         ))}
-        {people.length === 0 ? <Text style={{ paddingVertical: 12, fontSize: 14, color: palette.textMuted }}>Пока никто здесь не писал.</Text> : null}
+        {people.length === 0 ? <Text style={{ paddingVertical: 12, fontSize: 14, color: palette.textMuted }}>{t('Пока никто здесь не писал.')}</Text> : null}
       </View>
     </ScrollView>
   );

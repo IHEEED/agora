@@ -105,10 +105,10 @@ export function UserScreen({ route }: Props) {
       {blocked ? (
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginHorizontal: 10, marginBottom: 10, borderRadius: 16, paddingHorizontal: 16, paddingVertical: 12, backgroundColor: palette.surface2 }}>
           <Text style={{ flex: 1, fontSize: 13.5, lineHeight: 19, color: palette.textMuted }}>
-            Вы заблокировали этого человека. Его записи скрыты.
+            {t('Вы заблокировали этого человека. Его записи скрыты.')}
           </Text>
           <Pressable onPress={() => { void setBlocked(userId, false).catch(() => {}); }} style={{ borderRadius: 999, paddingHorizontal: 12, paddingVertical: 7, backgroundColor: palette.accent }}>
-            <Text style={{ fontSize: 13, fontWeight: '600', color: palette.accentContrast }}>Разблокировать</Text>
+            <Text style={{ fontSize: 13, fontWeight: '600', color: palette.accentContrast }}>{t('Разблокировать')}</Text>
           </Pressable>
         </View>
       ) : null}
@@ -142,17 +142,17 @@ export function UserScreen({ route }: Props) {
           <View style={{ flexDirection: 'row', gap: 16 }}>
             <Pressable onPress={() => openPeople('followers')} style={{ flexDirection: 'row', alignItems: 'baseline', gap: 6 }}>
               <Text style={{ fontSize: 16, fontWeight: '600', color: palette.text }}>{profile?.followers ?? 0}</Text>
-              <Text style={{ fontSize: 13.5, color: palette.textMuted }}>подписчиков</Text>
+              <Text style={{ fontSize: 13.5, color: palette.textMuted }}>{t('подписчиков')}</Text>
             </Pressable>
             <Pressable onPress={() => openPeople('following')} style={{ flexDirection: 'row', alignItems: 'baseline', gap: 6 }}>
               <Text style={{ fontSize: 16, fontWeight: '600', color: palette.text }}>{profile?.following ?? 0}</Text>
-              <Text style={{ fontSize: 13.5, color: palette.textMuted }}>подписок</Text>
+              <Text style={{ fontSize: 13.5, color: palette.textMuted }}>{t('подписок')}</Text>
             </Pressable>
           </View>
 
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             <Text style={{ fontSize: 13, color: palette.textMuted }}>
-              <Text style={{ color: palette.text }}>{posts.length}</Text> постов
+              <Text style={{ color: palette.text }}>{posts.length}</Text> {t('постов')}
             </Text>
             <Text style={{ color: palette.textMuted }}>·</Text>
             <Text style={{ fontSize: 13, color: palette.textMuted }}>

@@ -120,7 +120,7 @@ export function CommunityScreen({ route, navigation }: Props) {
               style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 999, paddingVertical: 11, backgroundColor: palette.accent }}
             >
               <Svg width={17} height={17} viewBox="0 0 24 24" fill="none" stroke={palette.accentContrast} strokeWidth={2.4} strokeLinecap="round"><Path d="M12 5v14M5 12h14" /></Svg>
-              <Text style={{ fontSize: 14, fontWeight: '600', color: palette.accentContrast }}>Опубликовать пост</Text>
+              <Text style={{ fontSize: 14, fontWeight: '600', color: palette.accentContrast }}>{t('Опубликовать пост')}</Text>
             </Pressable>
             <Pressable onPress={() => navigation.navigate('CommunityAbout', { community })} style={{ width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: `${palette.accent}22` }}>
               <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={palette.accent} strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round">
@@ -131,7 +131,7 @@ export function CommunityScreen({ route, navigation }: Props) {
         </View>
       </View>
 
-      <Text style={{ fontSize: 15, fontWeight: '700', color: palette.text, paddingHorizontal: 16, paddingTop: 16, paddingBottom: 4 }}>Стена</Text>
+      <Text style={{ fontSize: 15, fontWeight: '700', color: palette.text, paddingHorizontal: 16, paddingTop: 16, paddingBottom: 4 }}>{t('Стена')}</Text>
       {loading ? <Text style={{ paddingHorizontal: 16, color: palette.textMuted }}>{t('Загрузка…')}</Text> : null}
     </View>
   );

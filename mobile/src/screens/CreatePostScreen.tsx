@@ -121,7 +121,7 @@ export function CreatePostScreen({ navigation, route }: Props) {
 
     return (
       <ScrollView style={{ flex: 1, backgroundColor: palette.bg }} contentContainerStyle={{ padding: 16, gap: 16 }} keyboardShouldPersistTaps="handled">
-        <Text style={{ fontSize: 14, color: palette.textMuted }}>Можно написать от себя или опубликовать в клубе.</Text>
+        <Text style={{ fontSize: 14, color: palette.textMuted }}>{t('Можно написать от себя или опубликовать в клубе.')}</Text>
 
         {/* От своего имени — полноправный выбор, поэтому первым. */}
         <Pressable
@@ -131,13 +131,13 @@ export function CreatePostScreen({ navigation, route }: Props) {
           <Avatar name={emailHandle} size={48} />
           <View style={{ flex: 1, gap: 2 }}>
             <Text style={{ fontSize: 15, fontWeight: '600', color: palette.text }}>{t('От своего имени')}</Text>
-            <Text style={{ fontSize: 13, color: palette.textMuted }}>Запись появится в вашем профиле и в ленте подписчиков</Text>
+            <Text style={{ fontSize: 13, color: palette.textMuted }}>{t('Запись появится в вашем профиле и в ленте подписчиков')}</Text>
           </View>
         </Pressable>
 
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
           <View style={{ flex: 1, height: 1, backgroundColor: palette.border }} />
-          <Text style={{ fontSize: 12.5, color: palette.textMuted }}>или в клубе</Text>
+          <Text style={{ fontSize: 12.5, color: palette.textMuted }}>{t('или в клубе')}</Text>
           <View style={{ flex: 1, height: 1, backgroundColor: palette.border }} />
         </View>
 
@@ -185,7 +185,7 @@ export function CreatePostScreen({ navigation, route }: Props) {
               </Pressable>
             ))}
             {visible.length === 0 ? (
-              <Text style={{ textAlign: 'center', paddingVertical: 24, color: palette.textMuted }}>Ничего не нашлось.</Text>
+              <Text style={{ textAlign: 'center', paddingVertical: 24, color: palette.textMuted }}>{t('Ничего не нашлось.')}</Text>
             ) : null}
           </View>
         )}
@@ -261,8 +261,8 @@ export function CreatePostScreen({ navigation, route }: Props) {
       {poll ? (
         <View style={{ gap: 8, borderRadius: 14, backgroundColor: palette.surface2, padding: 12 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Text style={{ fontSize: 14, fontWeight: '600', color: palette.text }}>Опрос</Text>
-            <Pressable onPress={togglePoll}><Text style={{ fontSize: 13, color: palette.accent }}>Убрать</Text></Pressable>
+            <Text style={{ fontSize: 14, fontWeight: '600', color: palette.text }}>{t('Опрос')}</Text>
+            <Pressable onPress={togglePoll}><Text style={{ fontSize: 13, color: palette.accent }}>{t('Убрать')}</Text></Pressable>
           </View>
           {poll.map((option, index) => (
             <View key={index} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
