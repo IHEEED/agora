@@ -6,6 +6,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { apiFetch } from '../lib/api';
 import { formatRelativeDate } from '../lib/formatDate';
 import { TopBar, useTopBarInset } from '../components/TopBar';
+import { useT } from '../lib/i18n';
 import { usePalette } from '../theme';
 import type { RootStackParamList } from '../navigation/types';
 
@@ -43,6 +44,7 @@ const TABS: { key: Status; label: string }[] = [
  */
 export function ModerationScreen() {
   const palette = usePalette();
+  const { t: tr } = useT();
   const insets = useSafeAreaInsets();
   const topInset = useTopBarInset();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -76,25 +78,25 @@ export function ModerationScreen() {
         ListHeaderComponent={
           <View style={{ gap: 14, marginBottom: 4 }}>
             <Text style={{ fontFamily: palette.displayFamily, fontSize: 30, color: palette.text }}>
-              Модерация<Text style={{ color: palette.accent }}>.</Text>
+              {tr('Модерация')}<Text style={{ color: palette.accent }}>.</Text>
             </Text>
             <View style={{ flexDirection: 'row', gap: 8 }}>
               {TABS.map((t) => {
                 const on = status === t.key;
                 return (
                   <Pressable key={t.key} onPress={() => setStatus(t.key)} style={{ paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999, backgroundColor: on ? palette.accent : palette.surface2 }}>
-                    <Text style={{ fontSize: 13, fontWeight: '600', color: on ? palette.accentContrast : palette.textMuted }}>{t.label}</Text>
+                    <Text style={{ fontSize: 13, fontWeight: '600', color: on ? palette.accentContrast : palette.textMuted }}>{tr(t.label)}</Text>
                   </Pressable>
                 );
               })}
             </View>
-            {loading ? <Text style={{ color: palette.textMuted }}>Загрузка…</Text> : null}
+            {loading ? <Text style={{ color: palette.textMuted }}>{tr('Загрузка…')}</Text> : null}
           </View>
         }
         ListEmptyComponent={
           !loading ? (
             <Text style={{ paddingHorizontal: 4, color: palette.textMuted }}>
-              {status === 'open' ? 'Очередь пуста — разбирать нечего.' : 'Здесь пока пусто.'}
+              {tr(status === 'open' ? 'Очередь пуста — разбирать нечего.' : 'Здесь пока пусто.')}
             </Text>
           ) : null
         }
@@ -107,6 +109,7 @@ export function ModerationScreen() {
 }
 
 function ReportCard({ palette, report, active, onDone, onUser }: { palette: Palette; report: Report; active: boolean; onDone: () => void; onUser: (id: string) => void }) {
+  const { t: tr } = useT();
   const [banOpen, setBanOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const text = report.target.title
@@ -126,9 +129,9 @@ function ReportCard({ palette, report, active, onDone, onUser }: { palette: Pale
     <View style={{ borderRadius: 16, backgroundColor: palette.surface, padding: 16, gap: 12 }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
         <View style={{ borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, backgroundColor: `${palette.accent}22` }}>
-          <Text style={{ fontSize: 12, fontWeight: '600', color: palette.accent }}>{REASON[report.reason] ?? report.reason}</Text>
+          <Text style={{ fontSize: 12, fontWeight: '600', color: palette.accent }}>{tr(REASON[report.reason] ?? report.reason)}</Text>
         </View>
-        <Text style={{ fontSize: 12.5, color: palette.textMuted }}>{KIND[report.target.kind]}</Text>
+        <Text style={{ fontSize: 12.5, color: palette.textMuted }}>{tr(KIND[report.target.kind])}</Text>
         <Text style={{ color: palette.textMuted }}>·</Text>
         <Text style={{ fontSize: 12.5, color: palette.textMuted }}>{formatRelativeDate(report.created_at)}</Text>
         {report.reporter ? <Text style={{ fontSize: 12.5, color: palette.textMuted }}>· от {report.reporter.username}</Text> : null}
@@ -140,7 +143,7 @@ function ReportCard({ palette, report, active, onDone, onUser }: { palette: Pale
         </View>
       ) : (
         <Text style={{ fontSize: 13.5, color: palette.textMuted }}>
-          {report.target.kind === 'gone' ? 'Цель уже удалена — смотреть не на что.' : 'Жалоба на человека целиком.'}
+          {tr(report.target.kind === 'gone' ? 'Цель уже удалена — смотреть не на что.' : 'Жалоба на человека целиком.')}
         </Text>
       )}
 
@@ -156,7 +159,7 @@ function ReportCard({ palette, report, active, onDone, onUser }: { palette: Pale
       {active ? (
         banOpen ? (
           <View style={{ gap: 8 }}>
-            <Text style={{ fontSize: 13, color: palette.textMuted }}>На какой срок?</Text>
+            <Text style={{ fontSize: 13, color: palette.textMuted }}>{tr('На какой срок?')}</Text>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
               {DURATIONS.map((d) => (
                 <Pressable
@@ -167,7 +170,7 @@ function ReportCard({ palette, report, active, onDone, onUser }: { palette: Pale
                   })}
                   style={{ borderRadius: 999, paddingHorizontal: 14, paddingVertical: 8, backgroundColor: palette.accent }}
                 >
-                  <Text style={{ fontSize: 13, fontWeight: '600', color: palette.accentContrast }}>{d.label}</Text>
+                  <Text style={{ fontSize: 13, fontWeight: '600', color: palette.accentContrast }}>{tr(d.label)}</Text>
                 </Pressable>
               ))}
               <Pressable onPress={() => setBanOpen(false)} style={{ borderRadius: 999, paddingHorizontal: 14, paddingVertical: 8 }}>
@@ -193,9 +196,10 @@ function ReportCard({ palette, report, active, onDone, onUser }: { palette: Pale
 }
 
 function Btn({ palette, label, onPress, accent = false }: { palette: Palette; label: string; onPress: () => void; accent?: boolean }) {
+  const { t } = useT();
   return (
     <Pressable onPress={onPress} style={{ borderRadius: 999, paddingHorizontal: 14, paddingVertical: 9, backgroundColor: accent ? palette.accent : palette.surface2 }}>
-      <Text style={{ fontSize: 13, fontWeight: '600', color: accent ? palette.accentContrast : palette.text }}>{label}</Text>
+      <Text style={{ fontSize: 13, fontWeight: '600', color: accent ? palette.accentContrast : palette.text }}>{t(label)}</Text>
     </Pressable>
   );
 }

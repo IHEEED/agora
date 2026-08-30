@@ -7,6 +7,7 @@ import { apiFetch } from '../lib/api';
 import { VerifiedMark } from '../components/VerifiedMark';
 import { TopBar, useTopBarInset } from '../components/TopBar';
 import { formatRelativeDate } from '../lib/formatDate';
+import { useT } from '../lib/i18n';
 import { usePalette } from '../theme';
 
 type Verified = { id: string; username: string; verified_at: string };
@@ -17,6 +18,7 @@ type Verified = { id: string; username: string; verified_at: string };
  */
 export function VerificationScreen() {
   const palette = usePalette();
+  const { t } = useT();
   const insets = useSafeAreaInsets();
   const topInset = useTopBarInset();
   const [username, setUsername] = useState('');
@@ -67,7 +69,7 @@ export function VerificationScreen() {
         ListHeaderComponent={
           <View style={{ gap: 20, marginBottom: 8 }}>
             <Text style={{ fontFamily: palette.displayFamily, fontSize: 30, color: palette.text }}>
-              Подтверждение личности<Text style={{ color: palette.accent }}>.</Text>
+              {t('Подтверждение личности')}<Text style={{ color: palette.accent }}>.</Text>
             </Text>
 
             {/* Выдать по нику — поле-подчёркивание с «@» слева, как в вебе. */}
@@ -80,7 +82,7 @@ export function VerificationScreen() {
                     onChangeText={(t) => setUsername(t.replace(/[^a-zA-Z0-9._@-]/g, ''))}
                     onFocus={() => setFocused(true)}
                     onBlur={() => setFocused(false)}
-                    placeholder="ник"
+                    placeholder={t('ник')}
                     placeholderTextColor={palette.textMuted}
                     autoCapitalize="none"
                     autoCorrect={false}
@@ -88,18 +90,18 @@ export function VerificationScreen() {
                   />
                 </View>
                 <Pressable onPress={grant} disabled={busy || !username.trim()} style={{ borderRadius: 999, paddingHorizontal: 16, paddingVertical: 10, backgroundColor: palette.accent, opacity: busy || !username.trim() ? 0.4 : 1 }}>
-                  <Text style={{ fontSize: 14, fontWeight: '600', color: palette.accentContrast }}>{busy ? 'Секунду…' : 'Подтвердить'}</Text>
+                  <Text style={{ fontSize: 14, fontWeight: '600', color: palette.accentContrast }}>{busy ? t('Секунду…') : t('Подтвердить')}</Text>
                 </Pressable>
               </View>
               <Text style={{ fontSize: 12.5, lineHeight: 18, color: palette.textMuted }}>
-                Регистр и знак «@» не важны. Галочка говорит только одно: человек — тот, за кого себя выдаёт.
+                {t('Регистр и знак «@» не важны. Галочка говорит только одно: человек — тот, за кого себя выдаёт.')}
               </Text>
               {error ? <Text style={{ color: palette.down, fontSize: 13 }}>{error}</Text> : null}
             </View>
 
             {/* Заявки — заглушка, как в вебе: подавать их пока негде. */}
             <View style={{ gap: 8 }}>
-              <Text style={{ fontSize: 14, fontWeight: '700', color: palette.text }}>Заявки</Text>
+              <Text style={{ fontSize: 14, fontWeight: '700', color: palette.text }}>{t('Заявки')}</Text>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 16, paddingHorizontal: 16, paddingVertical: 14, backgroundColor: palette.surface2 }}>
                 <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: `${palette.accent}22`, alignItems: 'center', justifyContent: 'center' }}>
                   <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke={palette.accent} strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round">
@@ -107,19 +109,19 @@ export function VerificationScreen() {
                   </Svg>
                 </View>
                 <Text style={{ flex: 1, fontSize: 13.5, lineHeight: 19, color: palette.textMuted }}>
-                  Подавать заявки пока негде — экран подачи ещё не сделан. Здесь они появятся очередью, как жалобы.
+                  {t('Подавать заявки пока негде — экран подачи ещё не сделан. Здесь они появятся очередью, как жалобы.')}
                 </Text>
               </View>
             </View>
 
             <Text style={{ fontSize: 14, fontWeight: '700', color: palette.text }}>
-              Подтверждённые{verified.length > 0 ? ` · ${verified.length}` : ''}
+              {t('Подтверждённые')}{verified.length > 0 ? ` · ${verified.length}` : ''}
             </Text>
           </View>
         }
         ListEmptyComponent={
           <Text style={{ fontSize: 13.5, color: palette.textMuted }}>
-            Пока никого. Введите ник выше — человек появится в этом списке.
+            {t('Пока никого. Введите ник выше — человек появится в этом списке.')}
           </Text>
         }
         renderItem={({ item }) => (
@@ -129,7 +131,7 @@ export function VerificationScreen() {
             <View style={{ flex: 1 }} />
             <Text style={{ fontSize: 12.5, color: palette.textMuted }}>{formatRelativeDate(item.verified_at)}</Text>
             <Pressable onPress={() => revoke(item.id)} style={{ borderRadius: 999, paddingHorizontal: 14, paddingVertical: 7, backgroundColor: `${palette.down}22` }}>
-              <Text style={{ fontSize: 13, fontWeight: '600', color: palette.down }}>Снять</Text>
+              <Text style={{ fontSize: 13, fontWeight: '600', color: palette.down }}>{t('Снять')}</Text>
             </Pressable>
           </View>
         )}
