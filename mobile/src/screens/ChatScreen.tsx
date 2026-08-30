@@ -16,6 +16,7 @@ import { Message, UserProfile } from '../lib/types';
 import { Avatar } from '../components/Avatar';
 import { PersonMenuSheet } from '../components/PersonMenuSheet';
 import { TopBar, useTopBarInset } from '../components/TopBar';
+import { useT } from '../lib/i18n';
 import { usePalette } from '../theme';
 import type { RootStackParamList } from '../navigation/types';
 
@@ -67,6 +68,7 @@ function mmss(seconds: number) {
  */
 export function ChatScreen() {
   const palette = usePalette();
+  const { t } = useT();
   const route = useRoute<RouteProp<RootStackParamList, 'Chat'>>();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { userId, username } = route.params;
@@ -267,7 +269,7 @@ export function ChatScreen() {
               {newDay ? (
                 <View style={{ alignItems: 'center', marginVertical: 10 }}>
                   <View style={{ backgroundColor: palette.surface2, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 4 }}>
-                    <Text style={{ fontSize: 12, color: palette.textMuted }}>{dayLabel(item.created_at)}</Text>
+                    <Text style={{ fontSize: 12, color: palette.textMuted }}>{t(dayLabel(item.created_at))}</Text>
                   </View>
                 </View>
               ) : null}
@@ -349,7 +351,7 @@ export function ChatScreen() {
             <TextInput
               value={body}
               onChangeText={setBody}
-              placeholder="Сообщение"
+              placeholder={t('Сообщение')}
               placeholderTextColor={palette.textMuted}
               multiline
               style={{ flex: 1, maxHeight: 110, fontSize: 15, color: palette.text, paddingVertical: 8 }}
@@ -384,6 +386,7 @@ export function ChatScreen() {
 }
 
 function Bubble({ palette, message, mine, playing, onPlay, onLongPress }: { palette: Palette; message: Message; mine: boolean; playing: boolean; onPlay: () => void; onLongPress: (x: number, y: number) => void }) {
+  const { t } = useT();
   const ink = mine ? palette.accentContrast : palette.text;
   const sub = mine ? `${palette.accentContrast}b0` : palette.textMuted;
   const hasImage = Boolean(message.image_url);
@@ -437,7 +440,7 @@ function Bubble({ palette, message, mine, playing, onPlay, onLongPress }: { pale
 
         {/* Мета: время, «изменено», галочки прочтения у своих. */}
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 4, paddingHorizontal: hasImage ? 10 : 0, paddingBottom: hasImage ? 6 : 0, marginTop: 2 }}>
-          {message.edited_at ? <Text style={{ fontSize: 11, color: sub }}>изменено</Text> : null}
+          {message.edited_at ? <Text style={{ fontSize: 11, color: sub }}>{t('изменено')}</Text> : null}
           <Text style={{ fontSize: 11, color: sub }}>{clock(message.created_at)}</Text>
           {mine ? (
             <Svg width={15} height={12} viewBox="0 0 24 18" fill="none" stroke={message.read_at ? (mine ? palette.accentContrast : palette.accent) : sub} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">

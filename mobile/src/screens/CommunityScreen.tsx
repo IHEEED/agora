@@ -12,6 +12,7 @@ import { PostCard } from '../components/PostCard';
 import { Avatar } from '../components/Avatar';
 import { TopBar, useTopBarInset } from '../components/TopBar';
 import { communityPalette } from '../lib/communityPalette';
+import { useT } from '../lib/i18n';
 import { usePalette } from '../theme';
 import type { RootStackParamList } from '../navigation/types';
 
@@ -26,6 +27,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'Community'>;
 export function CommunityScreen({ route, navigation }: Props) {
   const { community } = route.params;
   const palette = usePalette();
+  const { t } = useT();
   const insets = useSafeAreaInsets().bottom;
   const topInset = useTopBarInset();
 
@@ -97,17 +99,17 @@ export function CommunityScreen({ route, navigation }: Props) {
             style={{ borderRadius: 999, paddingVertical: 11, alignItems: 'center', backgroundColor: joined ? palette.surface2 : palette.accent }}
           >
             <Text style={{ fontSize: 14, fontWeight: '600', color: joined ? palette.text : palette.accentContrast }}>
-              {joined ? 'Вы подписаны' : 'Подписаться'}
+              {joined ? t('Вы подписаны') : t('Подписаться')}
             </Text>
           </Pressable>
 
           <Pressable onPress={() => navigation.navigate('CommunityAbout', { community })} style={{ flexDirection: 'row', alignItems: 'baseline', gap: 5, alignSelf: 'flex-start' }}>
             <Text style={{ fontSize: 16, fontWeight: '700', color: palette.text }}>{people.length}</Text>
-            <Text style={{ fontSize: 13.5, color: palette.textMuted }}>участн.</Text>
+            <Text style={{ fontSize: 13.5, color: palette.textMuted }}>{t('участн.')}</Text>
           </Pressable>
 
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <Text style={{ fontSize: 13, color: palette.textMuted }}><Text style={{ color: palette.text }}>{posts.length}</Text> записей</Text>
+            <Text style={{ fontSize: 13, color: palette.textMuted }}><Text style={{ color: palette.text }}>{posts.length}</Text> {t('записей')}</Text>
             <Text style={{ color: palette.textMuted }}>·</Text>
             <Text style={{ fontSize: 13, color: palette.textMuted }}><Text style={{ color: palette.text }}>{influence}</Text> influence</Text>
           </View>
@@ -130,7 +132,7 @@ export function CommunityScreen({ route, navigation }: Props) {
       </View>
 
       <Text style={{ fontSize: 15, fontWeight: '700', color: palette.text, paddingHorizontal: 16, paddingTop: 16, paddingBottom: 4 }}>Стена</Text>
-      {loading ? <Text style={{ paddingHorizontal: 16, color: palette.textMuted }}>Загрузка…</Text> : null}
+      {loading ? <Text style={{ paddingHorizontal: 16, color: palette.textMuted }}>{t('Загрузка…')}</Text> : null}
     </View>
   );
 
@@ -143,7 +145,7 @@ export function CommunityScreen({ route, navigation }: Props) {
         contentContainerStyle={{ paddingTop: topInset, paddingBottom: insets + 24 }}
         scrollIndicatorInsets={{ top: topInset }}
         ListHeaderComponent={header}
-        ListEmptyComponent={!loading ? <Text style={{ paddingVertical: 40, textAlign: 'center', color: palette.textMuted }}>В этом клубе пока нет записей.</Text> : null}
+        ListEmptyComponent={!loading ? <Text style={{ paddingVertical: 40, textAlign: 'center', color: palette.textMuted }}>{t('В этом клубе пока нет записей.')}</Text> : null}
         renderItem={({ item }) => <PostCard post={item} />}
       />
     </View>

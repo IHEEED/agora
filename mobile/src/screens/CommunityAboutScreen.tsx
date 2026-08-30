@@ -7,6 +7,7 @@ import { useSession } from '../lib/useSession';
 import { Post } from '../lib/types';
 import { Avatar } from '../components/Avatar';
 import { AvatarFollow } from '../components/AvatarFollow';
+import { useT } from '../lib/i18n';
 import { usePalette } from '../theme';
 import type { RootStackParamList } from '../navigation/types';
 
@@ -20,6 +21,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'CommunityAbout'>;
 export function CommunityAboutScreen({ route, navigation }: Props) {
   const { community } = route.params;
   const palette = usePalette();
+  const { t } = useT();
   const { session } = useSession();
   const [posts, setPosts] = useState<Post[]>([]);
 
@@ -51,7 +53,7 @@ export function CommunityAboutScreen({ route, navigation }: Props) {
   return (
     <ScrollView style={{ flex: 1, backgroundColor: palette.bg }} contentContainerStyle={{ padding: 20, gap: 18 }}>
       <Text style={{ fontSize: 14.5, lineHeight: 21, color: palette.text }}>
-        {community.description || 'Описание пока не заполнено.'}
+        {community.description || t('Описание пока не заполнено.')}
       </Text>
 
       <View style={{ gap: 8 }}>
@@ -72,14 +74,14 @@ export function CommunityAboutScreen({ route, navigation }: Props) {
       </View>
 
       <View style={{ gap: 2 }}>
-        <Text style={{ fontSize: 14, fontWeight: '700', color: palette.text, marginBottom: 4 }}>Участники</Text>
+        <Text style={{ fontSize: 14, fontWeight: '700', color: palette.text, marginBottom: 4 }}>{t('Участники')}</Text>
         {people.map((person) => (
           <View key={person.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8 }}>
             <Pressable onPress={() => openUser(person.id)} style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
               <Avatar name={person.username} uri={person.avatar_url} size={40} />
               <View style={{ flex: 1 }}>
                 <Text numberOfLines={1} style={{ fontSize: 15, fontWeight: '600', color: palette.text }}>{person.username}</Text>
-                <Text style={{ fontSize: 12.5, color: palette.textMuted }}>{person.posts} записей</Text>
+                <Text style={{ fontSize: 12.5, color: palette.textMuted }}>{person.posts} {t('записей')}</Text>
               </View>
             </Pressable>
             {person.id !== session?.user.id ? (

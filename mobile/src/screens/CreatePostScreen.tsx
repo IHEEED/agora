@@ -8,6 +8,7 @@ import { uploadImage } from '../lib/uploadImage';
 import { useSession } from '../lib/useSession';
 import { Community, Post } from '../lib/types';
 import { Avatar } from '../components/Avatar';
+import { useT } from '../lib/i18n';
 import { usePalette } from '../theme';
 import type { RootStackParamList } from '../navigation/types';
 
@@ -25,6 +26,7 @@ type Target = { kind: 'personal' } | { kind: 'community'; id: string; name: stri
  */
 export function CreatePostScreen({ navigation, route }: Props) {
   const palette = usePalette();
+  const { t } = useT();
   const { session } = useSession();
   const preset = route.params?.communityId;
   // Пришли по «Написать вслед» — запись продолжает указанную; выбор клуба тогда
@@ -49,7 +51,7 @@ export function CreatePostScreen({ navigation, route }: Props) {
   }, [preset]);
 
   useLayoutEffect(() => {
-    navigation.setOptions({ title: step === 'community' ? 'Куда опубликовать?' : 'Новый пост' });
+    navigation.setOptions({ title: step === 'community' ? t('Куда опубликовать?') : t('Новый пост') });
   }, [navigation, step]);
 
   function choose(next: Target) {
@@ -128,7 +130,7 @@ export function CreatePostScreen({ navigation, route }: Props) {
         >
           <Avatar name={emailHandle} size={48} />
           <View style={{ flex: 1, gap: 2 }}>
-            <Text style={{ fontSize: 15, fontWeight: '600', color: palette.text }}>От своего имени</Text>
+            <Text style={{ fontSize: 15, fontWeight: '600', color: palette.text }}>{t('От своего имени')}</Text>
             <Text style={{ fontSize: 13, color: palette.textMuted }}>Запись появится в вашем профиле и в ленте подписчиков</Text>
           </View>
         </Pressable>
@@ -152,7 +154,7 @@ export function CreatePostScreen({ navigation, route }: Props) {
             <TextInput
               value={query}
               onChangeText={setQuery}
-              placeholder="Поиск"
+              placeholder={t('Поиск')}
               placeholderTextColor={palette.textMuted}
               style={{ flex: 1, fontSize: 15, color: palette.text, paddingVertical: 2 }}
             />
@@ -212,29 +214,29 @@ export function CreatePostScreen({ navigation, route }: Props) {
         <Pressable onPress={() => setStep('community')} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, alignSelf: 'flex-start' }}>
           <Avatar name={target?.kind === 'community' ? target.name || '?' : emailHandle} size={30} />
           <Text style={{ fontSize: 14, fontWeight: '600', color: palette.text }}>
-            {target?.kind === 'community' ? target.name : 'От своего имени'}
+            {target?.kind === 'community' ? target.name : t('От своего имени')}
           </Text>
-          <Text style={{ fontSize: 13, color: palette.accent }}>сменить</Text>
+          <Text style={{ fontSize: 13, color: palette.accent }}>{t('сменить')}</Text>
         </Pressable>
       ) : null}
 
       {target?.kind === 'community' ? (
         <Text style={{ fontSize: 12.5, color: palette.textMuted }}>
-          Вы пишете от имени клуба <Text style={{ color: palette.accent, fontWeight: '600' }}>{target.name || 'клуб'}</Text>
+          {t('Вы пишете от имени клуба')} <Text style={{ color: palette.accent, fontWeight: '600' }}>{target.name || t('клуб')}</Text>
         </Text>
       ) : null}
 
       <TextInput
         value={title}
         onChangeText={setTitle}
-        placeholder="Заголовок"
+        placeholder={t('Заголовок')}
         placeholderTextColor={palette.textMuted}
         style={{ fontFamily: palette.displayFamily, fontSize: 21, lineHeight: 27, color: palette.text, paddingVertical: 4 }}
       />
       <TextInput
         value={body}
         onChangeText={setBody}
-        placeholder="Что у вас на уме?"
+        placeholder={t('Что у вас на уме?')}
         placeholderTextColor={palette.textMuted}
         multiline
         style={{ fontSize: 16, lineHeight: 23, color: palette.text, minHeight: 140, textAlignVertical: 'top' }}
@@ -318,7 +320,7 @@ export function CreatePostScreen({ navigation, route }: Props) {
         }}
       >
         <Text style={{ color: palette.accentContrast, fontWeight: '600', fontSize: 15 }}>
-          {submitting ? 'Секунду…' : 'Опубликовать'}
+          {submitting ? t('Секунду…') : t('Опубликовать')}
         </Text>
       </Pressable>
     </ScrollView>

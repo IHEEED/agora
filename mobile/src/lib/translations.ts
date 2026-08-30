@@ -259,6 +259,17 @@ export const DICTIONARY: Record<Exclude<Locale, 'ru'>, Record<string, string>> =
     'Уже есть аккаунт? ': 'Already have an account? ',
     'Нет аккаунта? ': "Don't have an account? ",
 
+    // Клубы / чат
+    'участн.': 'members',
+    'записей': 'posts',
+    'В этом клубе пока нет записей.': 'No posts in this club yet.',
+    'Участники': 'Members',
+    'изменено': 'edited',
+    'Заголовок': 'Title',
+    'сменить': 'change',
+    'Вы пишете от имени клуба': 'You are posting as the club',
+    'клуб': 'club',
+
     // Прочее
     'Загрузка…': 'Loading…',
     'мысль…': 'a thought…',
@@ -497,6 +508,16 @@ export const DICTIONARY: Record<Exclude<Locale, 'ru'>, Record<string, string>> =
     'С возвращением': 'Bienvenido de nuevo',
     'Уже есть аккаунт? ': '¿Ya tienes una cuenta? ',
     'Нет аккаунта? ': '¿No tienes una cuenta? ',
+
+    'участн.': 'miembros',
+    'записей': 'publicaciones',
+    'В этом клубе пока нет записей.': 'Aún no hay publicaciones en este club.',
+    'Участники': 'Miembros',
+    'изменено': 'editado',
+    'Заголовок': 'Título',
+    'сменить': 'cambiar',
+    'Вы пишете от имени клуба': 'Publicas como el club',
+    'клуб': 'club',
 
     'Загрузка…': 'Cargando…',
     'мысль…': 'una idea…',

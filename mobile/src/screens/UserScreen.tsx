@@ -16,6 +16,7 @@ import { SegmentedControl } from '../components/SegmentedControl';
 import { PersonMenuSheet } from '../components/PersonMenuSheet';
 import { setBlocked, useIsBlocked } from '../lib/blockedUsers';
 import { CommentIcon, MoreIcon } from '../components/icons';
+import { useT } from '../lib/i18n';
 import { usePalette } from '../theme';
 import type { RootStackParamList } from '../navigation/types';
 
@@ -36,6 +37,7 @@ type Tab = 'posts' | 'comments' | 'reposts';
 export function UserScreen({ route }: Props) {
   const { userId } = route.params;
   const palette = usePalette();
+  const { t } = useT();
   const navigation = useNavigation<Nav>();
 
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -92,8 +94,8 @@ export function UserScreen({ route }: Props) {
   const openPeople = (mode: 'followers' | 'following') =>
     navigation.navigate('People', {
       endpoint: `/users/${userId}/${mode}`,
-      title: mode === 'followers' ? 'Подписчики' : 'Подписки',
-      emptyText: mode === 'followers' ? 'Пока никто не подписался.' : 'Пока ни на кого не подписан.',
+      title: mode === 'followers' ? t('Подписчики') : t('Подписки'),
+      emptyText: mode === 'followers' ? t('Пока никто не подписался.') : t('Пока ни на кого не подписан.'),
     });
 
   const header = (
@@ -168,7 +170,7 @@ export function UserScreen({ route }: Props) {
                 <Path d="M14 9a2 2 0 0 1-2 2H6l-4 3.5V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2Z" />
                 <Path d="M18 9h2a2 2 0 0 1 2 2v10.5L18 18h-6a2 2 0 0 1-2-2v-1" />
               </Svg>
-              <Text style={{ fontSize: 14, fontWeight: '600', color: palette.accent }}>Написать</Text>
+              <Text style={{ fontSize: 14, fontWeight: '600', color: palette.accent }}>{t('Написать')}</Text>
             </Pressable>
 
             <Pressable
@@ -180,7 +182,7 @@ export function UserScreen({ route }: Props) {
                 {!following ? <Path d="M12 5v14" /> : null}
               </Svg>
               <Text style={{ fontSize: 14, fontWeight: '600', color: following ? palette.textMuted : palette.accentContrast }}>
-                {following ? 'Вы подписаны' : 'Подписаться'}
+                {following ? t('Вы подписаны') : t('Подписаться')}
               </Text>
             </Pressable>
           </View>
@@ -193,17 +195,18 @@ export function UserScreen({ route }: Props) {
           value={tab}
           onChange={setTab}
           options={[
-            ['posts', `Посты ${counts.posts}`],
-            ['comments', 'Комменты'],
-            ['reposts', 'Репосты'],
+            ['posts', `${t('Посты')} ${counts.posts}`],
+            ['comments', t('Комменты')],
+            ['reposts', t('Репосты')],
           ]}
         />
       </View>
     </View>
   );
 
-  const emptyText =
-    tab === 'posts' ? 'Здесь пока нет записей.' : tab === 'comments' ? 'Здесь пока нет комментариев.' : 'Репостов пока нет.';
+  const emptyText = t(
+    tab === 'posts' ? 'Здесь пока нет записей.' : tab === 'comments' ? 'Здесь пока нет комментариев.' : 'Репостов пока нет.'
+  );
 
   const reportSheet = (
     <PersonMenuSheet open={menuOpen} onClose={() => setMenuOpen(false)} userId={userId} username={displayName} />
