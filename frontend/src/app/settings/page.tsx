@@ -557,6 +557,17 @@ export default function SettingsPage() {
                 Открыть
               </Link>
             </Row>
+            {/* Статистика — тоже работа модератора, но другого рода: не
+                решение по человеку, а взгляд на сеть целиком. */}
+            <Row label="Статистика" hint="Люди и написанное">
+              <Link
+                href="/moderation/stats"
+                className="flex-none rounded-full px-4 py-1.5 text-[13px] font-medium"
+                style={{ background: 'var(--surface-2)', color: 'var(--text)' }}
+              >
+                Открыть
+              </Link>
+            </Row>
           </Section>
           )}
 

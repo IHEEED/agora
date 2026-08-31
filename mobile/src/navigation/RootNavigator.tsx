@@ -1,10 +1,26 @@
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { MainTabs } from './MainTabs';
 import { CommunityScreen } from '../screens/CommunityScreen';
+import { CommunityAboutScreen } from '../screens/CommunityAboutScreen';
 import { PostScreen } from '../screens/PostScreen';
+import { CommentsScreen } from '../screens/CommentsScreen';
+import { PeopleScreen } from '../screens/PeopleScreen';
 import { LoginScreen } from '../screens/LoginScreen';
 import { CreateCommunityScreen } from '../screens/CreateCommunityScreen';
 import { CreatePostScreen } from '../screens/CreatePostScreen';
+import { MessagesScreen } from '../screens/MessagesScreen';
+import { ChatScreen } from '../screens/ChatScreen';
+import { NewMessageScreen } from '../screens/NewMessageScreen';
+import { NotificationsScreen } from '../screens/NotificationsScreen';
+import { UserScreen } from '../screens/UserScreen';
+import { SearchScreen } from '../screens/SearchScreen';
+import { SettingsScreen } from '../screens/SettingsScreen';
+import { SettingsSectionScreen } from '../screens/SettingsSectionScreen';
+import { ProfileEditScreen } from '../screens/ProfileEditScreen';
+import { ModerationScreen } from '../screens/ModerationScreen';
+import { VerificationScreen } from '../screens/VerificationScreen';
+import { StatsScreen } from '../screens/StatsScreen';
+import { useT } from '../lib/i18n';
 import { usePalette } from '../theme';
 import type { RootStackParamList } from './types';
 
@@ -12,36 +28,65 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export function RootNavigator() {
   const palette = usePalette();
+  const { t } = useT();
 
   return (
     <Stack.Navigator
       initialRouteName="MainTabs"
       screenOptions={{
-        // Заголовок отдан системе целиком: headerTransparent + прозрачный фон
-        // означают, что панель рисует UIKit, а на iOS 26 она сама получает
-        // Liquid Glass и сама решает, как преломлять уезжающий под неё
-        // контент. Любой собственный backgroundColor здесь вернул бы плоскую
-        // крашеную полосу.
-        headerTransparent: true,
-        headerStyle: { backgroundColor: 'transparent' },
+        // Панель НЕ прозрачная: при headerTransparent контент кладётся под неё
+        // от самого верха экрана — и все стек-экраны «съезжали» под часы и
+        // заголовок. Обычная панель (система сама рисует её полупрозрачным
+        // материалом, на iOS 26 — стеклом) отодвигает контент вниз, под себя.
         headerTintColor: palette.accent,
         headerTitleStyle: { color: palette.text },
+        // Назад — только стрелка, без ярлыка «MainTabs»: имя предыдущего
+        // маршрута рядом со стрелкой читалось служебной ошибкой.
+        headerBackButtonDisplayMode: 'minimal',
         contentStyle: { backgroundColor: palette.bg },
       }}
     >
       <Stack.Screen name="MainTabs" component={MainTabs} options={{ headerShown: false }} />
-      <Stack.Screen name="Community" component={CommunityScreen} />
-      <Stack.Screen name="Post" component={PostScreen} options={{ title: 'Пост' }} />
-      <Stack.Screen name="Login" component={LoginScreen} options={{ title: 'Вход' }} />
+      <Stack.Screen name="Community" component={CommunityScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="CommunityAbout" component={CommunityAboutScreen} options={{ title: t('О клубе'), presentation: 'modal' }} />
+      <Stack.Screen name="Post" component={PostScreen} options={{ title: t('Пост') }} />
+      <Stack.Screen name="Comments" component={CommentsScreen} options={{ title: t('Комментарии'), presentation: 'modal' }} />
+      <Stack.Screen
+        name="People"
+        component={PeopleScreen}
+        options={({ route }) => ({ title: route.params.title, presentation: 'modal' })}
+      />
+      <Stack.Screen name="Messages" component={MessagesScreen} options={{ title: t('Мессенджер') }} />
+      {/* Шапку рисует сам экран (TopBar + строка собеседника). */}
+      <Stack.Screen
+        name="Chat"
+        component={ChatScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen name="NewMessage" component={NewMessageScreen} options={{ title: t('Кому написать'), presentation: 'modal' }} />
+      <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="User" component={UserScreen} options={{ title: t('Профиль') }} />
+      <Stack.Screen name="Search" component={SearchScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="Settings" component={SettingsScreen} options={{ headerShown: false }} />
+      <Stack.Screen
+        name="SettingsSection"
+        component={SettingsSectionScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen name="ProfileEdit" component={ProfileEditScreen} options={{ title: t('Профиль') }} />
+      <Stack.Screen name="Moderation" component={ModerationScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="Verification" component={VerificationScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="Stats" component={StatsScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="Login" component={LoginScreen} options={{ title: t('Вход') }} />
       <Stack.Screen
         name="CreateCommunity"
         component={CreateCommunityScreen}
-        options={{ title: 'Новый клуб', presentation: 'modal' }}
+        options={{ title: t('Новый клуб'), presentation: 'modal' }}
       />
       <Stack.Screen
         name="CreatePost"
         component={CreatePostScreen}
-        options={{ title: 'Новый пост', presentation: 'modal' }}
+        options={{ title: t('Новый пост'), presentation: 'modal' }}
       />
     </Stack.Navigator>
   );

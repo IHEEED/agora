@@ -1,51 +1,38 @@
 import { useCallback, useEffect, useState } from 'react';
-import { FlatList, Pressable, Text, TextInput, View } from 'react-native';
+import { FlatList, KeyboardAvoidingView, Platform, Pressable, Text, TextInput, View } from 'react-native';
+import Svg, { Path } from 'react-native-svg';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { apiFetch } from '../lib/api';
 import { useSession } from '../lib/useSession';
-import { useVote } from '../lib/useVote';
 import { markPostViewed } from '../lib/viewedPosts';
-import { formatRelativeDate } from '../lib/formatDate';
 import { Post, Comment, CommentSort } from '../lib/types';
+import { PostCard } from '../components/PostCard';
 import { CommentItem } from '../components/CommentItem';
+import { SegmentedControl } from '../components/SegmentedControl';
+import { SkeletonPost } from '../components/SkeletonPost';
+import { useT } from '../lib/i18n';
+import { usePalette } from '../theme';
 import type { RootStackParamList } from '../navigation/types';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Post'>;
 
-const COMMENT_SORT_OPTIONS: { value: CommentSort; label: string }[] = [
-  { value: 'best', label: 'По рейтингу' },
-  { value: 'new', label: 'Новые' },
+const COMMENT_SORT_OPTIONS: ReadonlyArray<readonly [CommentSort, string]> = [
+  ['best', 'По рейтингу'],
+  ['new', 'Новые'],
 ];
 
-function PostDetail({ post }: { post: Post }) {
-  const { score, myVote, vote, error } = useVote(post.id, post.score, post.myVote);
-
-  return (
-    <View style={{ flexDirection: 'row', gap: 12, padding: 16, backgroundColor: '#fff' }}>
-      <View style={{ alignItems: 'center', gap: 2, width: 32 }}>
-        <Pressable onPress={() => vote(1)} hitSlop={8}>
-          <Text style={{ fontSize: 18, color: myVote === 1 ? '#f97316' : '#999' }}>▲</Text>
-        </Pressable>
-        <Text style={{ fontSize: 14, fontWeight: '600' }}>{score}</Text>
-        <Pressable onPress={() => vote(-1)} hitSlop={8}>
-          <Text style={{ fontSize: 18, color: myVote === -1 ? '#3b82f6' : '#999' }}>▼</Text>
-        </Pressable>
-      </View>
-
-      <View style={{ flex: 1, gap: 6 }}>
-        <Text style={{ fontSize: 17, fontWeight: '700' }}>{post.title}</Text>
-        <Text style={{ fontSize: 12, color: '#888' }}>
-          {post.author.username} · 👁 {post.views} · {formatRelativeDate(post.created_at)}
-        </Text>
-        {post.body ? <Text style={{ fontSize: 14, color: '#333' }}>{post.body}</Text> : null}
-        {error ? <Text style={{ fontSize: 12, color: '#dc2626' }}>{error}</Text> : null}
-      </View>
-    </View>
-  );
-}
-
+/**
+ * Экран поста с комментариями — один в один с вебом (/posts/[postId]).
+ *
+ * Сама запись рисуется той же карточкой, что в ленте, но без перехода вглубь и
+ * без кнопки комментариев (linkToDetail=false). Ниже — блок комментариев за
+ * отделяющей чертой: заголовок с переключателем сортировки, строка ввода с
+ * стрелкой-отправкой внутри и дерево веток. Пусто — «Комментариев пока нет».
+ */
 export function PostScreen({ route }: Props) {
   const { postId } = route.params;
+  const palette = usePalette();
+  const { t } = useT();
   const { session } = useSession();
 
   const [post, setPost] = useState<Post | null>(null);
@@ -53,20 +40,23 @@ export function PostScreen({ route }: Props) {
   const [commentSort, setCommentSort] = useState<CommentSort>('best');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [commentsLoading, setCommentsLoading] = useState(true);
 
   const [body, setBody] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [inputFocused, setInputFocused] = useState(false);
 
   const loadComments = useCallback(() => {
-    apiFetch<Comment[]>(`/comments/post/${postId}?sort=${commentSort}`).then(setComments);
+    apiFetch<Comment[]>(`/comments/post/${postId}?sort=${commentSort}`)
+      .then(setComments)
+      .catch(() => {})
+      .finally(() => setCommentsLoading(false));
   }, [postId, commentSort]);
 
   useEffect(() => {
     markPostViewed(postId).then((isNewView) => {
-      if (isNewView) {
-        apiFetch(`/posts/${postId}/view`, { method: 'POST' }).catch(() => {});
-      }
+      if (isNewView) apiFetch(`/posts/${postId}/view`, { method: 'POST' }).catch(() => {});
     });
   }, [postId]);
 
@@ -85,12 +75,8 @@ export function PostScreen({ route }: Props) {
     if (!body.trim()) return;
     setFormError(null);
     setSubmitting(true);
-
     try {
-      await apiFetch('/comments', {
-        method: 'POST',
-        body: JSON.stringify({ post_id: postId, body }),
-      });
+      await apiFetch('/comments', { method: 'POST', body: JSON.stringify({ post_id: postId, body }) });
       setBody('');
       loadComments();
     } catch (err) {
@@ -100,95 +86,97 @@ export function PostScreen({ route }: Props) {
     }
   }
 
-  return (
-    <FlatList
-      style={{ flex: 1, backgroundColor: '#fafafa' }}
-      contentContainerStyle={{ paddingBottom: 24 }}
-      data={comments}
-      keyExtractor={(item) => item.id}
-      ListHeaderComponent={
-        <View>
-          {loading ? <Text style={{ padding: 16, color: '#666' }}>Загрузка…</Text> : null}
-          {error ? <Text style={{ padding: 16, color: '#dc2626' }}>{error}</Text> : null}
-          {post ? <PostDetail post={post} /> : null}
+  const canSend = Boolean(body.trim()) && !submitting;
 
-          <View style={{ paddingHorizontal: 16, paddingTop: 16, gap: 10 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-              <Text style={{ fontSize: 16, fontWeight: '700' }}>Комментарии</Text>
-              <View style={{ flexDirection: 'row', gap: 6 }}>
-                {COMMENT_SORT_OPTIONS.map((option) => (
-                  <Pressable
-                    key={option.value}
-                    onPress={() => setCommentSort(option.value)}
+  return (
+    <KeyboardAvoidingView
+      style={{ flex: 1, backgroundColor: palette.bg }}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      <FlatList
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingBottom: 24 }}
+        // Тап по кнопке при открытой клавиатуре срабатывает сразу, а не только
+        // гасит её: без этого «Отправить» требовал двух нажатий.
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        data={comments}
+        keyExtractor={(item) => item.id}
+        ListHeaderComponent={
+          <View>
+            {loading ? <SkeletonPost /> : null}
+            {error ? <Text style={{ padding: 16, color: palette.down }}>{error}</Text> : null}
+            {post ? <PostCard post={post} linkToDetail={false} /> : null}
+
+            <View
+              style={{
+                paddingHorizontal: 16,
+                paddingTop: 20,
+                gap: 16,
+                borderTopWidth: 1,
+                borderTopColor: palette.border,
+                marginTop: 4,
+              }}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                <Text style={{ fontSize: 17, fontWeight: '700', color: palette.text }}>{t('Комментарии')}</Text>
+                <View style={{ width: 176 }}>
+                  <SegmentedControl value={commentSort} options={COMMENT_SORT_OPTIONS.map(([v, l]) => [v, t(l)] as const)} onChange={setCommentSort} />
+                </View>
+              </View>
+
+              {session ? (
+                <View style={{ gap: 6 }}>
+                  <View
                     style={{
-                      paddingHorizontal: 10,
-                      paddingVertical: 5,
-                      borderRadius: 999,
-                      backgroundColor: commentSort === option.value ? '#111' : '#eee',
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 8,
+                      paddingLeft: 4,
+                      borderBottomWidth: 1,
+                      borderBottomColor: inputFocused ? palette.accent : palette.border,
                     }}
                   >
-                    <Text
-                      style={{
-                        fontSize: 11,
-                        fontWeight: '600',
-                        color: commentSort === option.value ? '#fff' : '#444',
-                      }}
+                    <TextInput
+                      value={body}
+                      onChangeText={setBody}
+                      onFocus={() => setInputFocused(true)}
+                      onBlur={() => setInputFocused(false)}
+                      placeholder={t('Поделитесь своим мнением')}
+                      placeholderTextColor={palette.textMuted}
+                      returnKeyType="send"
+                      onSubmitEditing={handleSubmit}
+                      style={{ flex: 1, paddingVertical: 10, fontSize: 15, color: palette.text }}
+                    />
+                    <Pressable
+                      onPress={handleSubmit}
+                      disabled={!canSend}
+                      hitSlop={8}
+                      style={{ width: 32, height: 32, alignItems: 'center', justifyContent: 'center', opacity: canSend ? 1 : 0.3 }}
                     >
-                      {option.label}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
+                      <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={palette.accent} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                        <Path d="M4 12h15M13 6l6 6-6 6" />
+                      </Svg>
+                    </Pressable>
+                  </View>
+                  {formError ? <Text style={{ color: palette.down, fontSize: 13 }}>{formError}</Text> : null}
+                </View>
+              ) : null}
+
+              {!commentsLoading && comments.length === 0 ? (
+                <Text style={{ paddingVertical: 32, textAlign: 'center', color: palette.textMuted }}>
+                  {t('Комментариев пока нет. Будьте первым.')}
+                </Text>
+              ) : null}
             </View>
-
-            {session ? (
-              <View style={{ gap: 8 }}>
-                <TextInput
-                  value={body}
-                  onChangeText={setBody}
-                  placeholder="Ваш комментарий…"
-                  multiline
-                  style={{
-                    borderWidth: 1,
-                    borderColor: '#ddd',
-                    borderRadius: 8,
-                    padding: 10,
-                    minHeight: 70,
-                    backgroundColor: '#fff',
-                  }}
-                />
-                {formError ? <Text style={{ color: '#dc2626', fontSize: 12 }}>{formError}</Text> : null}
-                <Pressable
-                  onPress={handleSubmit}
-                  disabled={submitting}
-                  style={{
-                    alignSelf: 'flex-start',
-                    backgroundColor: '#111',
-                    borderRadius: 999,
-                    paddingHorizontal: 16,
-                    paddingVertical: 8,
-                    opacity: submitting ? 0.5 : 1,
-                  }}
-                >
-                  <Text style={{ color: '#fff', fontWeight: '600', fontSize: 13 }}>Отправить</Text>
-                </Pressable>
-              </View>
-            ) : (
-              <Text style={{ fontSize: 13, color: '#666' }}>Войдите, чтобы оставить комментарий.</Text>
-            )}
-
-            {!loading && comments.length === 0 ? (
-              <Text style={{ color: '#666', marginTop: 8 }}>Комментариев пока нет.</Text>
-            ) : null}
           </View>
-        </View>
-      }
-      contentInsetAdjustmentBehavior="automatic"
-      renderItem={({ item }) => (
-        <View style={{ paddingHorizontal: 16, paddingTop: 14 }}>
-          <CommentItem comment={item} postId={postId} onAdded={loadComments} />
-        </View>
-      )}
-    />
+        }
+        renderItem={({ item }) => (
+          <View style={{ paddingHorizontal: 16, paddingTop: 20 }}>
+            <CommentItem comment={item} postId={postId} onAdded={loadComments} />
+          </View>
+        )}
+      />
+    </KeyboardAvoidingView>
   );
 }

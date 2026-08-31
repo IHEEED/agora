@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { ScreenTitle } from '@/components/ScreenTitle';
+import { BackTitle } from '@/components/BackTitle';
 import { apiFetch } from '@/lib/api';
 import { invalidate, useApiData } from '@/lib/useApiData';
 import { useMe } from '@/lib/useMe';
@@ -314,7 +315,7 @@ export default function ModerationPage() {
   return (
     <div className="flex flex-1 flex-col items-center">
       <main className="below-header flex w-full max-w-2xl flex-col gap-5 px-4 pb-12">
-        <ScreenTitle>Модерация</ScreenTitle>
+        <BackTitle>Модерация</BackTitle>
 
         <div className="flex gap-2">
           {tabs.map((tab) => (

@@ -427,6 +427,56 @@ router.post('/verify', async (req, res) => {
   res.json({ ok: true, verified: on, userId: targetId });
 });
 
+/**
+ * Статистика сети.
+ *
+ * Пока людей десятки, единственный способ понять, растёт сеть или просто
+ * стоит, — смотреть на эти шесть чисел. Позже они станут графиками, но график
+ * по трём точкам не рисуют.
+ *
+ * Считаем count с head: true — база возвращает только число, не таская строки.
+ * Шесть таких запросов разом дешевле одного, который вытащил бы всех
+ * пользователей ради их количества.
+ *
+ * Никаких «активных за месяц» и прочих сводных величин: их считают, когда есть
+ * что усреднять. Сейчас важно другое — сколько людей вообще есть и сколько из
+ * них здесь сегодня.
+ */
+router.get('/stats', async (_req, res) => {
+  // «В сети» — те, кого видели за последние пять минут. Отметку ставит
+  // middleware не чаще раза в минуту, так что окно должно быть заметно шире
+  // этой минуты: иначе человек, читающий ленту, то попадает в счёт, то нет.
+  const online = new Date(Date.now() - 5 * 60_000).toISOString();
+  const day = new Date(Date.now() - 24 * 3600_000).toISOString();
+
+  const count = (query: { count: number | null; error: unknown }) =>
+    query.error ? null : (query.count ?? 0);
+
+  const [users, active, posts, comments, newToday, phoneVerified] = await Promise.all([
+    supabase.from('users').select('id', { count: 'exact', head: true }),
+    supabase.from('users').select('id', { count: 'exact', head: true }).gte('last_seen_at', online),
+    supabase.from('posts').select('id', { count: 'exact', head: true }),
+    supabase.from('comments').select('id', { count: 'exact', head: true }),
+    supabase.from('users').select('id', { count: 'exact', head: true }).gte('created_at', day),
+    // Подтверждение телефона живёт в auth.users, куда обычным запросом не
+    // дотянуться, — считает функция с security definer (миграция 029).
+    supabase.rpc('count_phone_verified'),
+  ]);
+
+  res.json({
+    // null означает «посчитать не вышло» — обычно потому, что миграция ещё не
+    // выполнена. Ноль сказал бы неправду: это разные вещи.
+    users: count(users),
+    // Подтвердили телефон — единственное «настоящее» подтверждение личности,
+    // которое человек делает сам, а не по решению модератора.
+    phoneVerified: phoneVerified.error ? null : (phoneVerified.data ?? 0),
+    online: count(active),
+    posts: count(posts),
+    comments: count(comments),
+    newToday: count(newToday),
+  });
+});
+
 /** Кому галочка уже выдана — чтобы видеть список целиком, а не по одному. */
 router.get('/verified', async (_req, res) => {
   const { data, error } = await supabase

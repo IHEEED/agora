@@ -1,13 +1,15 @@
-import { useColorScheme } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { RootNavigator } from './src/navigation/RootNavigator';
-import { navigationTheme, usePalette } from './src/theme';
+import { navigationTheme, useIsDark, usePalette } from './src/theme';
 
 export default function App() {
   const palette = usePalette();
-  const dark = useColorScheme() === 'dark';
+  // Тёмность — с учётом настройки темы (система/светлая/тёмная), а не только
+  // системной: иначе выбор «Тёмная» в настройках красит экраны, но фон под
+  // навигацией и строка статуса остаются светлыми.
+  const dark = useIsDark();
 
   return (
     <SafeAreaProvider>
@@ -16,7 +18,7 @@ export default function App() {
           экранами на кадр проглядывает белый фон по умолчанию. */}
       <NavigationContainer theme={navigationTheme(palette, dark)}>
         <RootNavigator />
-        <StatusBar style="auto" />
+        <StatusBar style={dark ? 'light' : 'dark'} />
       </NavigationContainer>
     </SafeAreaProvider>
   );

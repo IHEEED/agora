@@ -1,3 +1,5 @@
+/** Склонения по числу — как в вебе (src/lib/pluralize.ts). */
+
 export function pluralizeComments(count: number): string {
   const mod10 = count % 10;
   const mod100 = count % 100;

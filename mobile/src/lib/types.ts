@@ -1,8 +1,18 @@
 export type BadgeType = 'verified' | 'developer';
 
 export interface Author {
+  id?: string;
   username: string;
-  badge: BadgeType | null;
+  /** Показываемое имя, если задано. */
+  display_name?: string | null;
+  /** Адрес лица. Пусто — рисуем кружок с буквой. */
+  avatar_url?: string | null;
+  /** Дата подтверждения подлинности. Пусто — галочки нет. */
+  verified_at?: string | null;
+  /** Подписан ли я на автора — для кнопки в ленте. */
+  isFollowing?: boolean;
+  /** Старое поле, бэкенд его больше не шлёт; оставлено для совместимости. */
+  badge?: BadgeType | null;
 }
 
 export interface Community {
@@ -29,11 +39,28 @@ export interface Post {
   commentCount: number;
   author: Author;
   views: number;
-  // присутствует только в ответе GET /posts/feed
-  community?: { name: string; badge: BadgeType | null };
+  /** Показывать первой в ленте у всех (миграция 023). */
+  pinned_global?: boolean;
+  community?: { id: string; name: string } | null;
+  /** Обложка (до миграции 011) и список картинок (после). Читать через postImages(). */
+  image_url?: string | null;
+  image_urls?: string[] | null;
+  /** Запись опубликована от имени сообщества — стрелка и название акцентом. */
+  post_as_community?: boolean;
+  /** Продолжения записи («Вслед · N из M»), рисуются внутри начала цепочки. */
+  chain?: Post[];
+  /** Репосты: сколько всего и репостнул ли я. */
+  repostCount?: number;
+  myRepost?: boolean;
 }
 
-export type PostSort = 'hot' | 'new' | 'top' | 'commented';
+/** Картинки записи из двух источников: image_urls (после 011) или обложка image_url. */
+export function postImages(post: Pick<Post, 'image_url' | 'image_urls'>): string[] {
+  if (post.image_urls && post.image_urls.length > 0) return post.image_urls;
+  return post.image_url ? [post.image_url] : [];
+}
+
+export type PostSort = 'hot' | 'new' | 'top' | 'commented' | 'viewed';
 export type CommentSort = 'best' | 'new';
 
 export interface Comment {
@@ -47,4 +74,87 @@ export interface Comment {
   myVote: 1 | -1 | null;
   replies: Comment[];
   author: Author;
+}
+
+/**
+ * Собеседник в списке переписок и в самой переписке.
+ *
+ * Форма ровно та, что отдаёт бэкенд (routes/messages.ts): ник, лицо и, если
+ * человек подтверждён, дата галочки. display_name — показываемое имя, если
+ * задано.
+ */
+export interface ChatUser {
+  id: string;
+  username: string;
+  display_name?: string | null;
+  avatar_url?: string | null;
+  verified_at?: string | null;
+}
+
+/** Одна строка в списке переписок. */
+export interface Thread {
+  user: ChatUser;
+  unread: number;
+  pinned: boolean;
+  muted: boolean;
+  lastMessage: {
+    body: string;
+    created_at: string;
+    mine: boolean;
+  };
+}
+
+/** Комментарий вместе с записью, под которой оставлен — для вкладки профиля. */
+export interface CommentWithPost extends Comment {
+  post: { id: string; title: string } | null;
+}
+
+/** Один кадр истории. */
+export type StoryItem = {
+  id: string;
+  created_at: string;
+  seen: boolean;
+  title: string | null;
+  body: string | null;
+  images: string[];
+  postId: string | null;
+};
+
+/** Истории одного автора — кружок в ленте это он. */
+export type StoryGroup = {
+  author: { id: string; username: string; avatar_url?: string | null; verified_at?: string | null };
+  items: StoryItem[];
+  unseen: number;
+};
+
+/** Профиль человека — то, что отдаёт /users/:id. */
+export interface UserProfile {
+  id: string;
+  username: string;
+  display_name?: string | null;
+  avatar_url?: string | null;
+  verified_at?: string | null;
+  bio?: string | null;
+  cover_url?: string | null;
+  karma: number;
+  followers: number;
+  following: number;
+  /** Подписан ли я на этого человека — для кнопки на чужом профиле. */
+  isFollowing?: boolean;
+}
+
+/** Одно письмо внутри переписки. */
+export interface Message {
+  id: string;
+  sender_id: string;
+  recipient_id: string;
+  body: string | null;
+  image_url?: string | null;
+  audio_url?: string | null;
+  audio_seconds?: number | null;
+  created_at: string;
+  read_at?: string | null;
+  edited_at?: string | null;
+  reactions?: { emoji: string; userId: string }[];
+  forwardedFrom?: { id: string; username: string } | null;
 }

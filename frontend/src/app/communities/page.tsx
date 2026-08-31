@@ -126,7 +126,7 @@ export default function CommunitiesPage() {
         <div className="relative px-2">
           {/* z-10 обязателен: поле ниже — стеклянное, и его backdrop-filter
               размывает всё, что нарисовано под ним, включая эту лупу. */}
-          <span className="pointer-events-none absolute left-6 top-1/2 z-10 -translate-y-1/2 text-[var(--text-muted)]">
+          <span className="pointer-events-none absolute left-6 top-1/2 z-10 -translate-y-1/2 flex items-center gap-1.5 whitespace-nowrap text-[var(--text-muted)]">
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="11" cy="11" r="6.5" />
               <path d="m20 20-4.3-4.3" />

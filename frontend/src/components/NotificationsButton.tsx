@@ -66,13 +66,22 @@ export function NotificationsButton({
         background: sidebar && active ? 'var(--accent-soft)' : undefined,
       }}
     >
-      <svg width={sidebar ? 24 : 23} height={sidebar ? 24 : 23} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
-        <path
-          d="M18 8.5a6 6 0 1 0-12 0c0 6-2 7.5-2 7.5h16s-2-1.5-2-7.5"
-          fill={active ? 'currentColor' : 'none'}
-        />
-        <path d="M13.7 20a2 2 0 0 1-3.4 0" />
-      </svg>
+      {/* На самом экране уведомлений колокол превращается в стрелку назад:
+          кнопка отсюда и так возвращает в ленту, а стрелка прямо говорит об
+          этом. В боковой панели остаётся колоколом — там это пункт навигации. */}
+      {active && !sidebar ? (
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M15 5l-7 7 7 7" />
+        </svg>
+      ) : (
+        <svg width={sidebar ? 24 : 23} height={sidebar ? 24 : 23} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+          <path
+            d="M18 8.5a6 6 0 1 0-12 0c0 6-2 7.5-2 7.5h16s-2-1.5-2-7.5"
+            fill={active ? 'currentColor' : 'none'}
+          />
+          <path d="M13.7 20a2 2 0 0 1-3.4 0" />
+        </svg>
+      )}
 
       {sidebar && (
         <span className="text-center text-[9.5px] font-medium leading-none">

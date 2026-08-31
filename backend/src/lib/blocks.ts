@@ -1,4 +1,5 @@
 import { supabase } from '../config/supabase';
+import { isUuid } from './uuid';
 
 /**
  * Кого не показывать этому человеку.
@@ -13,7 +14,10 @@ import { supabase } from '../config/supabase';
  * таблице.
  */
 export async function hiddenUserIds(userId: string | undefined): Promise<Set<string>> {
-  if (!userId) return new Set();
+  // userId идёт в текст .or()-фильтра. Обычно это уже проверенный id из токена,
+  // но проверка стоит здесь, а не у вызывающих: так её нельзя забыть в новом
+  // месте вызова.
+  if (!isUuid(userId)) return new Set();
 
   const { data, error } = await supabase
     .from('blocks')
@@ -42,6 +46,10 @@ export async function hiddenUserIds(userId: string | undefined): Promise<Set<str
  * пути, поэтому проверка узкая: две конкретные пары, а не весь список.
  */
 export async function isBlockedBetween(a: string, b: string): Promise<boolean> {
+  // Оба уходят в текст фильтра; b приходит из тела запроса. Не UUID — не пара,
+  // которую стоит проверять.
+  if (!isUuid(a) || !isUuid(b)) return false;
+
   const { data, error } = await supabase
     .from('blocks')
     .select('blocker_id')
