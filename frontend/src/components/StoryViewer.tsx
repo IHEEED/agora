@@ -20,6 +20,7 @@ import { setStoriesHidden, useAreStoriesHidden } from '@/lib/hiddenStories';
 import { BottomSheet } from '@/components/BottomSheet';
 import { useRouter } from 'next/navigation';
 import { lockScroll } from '@/lib/scrollLock';
+import { copyText } from '@/lib/clipboard';
 
 /**
  * Разворот из кружка и складывание обратно.
@@ -845,7 +846,7 @@ function StoryMenu({
       label: t('share.title'),
       onSelect: () => {
         if (navigator.share) navigator.share({ url }).catch(() => undefined);
-        else navigator.clipboard?.writeText(url).catch(() => undefined);
+        else void copyText(url);
         onClose();
       },
     },
@@ -853,7 +854,7 @@ function StoryMenu({
       key: 'copy',
       label: t('action.copyLink'),
       onSelect: () => {
-        navigator.clipboard?.writeText(url).catch(() => undefined);
+        void copyText(url);
         onClose();
       },
     },

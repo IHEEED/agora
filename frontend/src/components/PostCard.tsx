@@ -170,6 +170,33 @@ export function PostCard({
             {formatCompactAge(post.created_at)}
           </span>
 
+          {/* Просмотры — наверх, к возрасту, и мельче всего в строке.
+              Внизу они стояли в ряду действий: голоса, комментарии, репост,
+              «поделиться» — и просмотры пятым, того же роста. Но это не
+              действие, а показание прибора: нажимать не на что. Стоя среди
+              кнопок, оно обещало нажатие и занимало место того, кто его
+              заслуживает.
+
+              Наверху же оно попадает в свою компанию — к возрасту записи, где
+              собрано всё, что про запись известно, а не всё, что с ней можно
+              сделать.
+
+              Ноль не рисуем вовсе. У свежей записи просмотров нет по
+              определению, и «0 просмотров» читается приговором, а не
+              показанием. */}
+          {post.views > 0 && (
+            <span
+              className="flex flex-none items-center gap-0.5 text-[var(--text-muted)]"
+              title={`${post.views} просмотров`}
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12" />
+                <circle cx="12" cy="12" r="3" />
+              </svg>
+              <span className="font-num text-[12px]">{compactViews(post.views)}</span>
+            </span>
+          )}
+
           {/* Пост от имени сообщества: стрелка и название акцентом. Без флага
               подпись остаётся обычной, хотя сообщество у записи есть всегда. */}
           {post.post_as_community && post.community && (
@@ -374,29 +401,6 @@ export function PostCard({
         </div>
 
         <div className="-mr-1 flex items-center">
-          {/* Просмотры — не кнопка, а показание прибора: нажимать не на что,
-              и выглядеть оно должно иначе, чем соседние действия. Отсюда
-              приглушённый цвет и отсутствие отклика на нажатие.
-
-              Ноль не рисуем вовсе. У свежей записи просмотров нет по
-              определению, и «0 просмотров» под ней читается как приговор
-              вместо показания. */}
-          {post.views > 0 && (
-            <span
-              className="mr-0.5 flex items-center gap-1 px-2 py-2.5 text-[var(--text-muted)]"
-              title={`${post.views} просмотров`}
-            >
-              {/* Мельче соседей намеренно: голоса и комментарии — действия, а
-                  это показание. Равный кегль ставил их в один ряд по важности,
-                  хотя просмотр значит меньше любого из них. */}
-              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12" />
-                <circle cx="12" cy="12" r="3" />
-              </svg>
-              <span className="font-num text-[13px]">{compactViews(post.views)}</span>
-            </span>
-          )}
-
           <button
             onClick={handleRepost}
             aria-label="Репост"

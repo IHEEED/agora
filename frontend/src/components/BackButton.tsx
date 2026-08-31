@@ -21,8 +21,17 @@ import { useT } from '@/lib/i18n';
 export function BackButton({
   onClick,
   label,
+  compact = false,
 }: {
   onClick: () => void;
+  /**
+   * Кружок со стрелкой, без слова.
+   *
+   * Для экранов, где рядом стоит заголовок: «Назад» и «Настройки» в одной
+   * строке — две подписи об одном, и вторая ничего не добавляет. Слово нужно
+   * там, где заголовка нет и стрелка осталась бы наедине с собой.
+   */
+  compact?: boolean;
   /**
    * Что написать вместо «Назад». Годится, когда известно, куда именно
    * возвращает: «В ленту» точнее, чем «Назад», и стоит того же места.
@@ -40,12 +49,21 @@ export function BackButton({
       // раньше: безрамочная, с отрицательным левым полем, чтобы стрелка встала
       // по одной линии с текстом под ней. Стеклянный кружок был у трёх экранов
       // из семи — меньшинство, и это меньшинство как раз без подписи.
-      className="-ml-2 flex w-fit flex-none items-center gap-1.5 rounded-full py-2 pl-2 pr-3.5 text-[16px] font-medium text-[var(--text)] transition-colors hover:bg-[var(--surface-2)] active:scale-95"
+      className={
+        compact
+          ? 'glass flex h-11 w-11 flex-none items-center justify-center rounded-full text-[var(--text)] transition-transform active:scale-95'
+          : '-ml-2 flex w-fit flex-none items-center gap-1.5 rounded-full py-2 pl-2 pr-3.5 text-[16px] font-medium text-[var(--text)] transition-colors hover:bg-[var(--surface-2)] active:scale-95'
+      }
     >
+      {/* Стрелка сдвинута на полпикселя вправо.
+          Её чернила занимают по горизонтали от 8 до 15, то есть середина ink —
+          11.5 при середине коробки 12. В строке со словом этого не видно, слово
+          и держит равновесие; а в кружке с одинаковыми полями стрелка садилась
+          левее центра, и кружок читался кривым. */}
       <svg
         width="24"
         height="24"
-        viewBox="0 0 24 24"
+        viewBox="-0.5 0 24 24"
         fill="none"
         stroke="currentColor"
         strokeWidth="2"
@@ -55,7 +73,7 @@ export function BackButton({
       >
         <path d="M15 5l-7 7 7 7" />
       </svg>
-      <span className="leading-none">{label ?? t('common.back')}</span>
+      {!compact && <span className="leading-none">{label ?? t('common.back')}</span>}
     </button>
   );
 }

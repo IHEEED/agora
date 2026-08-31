@@ -105,6 +105,9 @@ export function BottomNav() {
     // Внешний контейнер — плавающая капсула, а не полоса во всю ширину.
     // Позиционирование и отступы держим здесь, материал — в .ios-tabbar.
     <nav
+      // Метка для тех, кто прячет обвязку снаружи: экран смены пароля убирает
+      // и шапку, и бар, а дотянуться до них пропсом ему неоткуда.
+      data-bottom-nav
       className="pointer-events-none fixed inset-x-0 z-50 flex justify-center px-3 md:hidden"
       style={{
         // max(), а не просто сумма.

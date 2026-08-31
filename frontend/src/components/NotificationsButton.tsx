@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useRef } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { markGoingBack } from '@/lib/navDirection';
 import { foldCurrentScreen } from '@/lib/peelScreen';
@@ -30,14 +31,29 @@ export function NotificationsButton({
   const unread = useUnreadNotifications();
 
   const active = pathname.startsWith('/notifications');
+
+  /**
+   * Откуда пришли в уведомления.
+   *
+   * Запоминаем при входе, чтобы при выходе вернуть туда же. Кнопка уводила в
+   * ленту всегда: зашёл из клуба — вышел в ленту, зашёл из профиля — вышел в
+   * ленту. Раздел, который отбирает у человека место, где он был, — это не
+   * возврат, а перенос, и после него приходится искать дорогу обратно руками.
+   *
+   * Ленту оставляем запасным вариантом: на уведомления приходят и по ссылке
+   * извне, и тогда возвращать некуда — прошлого экрана в этом окне не было.
+   */
+  const cameFrom = useRef<string | null>(null);
+  if (!active) cameFrom.current = pathname;
   const sidebar = variant === 'sidebar';
 
   return (
     <Link
-      // Кнопка работает переключателем: с экрана уведомлений она возвращает в
-      // ленту, а не ведёт туда же повторно. Нажатие по разделу, где ты уже
-      // стоишь, обязано что-то делать, иначе кнопка выглядит залипшей.
-      href={active ? '/' : '/notifications'}
+      // Кнопка работает переключателем: с экрана уведомлений она возвращает
+      // туда, откуда на него пришли, а не ведёт в него повторно. Нажатие по
+      // разделу, где ты уже стоишь, обязано что-то делать, иначе кнопка
+      // выглядит залипшей.
+      href={active ? (cameFrom.current ?? '/') : '/notifications'}
       aria-label={active ? t('action.toFeed') : t('nav.notifications')}
       // Кнопка — точка роста экрана: наружу раздел складывается в неё же.
       data-notifications-button
@@ -51,7 +67,7 @@ export function NotificationsButton({
         event.preventDefault();
         markGoingBack();
         foldCurrentScreen(rect);
-        router.push('/');
+        router.push(cameFrom.current ?? '/');
       }}
       className={
         sidebar

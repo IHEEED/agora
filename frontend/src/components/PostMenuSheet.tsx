@@ -7,6 +7,7 @@ import { BottomSheet } from '@/components/BottomSheet';
 import { apiFetch } from '@/lib/api';
 import { invalidate } from '@/lib/useApiData';
 import { TranslationKey, useT } from '@/lib/i18n';
+import { copyText } from '@/lib/clipboard';
 
 /** Причины жалобы. Тот же короткий список, что у Reddit и Threads. */
 const REPORT_REASONS: TranslationKey[] = [
@@ -126,7 +127,7 @@ export function PostMenuSheet({
 
   async function copyLink() {
     try {
-      await navigator.clipboard.writeText(url);
+      if (!(await copyText(url))) throw new Error("copy failed");
       setCopied(true);
     } catch {
       setCopied(false);

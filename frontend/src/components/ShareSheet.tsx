@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { BottomSheet } from '@/components/BottomSheet';
 import { useT } from '@/lib/i18n';
+import { copyText } from '@/lib/clipboard';
 
 /**
  * Куда поделиться постом. Раньше кнопка молча копировала ссылку и подписывала
@@ -81,7 +82,7 @@ export function ShareSheet({
 
   async function copy() {
     try {
-      await navigator.clipboard.writeText(url);
+      if (!(await copyText(url))) throw new Error("copy failed");
       setCopied(true);
       window.setTimeout(() => {
         setCopied(false);

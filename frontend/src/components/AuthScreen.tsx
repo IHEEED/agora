@@ -31,7 +31,7 @@ export function AuthScreen() {
   // Код в ссылке означает, что человека позвали: открываем сразу регистрацию,
   // а не вход, в который ему нечего вводить.
   const [initialCode] = useState(codeFromUrl);
-  const [mode, setMode] = useState<'signin' | 'signup'>(initialCode ? 'signup' : 'signin');
+  const [mode, setMode] = useState<'signin' | 'signup' | 'reset'>(initialCode ? 'signup' : 'signin');
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -40,10 +40,13 @@ export function AuthScreen() {
 
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  /** Письмо со ссылкой ушло — форму сменяем на объяснение, что делать дальше. */
+  const [sent, setSent] = useState(false);
 
-  function switchTo(next: 'signin' | 'signup') {
+  function switchTo(next: 'signin' | 'signup' | 'reset') {
     setMode(next);
     setError(null);
+    setSent(false);
   }
 
   async function handleSubmit(e: SubmitEvent) {
@@ -52,6 +55,27 @@ export function AuthScreen() {
     setLoading(true);
 
     try {
+      if (mode === 'reset') {
+        /**
+         * Ссылку присылает Supabase, а не мы.
+         *
+         * redirectTo обязателен и обязан быть в списке разрешённых адресов в
+         * панели проекта — иначе письмо приходит, а ссылка ведёт на заглушку
+         * Supabase, и человек упирается в тупик уже после того, как поверил,
+         * что всё получилось.
+         *
+         * Об успехе говорим одинаково независимо от того, есть ли такая почта.
+         * «Такого адреса нет» — это ответ на вопрос «зарегистрирован ли здесь
+         * этот человек», и отвечать на него кому попало нельзя.
+         */
+        await supabase.auth.resetPasswordForEmail(email.trim(), {
+          redirectTo: `${window.location.origin}/reset`,
+        });
+        setSent(true);
+        setLoading(false);
+        return;
+      }
+
       if (mode === 'signup') {
         // Сервер создаёт учётную запись и помечает код использованным. Сессию
         // он не открывает: входим тем же обычным способом, что и все остальные,
@@ -73,6 +97,7 @@ export function AuthScreen() {
   }
 
   const signup = mode === 'signup';
+  const reset = mode === 'reset';
 
   return (
     // Фон плоский — цвет темы и ничего больше.
@@ -103,9 +128,24 @@ export function AuthScreen() {
         style={{ background: 'var(--surface)', boxShadow: 'var(--glass-shadow)' }}
       >
         <h2 className="mb-5 text-center text-[15px] font-semibold text-[var(--text)]">
-          {signup ? 'По приглашению' : 'Вход'}
+          {signup ? 'По приглашению' : reset ? 'Забыли пароль' : 'Вход'}
         </h2>
 
+        {sent ? (
+          /* Письмо ушло — форма больше не нужна: нажимать ту же кнопку второй
+             раз бессмысленно, а стоящая рядом с сообщением она к этому и
+             подталкивает. Про папку «Спам» сказано не для проформы: письма от
+             незнакомых доменов уезжают туда чаще, чем приходят во «Входящие». */
+          <div className="flex flex-col gap-3">
+            <p className="text-[14px] leading-relaxed text-[var(--text)]">
+              Отправили ссылку на {email.trim()}. Откройте её — и придумаете новый пароль.
+            </p>
+            <p className="text-[12.5px] leading-relaxed text-[var(--text-muted)]">
+              Письма нет через пару минут — посмотрите в «Спаме». Если и там пусто,
+              значит на этот адрес аккаунт не заводили.
+            </p>
+          </div>
+        ) : (
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
           {signup && (
             <div className="flex flex-col gap-1">
@@ -164,23 +204,25 @@ export function AuthScreen() {
             />
           </div>
 
-          <div className="flex flex-col gap-1">
-            <label htmlFor="password" className="text-[13px] text-[var(--text-muted)]">
-              Пароль
-            </label>
-            <input
-              id="password"
-              type="password"
-              required
-              // При регистрации порог выше и совпадает с серверным: узнать про
-              // восемь знаков после круга до сервера — обидно на ровном месте.
-              minLength={signup ? 8 : 6}
-              autoComplete={signup ? 'new-password' : 'current-password'}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className={FIELD}
-            />
-          </div>
+          {!reset && (
+            <div className="flex flex-col gap-1">
+              <label htmlFor="password" className="text-[13px] text-[var(--text-muted)]">
+                Пароль
+              </label>
+              <input
+                id="password"
+                type="password"
+                required
+                // При регистрации порог выше и совпадает с серверным: узнать про
+                // восемь знаков после круга до сервера — обидно на ровном месте.
+                minLength={signup ? 8 : 6}
+                autoComplete={signup ? 'new-password' : 'current-password'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className={FIELD}
+              />
+            </div>
+          )}
 
           {error && <p className="text-[13px]" style={{ color: 'var(--down)' }}>{error}</p>}
 
@@ -189,12 +231,34 @@ export function AuthScreen() {
             disabled={loading}
             className="mt-1 rounded-full bg-[var(--accent)] py-2.5 text-[15px] font-medium text-[var(--accent-contrast)] transition-opacity hover:opacity-90 disabled:opacity-50"
           >
-            {loading ? 'Секунду…' : signup ? 'Завести аккаунт' : 'Войти'}
+            {loading
+              ? 'Секунду…'
+              : signup
+                ? 'Завести аккаунт'
+                : reset
+                  ? 'Прислать ссылку'
+                  : 'Войти'}
           </button>
         </form>
+        )}
 
+        {/* Дорога назад из восстановления и дорога в него.
+            «Забыли пароль?» стоит рядом со входом, а не в настройках и не в
+            письме поддержке: забывают его ровно здесь, в момент неудачной
+            попытки, и искать помощь человек будет тоже здесь. */}
         <p className="mt-4 text-center text-[12px] leading-relaxed text-[var(--text-muted)]">
-          {signup ? (
+          {reset ? (
+            <>
+              Вспомнили?{' '}
+              <button
+                type="button"
+                onClick={() => switchTo('signin')}
+                className="font-medium text-[var(--accent)] underline-offset-2 hover:underline"
+              >
+                Войти
+              </button>
+            </>
+          ) : signup ? (
             <>
               Уже есть аккаунт?{' '}
               <button
@@ -214,6 +278,14 @@ export function AuthScreen() {
                 className="font-medium text-[var(--accent)] underline-offset-2 hover:underline"
               >
                 Завести аккаунт
+              </button>
+              <br />
+              <button
+                type="button"
+                onClick={() => switchTo('reset')}
+                className="mt-1 underline-offset-2 hover:underline"
+              >
+                Забыли пароль?
               </button>
             </>
           )}

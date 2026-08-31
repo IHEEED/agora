@@ -181,7 +181,7 @@ export default function SearchPage() {
           {/* Кружок с подложкой, а не голая стрелка — тот же приём, что в
               настройках: без фона она читалась украшением рядом с заголовком,
               и на неё просто не жали. */}
-          <BackButton onClick={leave} />
+          <BackButton onClick={leave} compact />
           <ScreenTitle>{t('nav.search')}</ScreenTitle>
         </div>
 

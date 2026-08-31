@@ -5,6 +5,7 @@ import { BottomSheet } from '@/components/BottomSheet';
 import { apiFetch } from '@/lib/api';
 import { setBlocked, useIsBlocked } from '@/lib/blockedUsers';
 import { TranslationKey, useT } from '@/lib/i18n';
+import { copyText } from '@/lib/clipboard';
 
 /** Причины жалобы. Тот же короткий список, что и у записи. */
 const REPORT_REASONS: TranslationKey[] = [
@@ -105,7 +106,7 @@ export function PersonMenuSheet({
 
   async function copyLink() {
     try {
-      await navigator.clipboard.writeText(url);
+      if (!(await copyText(url))) throw new Error("copy failed");
       setCopied(true);
     } catch {
       setCopied(false);

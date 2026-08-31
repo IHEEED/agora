@@ -39,6 +39,7 @@ import { VelocityTracker, committed } from '@/lib/gestureVelocity';
 import { useDragSpring } from '@/lib/useDragSpring';
 import { spring, type SpringHandle } from '@/lib/spring';
 import { BackButton } from '@/components/BackButton';
+import { copyText } from '@/lib/clipboard';
 
 /** Как часто перечитываем переписку, пока она открыта.
     Раньше был 4000 — при плохой сети задержка на запросе могла совпасть
@@ -1211,7 +1212,7 @@ export default function ChatPage() {
              честнее — каждый несёт ровно своё содержимое и стоит на обоях, а не
              вместо них. Так устроена шапка чата в Telegram, и по той же причине. */
           <div className="chat-header mb-2 flex items-center gap-1.5 px-1">
-            <BackButton onClick={onLeave} />
+            <BackButton onClick={onLeave} compact />
             <Link
               href={`/u/${userId}`}
               // mr-auto, а не flex-1: островок обязан быть по размеру имени.
@@ -1940,7 +1941,7 @@ export default function ChatPage() {
               </>
             ),
             onSelect: () => {
-              if (menuFor?.body) navigator.clipboard?.writeText(menuFor.body).catch(() => undefined);
+              if (menuFor?.body) void copyText(menuFor.body);
               setMenuFor(null);
             },
           },

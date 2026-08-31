@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useApiData } from '@/lib/useApiData';
 import { haptic } from '@/lib/haptics';
 import { useT } from '@/lib/i18n';
+import { copyText } from '@/lib/clipboard';
 
 /**
  * Приглашение: один код и навсегда.
@@ -38,7 +39,7 @@ export function InvitesPanel() {
   async function copy() {
     if (!code) return;
     try {
-      await navigator.clipboard.writeText(`${origin()}/?code=${code}`);
+      if (!(await copyText(`${origin()}/?code=${code}`))) throw new Error("copy failed");
       haptic();
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1600);
