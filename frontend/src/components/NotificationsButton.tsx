@@ -54,7 +54,7 @@ export function NotificationsButton({
       // разделу, где ты уже стоишь, обязано что-то делать, иначе кнопка
       // выглядит залипшей.
       href={active ? (cameFrom.current ?? '/') : '/notifications'}
-      aria-label={active ? t('action.toFeed') : t('nav.notifications')}
+      aria-label={active ? t('common.back') : t('nav.notifications')}
       // Кнопка — точка роста экрана: наружу раздел складывается в неё же.
       data-notifications-button
       onClick={(event) => {
@@ -75,7 +75,9 @@ export function NotificationsButton({
           : // md:invisible, а не md:hidden: на широком экране раздел живёт в
             // боковой панели, но шапка держит вывеску по центру через
             // justify-between — без левого элемента кнопка справа уехала бы.
-            'relative flex h-11 w-11 items-center justify-center rounded-full transition-transform active:scale-90 md:invisible'
+            (active
+              ? 'relative flex h-11 flex-none items-center gap-1 rounded-full pl-1.5 pr-3 transition-transform active:scale-90 md:invisible'
+              : 'relative flex h-11 w-11 items-center justify-center rounded-full transition-transform active:scale-90 md:invisible')
       }
       style={{
         color: sidebar && !active ? 'var(--text-muted)' : 'var(--accent)',
@@ -86,9 +88,17 @@ export function NotificationsButton({
           кнопка отсюда и так возвращает в ленту, а стрелка прямо говорит об
           этом. В боковой панели остаётся колоколом — там это пункт навигации. */}
       {active && !sidebar ? (
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M15 5l-7 7 7 7" />
-        </svg>
+        <>
+          <svg width="22" height="22" viewBox="-0.5 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-none">
+            <path d="M15 5l-7 7 7 7" />
+          </svg>
+          {/* Слово рядом со стрелкой.
+              Стрелка одна отвечает «отсюда можно выйти», но не отвечает «куда»,
+              а решают по второму. Здесь это особенно заметно: слева от неё
+              стоит вывеска, справа лупа — то есть стрелка сидит в ряду знаков,
+              и без подписи читается таким же знаком, а не выходом. */}
+          <span className="text-[15px] font-medium leading-none">{t('common.back')}</span>
+        </>
       ) : (
         <svg width={sidebar ? 24 : 23} height={sidebar ? 24 : 23} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
           <path

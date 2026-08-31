@@ -78,7 +78,7 @@
   --accent: light-dark(#b5522f, #e08a5f);
   --accent-contrast: light-dark(#fffaf4, #16140f);
 
-  --display-family: var(--font-display), Georgia, serif;
+  --display-family: var(--font-display), system-ui, sans-serif;
   --display-tracking: -0.005em;
   --display-weight: 600;
 
@@ -106,7 +106,7 @@
   --accent: light-dark(#2b2b26, #ebe9e3);
   --accent-contrast: light-dark(#ffffff, #0b0b0a);
 
-  --display-family: var(--font-display), Georgia, serif;
+  --display-family: var(--font-display), system-ui, sans-serif;
   --display-tracking: -0.02em;
   --display-weight: 600;
 
@@ -148,7 +148,7 @@
   --accent: light-dark(#4a6b3a, #a3c47e);
   --accent-contrast: light-dark(#f7faf3, #10130d);
 
-  --display-family: var(--font-display), Georgia, serif;
+  --display-family: var(--font-display), system-ui, sans-serif;
   --display-tracking: -0.01em;
   --display-weight: 600;
 
@@ -1599,7 +1599,7 @@ label,
   --accent: light-dark(#e0338c, #ff7ec2);
   --accent-contrast: light-dark(#ffffff, #14060f);
 
-  --display-family: var(--font-display), Georgia, serif;
+  --display-family: var(--font-display), system-ui, sans-serif;
   --display-tracking: -0.005em;
   --display-weight: 600;
 
