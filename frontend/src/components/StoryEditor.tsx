@@ -49,9 +49,51 @@ type TextLayer = {
   /** Кегль долей от ширины кадра: 0.08 — восемь процентов ширины. */
   size: number;
   color: string;
-  /** Подложка под текстом — для снимков, на которых не читается ничего. */
-  boxed: boolean;
+  /**
+   * Подложка под текстом.
+   *
+   * Три состояния, а не флажок. Раньше подложка была «есть или нет», а её цвет
+   * выводился из цвета текста: тёмный текст — белая плашка, светлый — чёрная.
+   * Правило разумное, но оно отнимало решение: на светлом снимке с белым
+   * текстом человеку нужна светлая плашка с тёмной обводкой, и получить её
+   * было нельзя никак.
+   */
+  box: 'none' | 'dark' | 'light';
+  /**
+   * Имя переменной со шрифтом (--font-body и родня), а не само семейство.
+   *
+   * Семейства у шрифтов, загруженных next/font, имена с хешем: они меняются
+   * при каждой пересборке, и записывать их в состояние — значит однажды
+   * получить подпись, набранную запасным шрифтом. Переменная стабильна, а
+   * настоящее имя из неё достаётся в момент отрисовки.
+   */
+  font: string;
 };
+
+/**
+ * Шрифты для подписей.
+ *
+ * Все четыре уже загружены приложением — ни одного лишнего запроса. Это не
+ * экономия ради экономии: шрифт, который едет отдельно, приезжает после того,
+ * как человек начал печатать, и подпись на глазах меняет форму.
+ *
+ * Четыре, а не десять. Выбор из десяти начертаний — работа шрифтового
+ * редактора, а человек хотел подписать снимок. Здесь четыре ясно разных
+ * голоса: нейтральный, вывесочный, рукописный и пиксельный.
+ */
+const FONTS = [
+  { id: '--font-body', label: 'Обычный' },
+  { id: '--font-display', label: 'Крупный' },
+  { id: '--font-hand', label: 'От руки' },
+  { id: '--font-pixel', label: 'Пиксели' },
+] as const;
+
+/** Настоящее имя семейства из переменной темы. */
+function familyOf(variable: string): string {
+  if (typeof document === 'undefined') return 'system-ui';
+  const value = getComputedStyle(document.documentElement).getPropertyValue(variable).trim();
+  return value || 'system-ui';
+}
 
 function newLayer(): TextLayer {
   return {
@@ -61,7 +103,8 @@ function newLayer(): TextLayer {
     y: 0.5,
     size: 0.075,
     color: '#ffffff',
-    boxed: false,
+    box: 'none',
+    font: '--font-body',
   };
 }
 
@@ -326,16 +369,21 @@ export function StoryEditor({
       if (!text) continue;
 
       const fontSize = layer.size * canvas.width;
-      context.font = `600 ${fontSize}px system-ui, sans-serif`;
+      // Запасные семейства после своего: если шрифт почему-то не доехал, текст
+      // всё равно будет нарисован — просто другим начертанием, а не пропущен.
+      context.font = `600 ${fontSize}px ${familyOf(layer.font)}, system-ui, sans-serif`;
 
       const x = layer.x * canvas.width;
       const y = layer.y * canvas.height;
 
-      if (layer.boxed) {
+      if (layer.box !== 'none') {
         const width = context.measureText(text).width;
-        context.fillStyle = layer.color === '#111111' ? '#ffffff' : '#111111';
+        context.fillStyle = layer.box === 'light' ? '#ffffff' : '#111111';
         const padding = fontSize * 0.28;
-        context.globalAlpha = 0.55;
+        // Светлая плотнее тёмной: белое на снимке пропускает больше, чем
+        // чёрное той же прозрачности, и на 0.55 подложка переставала быть
+        // подложкой.
+        context.globalAlpha = layer.box === 'light' ? 0.72 : 0.55;
         context.fillRect(
           x - width / 2 - padding,
           y - fontSize * 0.7,
@@ -519,13 +567,19 @@ export function StoryEditor({
                 fontSize: frameWidth ? layer.size * frameWidth : undefined,
                 color: layer.color,
                 maxWidth: '92%',
-                background: layer.boxed
-                  ? layer.color === '#111111'
-                    ? 'rgba(255,255,255,0.55)'
-                    : 'rgba(0,0,0,0.55)'
-                  : 'transparent',
-                borderRadius: layer.boxed ? 8 : 0,
-                textShadow: layer.boxed ? 'none' : '0 1px 8px rgba(0,0,0,0.45)',
+                // Тот же шрифт, что уйдёт в картинку. Превью, набранное чужим
+                // начертанием, обещает не то, что получится, — и человек
+                // выбирает вслепую то самое, ради чего этот выбор и заведён.
+                fontFamily: `var(${layer.font}), system-ui, sans-serif`,
+                background:
+                  layer.box === 'light'
+                    ? 'rgba(255,255,255,0.72)'
+                    : layer.box === 'dark'
+                      ? 'rgba(0,0,0,0.55)'
+                      : 'transparent',
+                borderRadius: layer.box === 'none' ? 0 : 8,
+                padding: layer.box === 'none' ? 0 : '0.14em 0.3em',
+                textShadow: layer.box === 'none' ? '0 1px 8px rgba(0,0,0,0.45)' : 'none',
                 outline: active === layer.id && !editing ? '1px dashed rgba(255,255,255,0.6)' : 'none',
                 outlineOffset: 6,
                 cursor: 'grab',
@@ -562,6 +616,28 @@ export function StoryEditor({
             — худший вид интерфейса. */}
         {activeLayer && !editing && (
           <div className="flex items-center gap-2 overflow-x-auto">
+            {/* Шрифт первым: он меняет подпись сильнее любого цвета, и
+                выбирают его раньше. Названием, а не образцом буквы: «Аа» в
+                четырёх начертаниях подряд на чёрной панели различаются хуже,
+                чем четыре слова. */}
+            {FONTS.map((font) => (
+              <button
+                key={font.id}
+                type="button"
+                onClick={() => update(activeLayer.id, { font: font.id })}
+                className="flex-none rounded-full px-2.5 py-1 text-[12px] transition-colors"
+                style={{
+                  fontFamily: `var(${font.id}), system-ui, sans-serif`,
+                  background: activeLayer.font === font.id ? '#fff' : 'rgba(255,255,255,0.16)',
+                  color: activeLayer.font === font.id ? '#111' : '#fff',
+                }}
+              >
+                {font.label}
+              </button>
+            ))}
+
+            <span className="mx-0.5 h-6 w-px flex-none" style={{ background: 'rgba(255,255,255,0.25)' }} />
+
             {COLORS.map((color) => (
               <button
                 key={color}
@@ -583,15 +659,30 @@ export function StoryEditor({
                 рамке показывает результат прямо на себе, и её же ставит
                 Telegram в том же месте и с тем же смыслом. Нажатие меняет саму
                 кнопку — то есть подсказка и есть состояние. */}
+            {/* Три состояния по кругу: нет — тёмная — светлая — нет.
+                Кругом, а не тремя кнопками: подложка нужна редко, и отдавать
+                ей три места в ряду, где и так тесно, значило бы объявить её
+                важнее цвета. Кнопка при этом показывает не «что будет», а «что
+                есть сейчас» — своей же заливкой. */}
             <button
               type="button"
-              onClick={() => update(activeLayer.id, { boxed: !activeLayer.boxed })}
+              onClick={() =>
+                update(activeLayer.id, {
+                  box:
+                    activeLayer.box === 'none' ? 'dark' : activeLayer.box === 'dark' ? 'light' : 'none',
+                })
+              }
               aria-label="Подложка под текстом"
-              aria-pressed={activeLayer.boxed}
               className="ml-1 flex h-8 w-8 flex-none items-center justify-center rounded-full transition-colors"
               style={{
-                background: activeLayer.boxed ? '#fff' : 'rgba(255,255,255,0.16)',
-                color: activeLayer.boxed ? '#111' : '#fff',
+                background:
+                  activeLayer.box === 'light'
+                    ? '#fff'
+                    : activeLayer.box === 'dark'
+                      ? '#111'
+                      : 'rgba(255,255,255,0.16)',
+                color: activeLayer.box === 'light' ? '#111' : '#fff',
+                outline: activeLayer.box === 'dark' ? '1px solid rgba(255,255,255,0.45)' : 'none',
               }}
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -605,7 +696,7 @@ export function StoryEditor({
                   height="17"
                   rx="4.5"
                   strokeWidth="1.6"
-                  strokeDasharray={activeLayer.boxed ? undefined : '3 2.5'}
+                  strokeDasharray={activeLayer.box === 'none' ? '3 2.5' : undefined}
                 />
                 <path d="M8.6 16.2 12 7.8l3.4 8.4M9.9 13.6h4.2" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
               </svg>

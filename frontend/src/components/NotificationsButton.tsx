@@ -19,6 +19,15 @@ import { useUnreadNotifications } from '@/lib/useUnreadNotifications';
  * под большим пальцем, в нижнем баре; редкому — в шапке, где оно не занимает
  * один из пяти слотов.
  */
+/**
+ * Куда возвращает выход из уведомлений.
+ *
+ * Два места, и оба — «дом»: общая лента и свой профиль. Всё остальное
+ * проходное, и возвращать туда — значит бросать человека посреди чужого дела,
+ * которое он уже закончил.
+ */
+const HOMES = ['/', '/profile'];
+
 export function NotificationsButton({
   variant = 'header',
 }: {
@@ -43,8 +52,13 @@ export function NotificationsButton({
    * Ленту оставляем запасным вариантом: на уведомления приходят и по ссылке
    * извне, и тогда возвращать некуда — прошлого экрана в этом окне не было.
    */
-  const cameFrom = useRef<string | null>(null);
-  if (!active) cameFrom.current = pathname;
+  const cameFrom = useRef<string>('/');
+  // Запоминаем только большие разделы. Поиск, настройки, написание записи и
+  // чужой профиль — проходные: в них заходят на минуту и с делом, и вернуть
+  // туда из уведомлений значит вернуть в чужое неоконченное занятие. Своя
+  // лента и свой профиль — те два места, куда возвращаются насовсем, и выбор
+  // между ними человеку понятен без объяснений.
+  if (!active && HOMES.includes(pathname)) cameFrom.current = pathname;
   const sidebar = variant === 'sidebar';
 
   return (
@@ -53,7 +67,7 @@ export function NotificationsButton({
       // туда, откуда на него пришли, а не ведёт в него повторно. Нажатие по
       // разделу, где ты уже стоишь, обязано что-то делать, иначе кнопка
       // выглядит залипшей.
-      href={active ? (cameFrom.current ?? '/') : '/notifications'}
+      href={active ? cameFrom.current : '/notifications'}
       aria-label={active ? t('common.back') : t('nav.notifications')}
       // Кнопка — точка роста экрана: наружу раздел складывается в неё же.
       data-notifications-button
@@ -67,7 +81,7 @@ export function NotificationsButton({
         event.preventDefault();
         markGoingBack();
         foldCurrentScreen(rect);
-        router.push(cameFrom.current ?? '/');
+        router.push(cameFrom.current);
       }}
       className={
         sidebar

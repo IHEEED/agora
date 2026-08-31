@@ -6,10 +6,22 @@ export type Locale = 'ru' | 'en' | 'es';
 
 export const LOCALE_STORAGE_KEY = 'parafraz-locale';
 
-export const LOCALES: ReadonlyArray<{ id: Locale; label: string }> = [
-  { id: 'ru', label: 'Русский' },
-  { id: 'en', label: 'English' },
-  { id: 'es', label: 'Español' },
+/**
+ * Флаг эмодзи, а не картинкой.
+ *
+ * Картинку пришлось бы везти с собой, держать в двух плотностях и обновлять
+ * руками; эмодзи рисует система, и рисует так, как принято на этом устройстве.
+ *
+ * Флаг у языка — приём спорный: язык не равен стране, и по-испански говорят
+ * далеко не только в Испании. Но здесь он работает не как «страна», а как
+ * метка, которую находят взглядом, не читая: в списке из трёх строк глаз
+ * цепляется за цветное пятно быстрее, чем разбирает слово. Подпись при этом
+ * никуда не делась и остаётся главной.
+ */
+export const LOCALES: ReadonlyArray<{ id: Locale; label: string; flag: string }> = [
+  { id: 'ru', label: 'Русский', flag: '🇷🇺' },
+  { id: 'en', label: 'English', flag: '🇬🇧' },
+  { id: 'es', label: 'Español', flag: '🇪🇸' },
 ];
 
 /**

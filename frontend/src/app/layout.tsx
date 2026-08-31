@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import Link from "next/link";
 import Script from "next/script";
-import { Inter, Pixelify_Sans, Unbounded } from "next/font/google";
+import { Caveat, Inter, Pixelify_Sans, Unbounded } from "next/font/google";
 import { BottomNav } from "@/components/BottomNav";
 import { DesktopSidebar } from "@/components/DesktopSidebar";
 import { PageTransition } from "@/components/PageTransition";
@@ -48,6 +48,21 @@ const displayFont = Unbounded({
   // Без тонких начертаний: Unbounded широкий, и на 300 крупная надпись
   // расползается в линию, которую глаз читает по буквам, а не целиком.
   weight: ["400", "500", "600", "700"],
+  subsets: ["latin", "cyrillic"],
+});
+
+// Рукописный — только для подписей в историях.
+//
+// В интерфейсе ему делать нечего: рукописное плохо читается мелко и врёт о
+// назначении — кнопка, подписанная от руки, выглядит запиской, а не кнопкой.
+// А в истории это ровно та интонация, которой не хватало: снимок с подписью
+// от руки читается личным, а не свёрстанным.
+//
+// Caveat, лицензия SIL OFL, кириллица родная. Одно начертание: у рукописного
+// вес — часть характера, и второй только размыл бы его.
+const handFont = Caveat({
+  variable: "--font-hand",
+  weight: ["600"],
   subsets: ["latin", "cyrillic"],
 });
 
@@ -129,7 +144,7 @@ export default function RootLayout({
   return (
     <html
       lang="ru"
-      className={`${bodyFont.variable} ${pixelFont.variable} ${displayFont.variable} h-full antialiased`}
+      className={`${bodyFont.variable} ${pixelFont.variable} ${displayFont.variable} ${handFont.variable} h-full antialiased`}
       // data-theme проставляется инлайн-скриптом ниже до гидратации — специально
       // расходится с серверной разметкой, чтобы не было мигания темы при загрузке.
       suppressHydrationWarning

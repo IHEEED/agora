@@ -22,9 +22,27 @@ export async function uploadImage(dataUrl: string, prefix: string): Promise<stri
   // обязано различать «поменяли лицо» и «поменяли только подпись».
   if (!dataUrl.startsWith('data:')) return dataUrl;
 
+  /**
+   * Идентификатор человека — первой папкой. Это не вкусовщина, а требование
+   * политики доступа.
+   *
+   * Правило в миграции 003 звучит так: `(storage.foldername(name))[1] =
+   * auth.uid()::text`. То есть Storage смотрит на ПЕРВЫЙ отрезок пути и
+   * сравнивает его с тем, кто пишет. Мы клали `avatars/<uuid>.jpg` — первым
+   * отрезком оказывалось слово «avatars», сравнение не сходилось, и запись
+   * отклонялась.
+   *
+   * Ошибка при этом выглядела как «политики не настроены», хотя настроены они
+   * были правильно — не подходил путь. Ровно на это же в своё время напоролись
+   * вложения в переписке, и там путь исправили, а здесь остался прежний.
+   */
+  const { data: auth } = await supabase.auth.getUser();
+  const owner = auth.user?.id;
+  if (!owner) throw new Error('Сессия потерялась — войдите заново');
+
   const blob = await (await fetch(dataUrl)).blob();
   const extension = blob.type.split('/')[1]?.split('+')[0] || 'jpg';
-  const path = `${prefix}/${crypto.randomUUID()}.${extension}`;
+  const path = `${owner}/${prefix}/${crypto.randomUUID()}.${extension}`;
 
   const { error } = await supabase.storage
     .from(BUCKET)
@@ -33,7 +51,12 @@ export async function uploadImage(dataUrl: string, prefix: string): Promise<stri
   if (error) {
     throw new Error(
       error.message.includes('row-level security')
-        ? `Supabase не разрешает запись в «${BUCKET}» — нужны политики (миграция 003).`
+        ? // Про миграцию говорим осторожнее, чем раньше. Прежний текст называл
+          // её причиной уверенно — и уверенно врал: политики были на месте, а
+          // не сходился путь. Теперь путь строится правильно, и если отказ всё
+          // же случился, миграция и правда самое вероятное объяснение — но
+          // сказано это предположением, а не приговором.
+          `Storage отклонил запись в «${BUCKET}». Скорее всего не выполнена миграция 003 (политики доступа).`
         : error.message
     );
   }

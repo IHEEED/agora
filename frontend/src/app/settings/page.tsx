@@ -586,6 +586,11 @@ export default function SettingsPage() {
                 onClick={() => chooseLocale(option.id)}
                 className="ios-row flex w-full items-center gap-3 text-left transition-colors active:bg-[var(--surface-2)]"
               >
+                {/* Флаг перед названием: в списке из трёх строк глаз цепляется
+                    за цветное пятно раньше, чем разбирает слово. Кегль крупнее
+                    подписи — эмодзи рисуются мельче своего кегля, и на равном
+                    размере флаг выглядел бы приплюснутым. */}
+                <span className="emoji flex-none text-[19px] leading-none">{option.flag}</span>
                 <span className="flex-1 text-[16px] text-[var(--text)]">{option.label}</span>
                 {locale === option.id && (
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" className="flex-none">
