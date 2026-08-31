@@ -16,6 +16,7 @@ import { FollowButton } from '@/components/FollowButton';
 import { useScreenLeave } from '@/lib/useScreenLeave';
 import { OverlayLink } from '@/components/OverlayLink';
 import { useT } from '@/lib/i18n';
+import { BackButton } from '@/components/BackButton';
 
 /**
  * Страница сообщества, устроенная как профиль человека: обложка, аватар на
@@ -125,15 +126,7 @@ export default function CommunityPage() {
   return (
     <div className="flex flex-1 flex-col items-center" style={leaveStyle} {...swipeHandlers}>
       <main className="below-header flex w-full max-w-2xl flex-col gap-2.5 px-2.5 pb-10">
-        <button
-          onClick={goBack}
-          className="flex w-fit items-center gap-2 rounded-full px-2 py-1.5 text-[15px] text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-2)]"
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M15 5l-7 7 7 7" />
-          </svg>
-          {t('common.back')}
-        </button>
+        <BackButton onClick={goBack} />
 
         <section className="glass relative z-20 rounded-2xl">
           {/* Локальный --accent перекрывает акцент темы только внутри обложки:

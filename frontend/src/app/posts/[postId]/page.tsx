@@ -16,6 +16,7 @@ import { SegmentedControl } from '@/components/SegmentedControl';
 import { SkeletonComment, SkeletonList, SkeletonPost } from '@/components/Skeleton';
 import { useCommentSpotlight } from '@/lib/useCommentSpotlight';
 import { useScreenLeave } from '@/lib/useScreenLeave';
+import { BackButton } from '@/components/BackButton';
 
 const COMMENT_SORT_OPTIONS: ReadonlyArray<readonly [CommentSort, string]> = [
   ['best', 'По рейтингу'],
@@ -123,15 +124,7 @@ export default function PostPage() {
         {/* Отрицательный отступ ставит стрелку по одной линии с текстом поста:
             собственные поля кнопки иначе сдвигали её вправо, и колонка
             начиналась в двух разных местах. */}
-        <button
-          onClick={goBack}
-          className="-ml-2.5 flex w-fit items-center gap-1.5 rounded-full py-2 pl-2 pr-3.5 text-[16px] font-medium text-[var(--text)] transition-colors hover:bg-[var(--surface-2)]"
-        >
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M15 5l-7 7 7 7" />
-          </svg>
-          {t('common.back')}
-        </button>
+        <BackButton onClick={goBack} />
 
         {loading && <SkeletonPost />}
         {error && <p style={{ color: 'var(--down)' }}>{error}</p>}

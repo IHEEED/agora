@@ -23,6 +23,7 @@ import { InvitesPanel } from '@/components/InvitesPanel';
 import { useMe } from '@/lib/useMe';
 import { SegmentedControl } from '@/components/SegmentedControl';
 import { LOCALES, Locale, TranslationKey, applyLocale, useT } from '@/lib/i18n';
+import { BackButton } from '@/components/BackButton';
 
 /**
  * Разделы настроек.
@@ -363,8 +364,7 @@ export default function SettingsPage() {
         <div className="flex items-center gap-3 px-2 py-1">
           {/* Кружок с подложкой, а не голая стрелка: без фона она читалась
               украшением рядом с заголовком, и на неё просто не жали. */}
-          <button
-            onClick={() => {
+          <BackButton onClick={() => {
               // Одна стрелка на два уровня: из раздела она возвращает к списку,
               // из списка выводит из настроек. Заводить вторую кнопку «к
               // разделам» значило бы объяснять человеку разницу между двумя
@@ -375,14 +375,7 @@ export default function SettingsPage() {
                 return;
               }
               goBack();
-            }}
-            aria-label="Назад"
-            className="glass flex h-11 w-11 flex-none items-center justify-center rounded-full text-[var(--text)] transition-transform active:scale-95"
-          >
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M15 5l-7 7 7 7" />
-            </svg>
-          </button>
+            }} />
           {/* Заголовок называет то, что на экране. В разделе это его имя, а не
               слово «Настройки»: иначе шесть разных экранов подписаны одинаково,
               и по заголовку не понять, где ты. */}

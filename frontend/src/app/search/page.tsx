@@ -15,6 +15,7 @@ import { useScreenExit } from '@/lib/screenExit';
 import { foldScreenTo } from '@/lib/peelScreen';
 import { takeFoldOrigin } from '@/lib/foldOrigin';
 import { TranslationKey, useT } from '@/lib/i18n';
+import { BackButton } from '@/components/BackButton';
 
 type Scope = 'all' | 'people' | 'posts' | 'communities';
 
@@ -180,15 +181,7 @@ export default function SearchPage() {
           {/* Кружок с подложкой, а не голая стрелка — тот же приём, что в
               настройках: без фона она читалась украшением рядом с заголовком,
               и на неё просто не жали. */}
-          <button
-            onClick={leave}
-            aria-label={t('common.back')}
-            className="glass flex h-11 w-11 flex-none items-center justify-center rounded-full text-[var(--text)] transition-transform active:scale-95"
-          >
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M15 5l-7 7 7 7" />
-            </svg>
-          </button>
+          <BackButton onClick={leave} />
           <ScreenTitle>{t('nav.search')}</ScreenTitle>
         </div>
 

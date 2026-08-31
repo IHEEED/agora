@@ -19,6 +19,7 @@ import { setBlocked, useIsBlocked } from '@/lib/blockedUsers';
 import { useScreenLeave } from '@/lib/useScreenLeave';
 import { useStickyTab } from '@/lib/useStickyTab';
 import { useT } from '@/lib/i18n';
+import { BackButton } from '@/components/BackButton';
 
 type Tab = 'posts' | 'comments' | 'reposts';
 
@@ -96,15 +97,7 @@ export default function UserProfilePage() {
             Три точки справа: всё, что делают с человеком и что не заслуживает
             своей кнопки в карточке. */}
         <div className="flex items-center justify-between">
-          <button
-            onClick={goBack}
-            className="-ml-1 flex w-fit items-center gap-1.5 rounded-full py-2 pl-2 pr-3.5 text-[16px] font-medium text-[var(--text)] transition-transform active:scale-95"
-          >
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M15 5l-7 7 7 7" />
-            </svg>
-            {t('common.back')}
-          </button>
+          <BackButton onClick={goBack} />
 
           {!isMe && (
             <button

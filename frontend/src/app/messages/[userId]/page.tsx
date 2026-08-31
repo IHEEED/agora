@@ -38,6 +38,7 @@ import { setBlocked, useBlockedUsers } from '@/lib/blockedUsers';
 import { VelocityTracker, committed } from '@/lib/gestureVelocity';
 import { useDragSpring } from '@/lib/useDragSpring';
 import { spring, type SpringHandle } from '@/lib/spring';
+import { BackButton } from '@/components/BackButton';
 
 /** Как часто перечитываем переписку, пока она открыта.
     Раньше был 4000 — при плохой сети задержка на запросе могла совпасть
@@ -1210,15 +1211,7 @@ export default function ChatPage() {
              честнее — каждый несёт ровно своё содержимое и стоит на обоях, а не
              вместо них. Так устроена шапка чата в Telegram, и по той же причине. */
           <div className="chat-header mb-2 flex items-center gap-1.5 px-1">
-            <button
-              onClick={onLeave}
-              aria-label="Назад"
-              className="chat-island flex h-10 w-10 flex-none items-center justify-center rounded-full text-[var(--text)] transition-transform active:scale-90"
-            >
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M15 5l-7 7 7 7" />
-              </svg>
-            </button>
+            <BackButton onClick={onLeave} />
             <Link
               href={`/u/${userId}`}
               // mr-auto, а не flex-1: островок обязан быть по размеру имени.

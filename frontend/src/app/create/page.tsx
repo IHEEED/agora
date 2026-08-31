@@ -19,6 +19,7 @@ import { DefaultAvatar } from '@/components/DefaultAvatar';
 import { HintDot } from '@/components/HintDot';
 import { BanNotice } from '@/components/BanNotice';
 import { useT } from '@/lib/i18n';
+import { BackButton } from '@/components/BackButton';
 
 /** Бакет в Supabase Storage, куда складываются картинки постов. */
 const MEDIA_BUCKET = 'post-media';
@@ -659,16 +660,7 @@ function CreatePost() {
 
         {/* Возврат к выбору тоже с паузой: экран написания успевает погаснуть,
             и шаги не меняются встык, одним кадром. */}
-        <button
-          type="button"
-          onClick={backToPicker}
-          className="flex w-fit items-center gap-2 rounded-full px-2 py-1.5 text-[15px] text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-2)]"
-        >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M15 5l-7 7 7 7" />
-          </svg>
-          {chosenCommunity?.name ?? t('create.personal')}
-        </button>
+        <BackButton onClick={backToPicker} label={chosenCommunity?.name ?? t('create.personal')} />
 
         {/* Пишем вслед — говорим об этом прямо. Без подписи экран ничем не
             отличался бы от обычной новой записи, а уйдёт она не в ленту сама
