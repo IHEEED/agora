@@ -17,6 +17,33 @@ declare global {
 }
 
 /**
+ * Кому заслон по телефону не писан.
+ *
+ * Список идентификаторов или почт через запятую в PHONE_GATE_EXEMPT. Нужен он
+ * не ради удобства: телефонной проверки в приложении нет вовсе — вход по почте,
+ * `phone_confirmed_at` пуст у всех, — и заслон, задуманный против спама, молча
+ * запирает и того, кто приложение делает.
+ *
+ * Список, а не выключатель. Выключенный заслон легко забыть включённым к
+ * выпуску, и узнается об этом от первого спамера. Пустая переменная — это
+ * заслон в полную силу, то есть состояние по умолчанию правильное, а послабление
+ * приходится назвать поимённо.
+ *
+ * Почта наравне с идентификатором: свою почту человек помнит, а свой uuid идёт
+ * искать в панели.
+ */
+const exempt = new Set(
+  (process.env.PHONE_GATE_EXEMPT ?? '')
+    .split(',')
+    .map((entry) => entry.trim().toLowerCase())
+    .filter(Boolean)
+);
+
+function isExempt(id: string, email?: string | null): boolean {
+  return exempt.has(id.toLowerCase()) || Boolean(email && exempt.has(email.toLowerCase()));
+}
+
+/**
  * Роль и бан кешируются на минуту.
  *
  * Supabase.auth.getUser отвечает по токену, но роли и срока бана в токене нет —
@@ -108,7 +135,8 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
 
   req.user = {
     id: data.user.id,
-    phoneVerified: Boolean(data.user.phone_confirmed_at),
+    phoneVerified:
+      Boolean(data.user.phone_confirmed_at) || isExempt(data.user.id, data.user.email),
     role: state.role,
     bannedUntil: state.bannedUntil,
   };
@@ -168,7 +196,8 @@ export async function optionalAuth(req: Request, _res: Response, next: NextFunct
       const state = await userState(data.user.id);
       req.user = {
         id: data.user.id,
-        phoneVerified: Boolean(data.user.phone_confirmed_at),
+        phoneVerified:
+      Boolean(data.user.phone_confirmed_at) || isExempt(data.user.id, data.user.email),
         role: state.role,
         bannedUntil: state.bannedUntil,
       };

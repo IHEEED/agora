@@ -65,6 +65,20 @@ export function ThoughtCloud({
 }) {
   const { t } = useT();
   const [editing, setEditing] = useState(false);
+  /**
+   * Высота, застигнутая в момент нажатия.
+   *
+   * В покое внутри пузыря текст с переносом до трёх строк, в правке — поле в
+   * одну. Мысль из двух строк схлопывалась в одну, а пузырь привязан низом
+   * (`bottom: calc(100% - 14px)`), и верхний край уезжал вниз — ровно в тот
+   * момент, когда человек нажал и смотрел в упор.
+   *
+   * Запоминаем ту высоту, что была, и держим её, пока правят. Не вычисляем
+   * заранее и не задаём постоянную: короткая мысль должна сидеть в квадрате, а
+   * длинная в прямоугольнике, и отнимать это ради ровности значило бы чинить
+   * скачок ценой того, ради чего форма и заведена.
+   */
+  const [heldHeight, setHeldHeight] = useState<number | null>(null);
   const [draft, setDraft] = useState(text ?? '');
   // Подсказку выбираем один раз на открытие: меняющаяся на ходу заставляет
   // читать её вместо того, чтобы писать своё.
@@ -89,7 +103,10 @@ export function ThoughtCloud({
 
   if (editing) {
     return (
-      <span className="thought-cloud thought-cloud-editing">
+      <span
+        className="thought-cloud thought-cloud-editing"
+        style={heldHeight ? { height: heldHeight } : undefined}
+      >
         <input
           autoFocus
           value={draft}
@@ -109,7 +126,7 @@ export function ThoughtCloud({
           }}
           enterKeyHint="done"
           aria-label={t('note.label')}
-          className="w-full bg-transparent text-center outline-none placeholder:text-[var(--text-muted)]"
+          className="thought-cloud-field bg-transparent text-center outline-none placeholder:text-[var(--text-muted)]"
         />
       </span>
     );
@@ -127,6 +144,9 @@ export function ThoughtCloud({
               // переписку. Без этого нажатие на облачко открывало бы чат.
               event.preventDefault();
               event.stopPropagation();
+              // Меряем до переключения: после него измерять уже нечего — узел
+              // тот же, но содержимое в нём другое.
+              setHeldHeight(event.currentTarget.getBoundingClientRect().height);
               setDraft(text ?? '');
               setEditing(true);
             }

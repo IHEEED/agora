@@ -4,6 +4,9 @@ import { HTTP_CONNECTIONS } from './config/http';
 import { supabase } from './config/supabase';
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
+import compression from 'compression';
+import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 import communitiesRouter from './routes/communities';
 import postsRouter from './routes/posts';
@@ -23,6 +26,52 @@ import notificationsRouter from './routes/notifications';
 dotenv.config();
 
 const app = express();
+
+/**
+ * Один прокси впереди.
+ *
+ * На Railway (как на любом хостинге) запрос приходит не от человека, а от
+ * их балансировщика, и настоящий адрес лежит в заголовке X-Forwarded-For.
+ * Без этой строки счётчик частоты видел бы один-единственный адрес — прокси —
+ * и, посчитав всех за одного, запер бы сразу всех.
+ *
+ * Единица, а не `true`: доверять всей цепочке заголовков значит верить и тому,
+ * что подставил сам клиент, — то есть отдать обход ограничения любому, кто
+ * умеет слать заголовки. Доверяем ровно одному звену, тому, что наше.
+ */
+app.set('trust proxy', 1);
+
+/**
+ * Заголовки безопасности.
+ *
+ * contentSecurityPolicy выключен намеренно: политику содержимого задаёт тот,
+ * кто отдаёт страницы, а здесь только JSON — заголовок, ограничивающий
+ * источники скриптов в ответе без единого скрипта, ничего не защищает, зато
+ * ломает панель, если её однажды повесят на этот же домен.
+ *
+ * crossOriginResourcePolicy тоже: он по умолчанию режет обращения с чужого
+ * домена, а фронтенд у нас как раз на чужом (Vercel), и CORS уже разбирает,
+ * кому можно.
+ */
+app.use(
+  helmet({
+    contentSecurityPolicy: false,
+    crossOriginResourcePolicy: false,
+  })
+);
+
+/**
+ * Сжатие ответов.
+ *
+ * Лента — это JSON с текстами записей, и он жмётся вчетверо-впятеро. На
+ * домашнем вайфае разницы не видно, на мобильном интернете это разница между
+ * «открылось» и «крутится».
+ *
+ * Порог в килобайт: ответы мельче него от сжатия не выигрывают — заголовки и
+ * работа процессора съедают выгоду, — а /health на каждом опросе хостинга
+ * незачем жать вовсе.
+ */
+app.use(compression({ threshold: 1024 }));
 const port = process.env.PORT || 4000;
 
 /**
@@ -78,7 +127,56 @@ app.use(
     },
   })
 );
-app.use(express.json());
+/**
+ * Потолок на размер тела запроса.
+ *
+ * По умолчанию express берёт сто килобайт, и это молчаливое согласие принять
+ * сто килобайт от кого угодно. Записи и реплики укладываются в единицы, а
+ * картинки идут мимо нас — прямо в Storage. Так что двадцать пять с запасом.
+ */
+app.use(express.json({ limit: '256kb' }));
+
+/**
+ * Ограничение частоты.
+ *
+ * Два счётчика, а не один. Общий держит поток запросов от одного адреса в
+ * разумных пределах — он против скриптов, которые обходят ленту по кругу и
+ * жгут нашу квоту в Supabase. Строгий стоит на том, что создаёт содержимое:
+ * записи, реплики, сообщения, жалобы.
+ *
+ * Числа выбраны так, чтобы живой человек их не заметил. Двести запросов в
+ * минуту — это листание ленты с открыванием записей, быстрее человек не
+ * читает. Тридцать написанных штук за десять минут — это переписка в темпе
+ * спора, и всё равно втрое больше того, что успевает написать один.
+ *
+ * Считаем по адресу, а не по учётной записи: до того, кто вошёл, разбор
+ * доходит позже, а закрываться надо раньше. Тот, кто заводит учётки пачками,
+ * всё равно делает это с одного адреса.
+ */
+const commonLimit = rateLimit({
+  windowMs: 60_000,
+  limit: 200,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  // Проверку живости не считаем: её дёргает хостинг, а не человек, и упереться
+  // в свой же счётчик означало бы перезапуск здорового сервера.
+  skip: (req) => req.path === '/health',
+  message: { error: 'RATE_LIMITED' },
+});
+
+const writeLimit = rateLimit({
+  windowMs: 10 * 60_000,
+  limit: 30,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  // Только на написание. Читающие запросы к тем же адресам идут мимо: у
+  // /posts и GET, и POST, а ограничивать чтение строгим счётчиком значит
+  // запирать читателя за чужой спам.
+  skip: (req) => req.method === 'GET' || req.method === 'HEAD',
+  message: { error: 'RATE_LIMITED' },
+});
+
+app.use(commonLimit);
 
 app.get('/', (_req, res) => {
   res.json({ message: 'API is running' });
@@ -100,15 +198,15 @@ app.get('/health', (_req, res) => {
 });
 
 app.use('/communities', communitiesRouter);
-app.use('/posts', postsRouter);
-app.use('/comments', commentsRouter);
+app.use('/posts', writeLimit, postsRouter);
+app.use('/comments', writeLimit, commentsRouter);
 app.use('/votes', votesRouter);
 app.use('/users', usersRouter);
-app.use('/messages', messagesRouter);
-app.use('/stories', storiesRouter);
+app.use('/messages', writeLimit, messagesRouter);
+app.use('/stories', writeLimit, storiesRouter);
 app.use('/notes', notesRouter);
 app.use('/blocks', blocksRouter);
-app.use('/reports', reportsRouter);
+app.use('/reports', writeLimit, reportsRouter);
 app.use('/moderation', moderationRouter);
 app.use('/invites', invitesRouter);
 app.use('/notifications', notificationsRouter);
