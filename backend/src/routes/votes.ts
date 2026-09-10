@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { supabase } from '../config/supabase';
 import { requireAuth } from '../middleware/auth';
+import { isBlockedBetween } from '../lib/blocks';
+import { optionalUuid } from '../lib/validate';
 
 const router = Router();
 
@@ -42,7 +44,9 @@ async function findExistingVote(userId: string, postId?: string, commentId?: str
 }
 
 router.post('/', requireAuth, async (req, res) => {
-  const { post_id, comment_id, value } = req.body;
+  const post_id = optionalUuid(req.body?.post_id, 'Запись') ?? undefined;
+  const comment_id = optionalUuid(req.body?.comment_id, 'Комментарий') ?? undefined;
+  const value = req.body?.value;
   const user_id = req.user!.id;
 
   if (value !== 1 && value !== -1) {
@@ -55,6 +59,11 @@ router.post('/', requireAuth, async (req, res) => {
   const { data: target, error: targetError } = await getTargetAuthor(post_id, comment_id);
   if (targetError || !target) {
     return res.status(404).json({ error: `${post_id ? 'post' : 'comment'} not found` });
+  }
+
+  // Минус через блокировку — тот же разговор, от которого человек закрылся.
+  if (target.author_id !== user_id && (await isBlockedBetween(user_id, target.author_id))) {
+    return res.status(403).json({ error: 'BLOCKED' });
   }
 
   const { data: existing, error: existingError } = await findExistingVote(user_id, post_id, comment_id);
@@ -86,14 +95,21 @@ router.post('/', requireAuth, async (req, res) => {
     return res.status(500).json({ error: GENERIC_VOTE_ERROR });
   }
 
-  const delta = existing ? value - existing.value : value;
-  await adjustKarma(target.author_id, delta);
+  // Голос за своё засчитывается в счёт записи, но не в карму: карма — это то,
+  // что о тебе думают другие. Прогон нашёл, что из 21 голоса в базе 15 были
+  // авторскими, и влияние у всех было накручено самими авторами (пересчёт —
+  // миграция 030).
+  if (target.author_id !== user_id) {
+    const delta = existing ? value - existing.value : value;
+    await adjustKarma(target.author_id, delta);
+  }
 
   res.status(existing ? 200 : 201).json(saved);
 });
 
 router.delete('/', requireAuth, async (req, res) => {
-  const { post_id, comment_id } = req.body;
+  const post_id = optionalUuid(req.body?.post_id, 'Запись') ?? undefined;
+  const comment_id = optionalUuid(req.body?.comment_id, 'Комментарий') ?? undefined;
   const user_id = req.user!.id;
 
   if ((!post_id && !comment_id) || (post_id && comment_id)) {
@@ -114,7 +130,8 @@ router.delete('/', requireAuth, async (req, res) => {
   }
 
   const { data: target } = await getTargetAuthor(post_id, comment_id);
-  if (target) {
+  // Свой голос карму не трогал — значит, и снимать с неё нечего.
+  if (target && target.author_id !== user_id) {
     await adjustKarma(target.author_id, -existing.value);
   }
 

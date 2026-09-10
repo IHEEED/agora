@@ -27,6 +27,34 @@ function ensureToken(): Promise<void> {
   return tokenReady;
 }
 
+/**
+ * Коды отказов, которые сервер отдаёт машине, а не человеку.
+ *
+ * Остальные ошибки сервер пишет словами сам. Эти — нет: по некоторым кодам
+ * интерфейс принимает решения (PHONE_NOT_VERIFIED открывает подтверждение,
+ * MESSAGE_BLOCKED гасит поле ввода), и перевод на сервере отнял бы у него эту
+ * возможность. Переводим здесь — и только те, что никто не разбирает: иначе
+ * экран показал бы «USER_BANNED» там, где ждали фразу.
+ */
+function humanError(body: { error?: string; bannedUntil?: string | null }): string | undefined {
+  switch (body.error) {
+    case 'USER_BANNED': {
+      const until = body.bannedUntil ? new Date(body.bannedUntil) : null;
+      // Бессрочный бан хранится далёкой датой. Писать «до 9999 года» — издевка.
+      return until && until.getFullYear() < 2100
+        ? `Вы не можете писать до ${until.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}`
+        : 'Вы не можете писать';
+    }
+    case 'RATE_LIMITED':
+      return 'Слишком часто. Подождите немного и попробуйте снова';
+    // Не называем, кто кого заблокировал: отказ один на оба направления.
+    case 'BLOCKED':
+      return 'Это действие недоступно';
+    default:
+      return body.error;
+  }
+}
+
 export async function apiFetch<T = unknown>(path: string, options: RequestInit = {}): Promise<T> {
   await ensureToken();
 
@@ -40,7 +68,7 @@ export async function apiFetch<T = unknown>(path: string, options: RequestInit =
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    throw new Error(body.error || `Request failed with status ${res.status}`);
+    throw new Error(humanError(body) || `Request failed with status ${res.status}`);
   }
 
   if (res.status === 204) {

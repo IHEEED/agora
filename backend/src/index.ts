@@ -2,7 +2,7 @@
 // клиент Supabase должен создаваться уже с ним (см. config/http).
 import { HTTP_CONNECTIONS } from './config/http';
 import { supabase } from './config/supabase';
-import express from 'express';
+import express, { NextFunction, Request, Response } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import compression from 'compression';
@@ -16,6 +16,7 @@ import usersRouter from './routes/users';
 import messagesRouter from './routes/messages';
 import storiesRouter from './routes/stories';
 import { probeSchema } from './config/schema';
+import { BadInput } from './lib/validate';
 import notesRouter from './routes/notes';
 import blocksRouter from './routes/blocks';
 import reportsRouter from './routes/reports';
@@ -201,6 +202,35 @@ app.use('/reports', reportsRouter);
 app.use('/moderation', moderationRouter);
 app.use('/invites', invitesRouter);
 app.use('/notifications', notificationsRouter);
+
+/**
+ * Последний рубеж: то, что обработчики бросили, а не вернули.
+ *
+ * BadInput — отказ по содержимому запроса (lib/validate). Его текст написан
+ * для человека и уходит как есть, с кодом 400. Слишком большое или битое тело
+ * express.json тоже бросает сюда — и это ошибка клиента, а не сервера.
+ *
+ * Всё прочее — настоящий сбой: пишем в журнал целиком, а наружу отдаём общий
+ * текст. Внутренности базы в ответе помогают только тому, кто ищет, куда
+ * постучаться.
+ */
+app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
+  if (err instanceof BadInput) {
+    res.status(400).json({ error: err.message });
+    return;
+  }
+  const type = (err as { type?: string } | null)?.type;
+  if (type === 'entity.too.large') {
+    res.status(413).json({ error: 'Слишком большой запрос' });
+    return;
+  }
+  if (type === 'entity.parse.failed') {
+    res.status(400).json({ error: 'Некорректный запрос' });
+    return;
+  }
+  console.error('unhandled', err);
+  res.status(500).json({ error: 'Не удалось выполнить запрос, попробуйте ещё раз' });
+});
 
 /**
  * Слушаем на всех интерфейсах, а не только на localhost.

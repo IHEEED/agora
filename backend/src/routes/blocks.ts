@@ -1,8 +1,10 @@
 import { Router } from 'express';
 import { supabase } from '../config/supabase';
 import { requireAuth } from '../middleware/auth';
+import { requireUuidParams } from '../lib/uuid';
 
 const router = Router();
+requireUuidParams(router, 'userId');
 
 /**
  * Блокировки.

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, SubmitEvent } from 'react';
+import { useEffect, useState, SubmitEvent } from 'react';
 import { apiFetch } from '@/lib/api';
 import { useSession } from '@/lib/useSession';
 import { formatCompactAge } from '@/lib/formatDate';
@@ -51,6 +51,24 @@ export function CommentThread({
   const [body, setBody] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [replyError, setReplyError] = useState<string | null>(null);
+
+  // Правка и удаление своего комментария.
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState('');
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  const deleted = Boolean(comment.deleted_at);
+  const mine = Boolean(session) && session?.user.id === comment.author_id && !deleted;
+
+  // «Точно удалить?» ждёт три секунды и гаснет. Подтверждение, которое висит
+  // вечно, срабатывает случайным касанием через минуту, когда о нём забыли.
+  useEffect(() => {
+    if (!confirmDelete) return;
+    const timer = window.setTimeout(() => setConfirmDelete(false), 3000);
+    return () => window.clearTimeout(timer);
+  }, [confirmDelete]);
 
   // Автор комментария может не иметь id, если бэкенд отдал только имя —
   // тогда ссылка никуда не ведёт, но разметка не ломается.
@@ -119,6 +137,49 @@ export function CommentThread({
     }
   }
 
+  async function saveEdit(e: SubmitEvent) {
+    e.preventDefault();
+    setActionError(null);
+    setBusy(true);
+    try {
+      await apiFetch(`/comments/${comment.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ body: draft }),
+      });
+      setEditing(false);
+      onAdded();
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : t('comments.editFailed'));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /**
+   * Удаление в два касания, без окна поверх экрана.
+   *
+   * Окно подтверждения на действие размером со строку комментария — это
+   * остановить человека посреди чтения ветки. Кнопка сама становится вопросом
+   * на том же месте, где стоит палец.
+   */
+  async function remove() {
+    if (!confirmDelete) {
+      setConfirmDelete(true);
+      return;
+    }
+    setActionError(null);
+    setBusy(true);
+    try {
+      await apiFetch(`/comments/${comment.id}`, { method: 'DELETE' });
+      onAdded();
+    } catch (err) {
+      setConfirmDelete(false);
+      setActionError(err instanceof Error ? err.message : t('comments.deleteFailed'));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div
       id={`comment-${comment.id}`}
@@ -148,8 +209,52 @@ export function CommentThread({
             <span className="text-[var(--text-muted)]">{formatCompactAge(comment.created_at)}</span>
           </div>
 
-          <p className="text-[13.5px] leading-relaxed text-[var(--text)]">{comment.body}</p>
+          {deleted ? (
+            <p className="text-[13.5px] italic leading-relaxed text-[var(--text-muted)]">
+              {t('comments.deleted')}
+            </p>
+          ) : editing ? (
+            <form onSubmit={saveEdit} className="mt-1 flex flex-col gap-2">
+              <textarea
+                autoFocus
+                required
+                rows={2}
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                className="resize-none rounded-2xl border border-[var(--border)] bg-[var(--surface-2)] px-3 py-2 text-[14px] text-[var(--text)] outline-none focus:border-[var(--accent)]"
+              />
+              <div className="flex items-center gap-2">
+                <button
+                  type="submit"
+                  disabled={busy || !draft.trim()}
+                  className="rounded-full px-4 py-1.5 text-[13px] font-medium disabled:opacity-50"
+                  style={{ background: 'var(--accent)', color: 'var(--accent-contrast)' }}
+                >
+                  {t('action.save')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditing(false)}
+                  className="rounded-full px-3 py-1.5 text-[13px] font-medium text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-2)]"
+                >
+                  {t('action.cancel')}
+                </button>
+              </div>
+            </form>
+          ) : (
+            <p className="text-[13.5px] leading-relaxed text-[var(--text)]">
+              {comment.body}
+              {comment.edited_at && (
+                <span className="ml-1.5 text-[12px] text-[var(--text-muted)]">{t('comments.edited')}</span>
+              )}
+            </p>
+          )}
 
+          {actionError && (
+            <p className="text-[12.5px]" style={{ color: 'var(--down)' }}>{actionError}</p>
+          )}
+
+          {!deleted && !editing && (
           <div className="mt-0.5 flex items-center gap-2">
             <VoteBlock
               id={comment.id}
@@ -166,7 +271,30 @@ export function CommentThread({
                 {replying ? t('action.cancel') : t('action.reply')}
               </button>
             )}
+            {mine && (
+              <>
+                <button
+                  onClick={() => {
+                    setDraft(comment.body);
+                    setReplying(false);
+                    setEditing(true);
+                  }}
+                  className="rounded-full px-2 py-1 text-[12.5px] font-medium text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-2)]"
+                >
+                  {t('action.edit')}
+                </button>
+                <button
+                  onClick={() => void remove()}
+                  disabled={busy}
+                  className="rounded-full px-2 py-1 text-[12.5px] font-medium transition-colors hover:bg-[var(--surface-2)] disabled:opacity-50"
+                  style={{ color: confirmDelete ? 'var(--down)' : 'var(--text-muted)' }}
+                >
+                  {confirmDelete ? t('comments.confirmDelete') : t('action.delete')}
+                </button>
+              </>
+            )}
           </div>
+          )}
 
           {replying && (
             <form onSubmit={submitReply} className="mt-1 flex flex-col gap-2">

@@ -151,6 +151,10 @@ export interface Comment {
   parent_comment_id: string | null;
   body: string;
   created_at: string;
+  /** Миграция 030. Когда поправлен автором — показываем «изменено». */
+  edited_at?: string | null;
+  /** Миграция 030. Удалён, но на него ответили: текста и автора сервер не отдаёт. */
+  deleted_at?: string | null;
   score: number;
   myVote: 1 | -1 | null;
   replies: Comment[];

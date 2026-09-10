@@ -1,6 +1,8 @@
 import { Response, Router } from 'express';
 import { supabase } from '../config/supabase';
-import { hiddenUserIds } from '../lib/blocks';
+import { hiddenUserIds, isBlockedBetween } from '../lib/blocks';
+import { requireUuidParams } from '../lib/uuid';
+import { optionalFit, optionalHttpsUrl } from '../lib/validate';
 import { isBanned, optionalAuth, requireAuth } from '../middleware/auth';
 import { profileColumnsReady } from '../config/schema';
 import { userColumns } from '../config/schema';
@@ -15,6 +17,7 @@ type UserRow = {
 };
 
 const router = Router();
+requireUuidParams(router, 'id');
 
 /** На кого подписан этот человек. Пустой набор, если он не залогинен. */
 async function followingIds(userId: string | undefined): Promise<Set<string>> {
@@ -130,14 +133,14 @@ router.patch('/me/profile', requireAuth, async (req, res) => {
   }
 
   if ('avatarUrl' in req.body) {
-    patch.avatar_url = req.body.avatarUrl ? String(req.body.avatarUrl) : null;
+    patch.avatar_url = optionalHttpsUrl(req.body.avatarUrl, 'Аватарка');
     // Кадрирование без картинки бессмысленно и наоборот: снимаем вместе.
-    patch.avatar_fit = req.body.avatarUrl ? (req.body.avatarFit ?? null) : null;
+    patch.avatar_fit = patch.avatar_url ? optionalFit(req.body.avatarFit) : null;
   }
 
   if ('coverUrl' in req.body) {
-    patch.cover_url = req.body.coverUrl ? String(req.body.coverUrl) : null;
-    patch.cover_fit = req.body.coverUrl ? (req.body.coverFit ?? null) : null;
+    patch.cover_url = optionalHttpsUrl(req.body.coverUrl, 'Обложка');
+    patch.cover_fit = patch.cover_url ? optionalFit(req.body.coverFit) : null;
   }
 
   if (Object.keys(patch).length === 0) return res.status(204).send();
@@ -218,11 +221,19 @@ router.post('/:id/follow', requireAuth, async (req, res) => {
     return res.status(400).json({ error: 'Нельзя подписаться на себя' });
   }
 
+  // Блокировка рвёт подписки в обе стороны (триггер в базе), но только в момент
+  // блокировки. Без этой проверки заблокированный подписывался обратно следующим
+  // же нажатием — и стена снова становилась занавеской.
+  if (await isBlockedBetween(req.user!.id, String(id))) {
+    return res.status(403).json({ error: 'BLOCKED' });
+  }
+
   const { error } = await supabase
     .from('follows')
     .upsert({ follower_id: req.user!.id, following_id: id }, { onConflict: 'follower_id,following_id' });
 
   if (error) {
+    if (error.code === '23503') return res.status(404).json({ error: 'Пользователь не найден' });
     console.error('users: follow failed', error);
     return res.status(500).json({ error: 'Не удалось подписаться' });
   }

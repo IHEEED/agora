@@ -1,12 +1,14 @@
 import { Router } from 'express';
 import { supabase } from '../config/supabase';
 import { hiddenUserIds, isBlockedBetween } from '../lib/blocks';
-import { isUuid } from '../lib/uuid';
-import { requireAuth, requirePhoneVerified } from '../middleware/auth';
+import { isUuid, requireUuidParams } from '../lib/uuid';
+import { requireAuth, requireNotBanned, requirePhoneVerified } from '../middleware/auth';
+import { LIMITS, optionalHttpsUrl, optionalText, optionalUuid, requiredText, requiredUuid } from '../lib/validate';
 import { limitMessages } from '../middleware/rateLimit';
 import { userColumns } from '../config/schema';
 
 const router = Router();
+requireUuidParams(router, 'id', 'userId', 'peerId');
 
 /**
  * Личные сообщения.
@@ -213,6 +215,7 @@ router.patch('/prefs/:peerId', requireAuth, async (req, res) => {
     .upsert({ owner_id: me, peer_id: peerId, ...patch }, { onConflict: 'owner_id,peer_id' });
 
   if (error) {
+    if (error.code === '23503') return res.status(404).json({ error: 'Собеседник не найден' });
     console.error('messages: prefs failed', error);
     return res.status(500).json({ error: describeError(error, 'Не удалось сохранить настройку') });
   }
@@ -263,17 +266,17 @@ router.delete('/thread/:peerId', requireAuth, async (req, res) => {
  * спрашивают: заблокированный заводит новый аккаунт по чужому коду и пишет
  * тому же человеку, а стоило это ему одной почты.
  */
-router.post('/', requireAuth, requirePhoneVerified, limitMessages, async (req, res) => {
+router.post('/', requireAuth, requireNotBanned, requirePhoneVerified, limitMessages, async (req, res) => {
   const me = req.user!.id;
-  const recipientId = String(req.body?.recipient_id ?? '');
-  const body = String(req.body?.body ?? '').trim();
-  const replyToId = req.body?.reply_to_id ? String(req.body.reply_to_id) : null;
+  const recipientId = requiredUuid(req.body?.recipient_id, 'Получатель');
+  const body = optionalText(req.body?.body, LIMITS.message, 'Сообщение') ?? '';
+  const replyToId = optionalUuid(req.body?.reply_to_id, 'Ответ');
   // Вложения: снимок и голосовое (миграция 012). Длительность присылает тот, кто
   // записывал: по файлу её пришлось бы вычислять, а полоску рисовать до загрузки.
-  const imageUrl = req.body?.image_url ? String(req.body.image_url) : null;
-  const audioUrl = req.body?.audio_url ? String(req.body.audio_url) : null;
+  const imageUrl = optionalHttpsUrl(req.body?.image_url, 'Снимок');
+  const audioUrl = optionalHttpsUrl(req.body?.audio_url, 'Голосовое');
   // Кто написал это изначально. Пусто — сообщение своё.
-  const forwardedFrom = req.body?.forwarded_from ? String(req.body.forwarded_from) : null;
+  const forwardedFrom = optionalUuid(req.body?.forwarded_from, 'Пересланное');
   const audioSeconds = Number.isFinite(Number(req.body?.audio_seconds))
     ? Math.max(1, Math.min(600, Math.round(Number(req.body.audio_seconds))))
     : null;
@@ -327,6 +330,8 @@ router.post('/', requireAuth, requirePhoneVerified, limitMessages, async (req, r
     .single();
 
   if (error) {
+    // Нет такого собеседника или сообщения, на которое отвечают.
+    if (error.code === '23503') return res.status(404).json({ error: 'Собеседник не найден' });
     console.error('messages: send failed', error);
     return res.status(500).json({ error: describeError(error, 'Не удалось отправить сообщение') });
   }
@@ -462,9 +467,8 @@ router.get('/:userId', requireAuth, async (req, res) => {
 });
 
 /** Правка своего сообщения. Чужое править нельзя — проверяем на сервере. */
-router.patch('/:id', requireAuth, async (req, res) => {
-  const body = String(req.body?.body ?? '').trim();
-  if (!body) return res.status(400).json({ error: 'Пустое сообщение отправить нельзя' });
+router.patch('/:id', requireAuth, requireNotBanned, async (req, res) => {
+  const body = requiredText(req.body?.body, LIMITS.message, 'Сообщение');
 
   const { data, error } = await supabase
     .from('messages')
@@ -486,16 +490,21 @@ router.patch('/:id', requireAuth, async (req, res) => {
 });
 
 router.delete('/:id', requireAuth, async (req, res) => {
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('messages')
     .delete()
     .eq('id', String(req.params.id))
-    .eq('sender_id', req.user!.id);
+    .eq('sender_id', req.user!.id)
+    .select('id');
 
   if (error) {
     console.error('messages: delete failed', error);
     return res.status(500).json({ error: 'Не удалось удалить сообщение' });
   }
+
+  // Ни одной строки — значит сообщение чужое или его нет. Раньше и тогда
+  // отвечали 204, и интерфейс убирал пузырь, который на сервере оставался.
+  if (!data.length) return res.status(404).json({ error: 'Сообщение не найдено' });
 
   res.status(204).send();
 });
@@ -507,7 +516,23 @@ router.delete('/:id', requireAuth, async (req, res) => {
 router.put('/:id/reaction', requireAuth, async (req, res) => {
   const me = req.user!.id;
   const id = String(req.params.id);
-  const emoji = String(req.body?.emoji ?? '');
+  const emoji = typeof req.body?.emoji === 'string' ? req.body.emoji : '';
+
+  if (!emoji.trim() || emoji.length > LIMITS.emoji) {
+    return res.status(400).json({ error: 'Реакция — это один знак' });
+  }
+
+  // Та же проверка участия, что у закрепа: реагировать может только тот, кто
+  // в этой переписке. Раньше хватало знать id сообщения. Посторонний получает
+  // 404, а не 403, — существование чужого сообщения тоже не его дело.
+  const { data: message } = await supabase
+    .from('messages')
+    .select('sender_id, recipient_id')
+    .eq('id', id)
+    .maybeSingle();
+  if (!message || (message.sender_id !== me && message.recipient_id !== me)) {
+    return res.status(404).json({ error: 'Сообщение не найдено' });
+  }
 
   const { data: current } = await supabase
     .from('message_reactions')

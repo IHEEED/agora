@@ -1,7 +1,10 @@
 import { Router } from 'express';
 import { supabase } from '../config/supabase';
 import { hiddenUserIds } from '../lib/blocks';
-import { requireAuth, requirePhoneVerified, optionalAuth } from '../middleware/auth';
+import { requireAuth, requireNotBanned, requirePhoneVerified, optionalAuth } from '../middleware/auth';
+import { requireUuidParams } from '../lib/uuid';
+import { BadInput, LIMITS, optionalHttpsUrl, optionalText, optionalUuid, requiredText, requiredUuid } from '../lib/validate';
+import { countView } from '../lib/views';
 import { limitPosts } from '../middleware/rateLimit';
 import { cached, forget } from '../config/cache';
 import { userEmbed } from '../config/schema';
@@ -25,6 +28,7 @@ type PostRow = {
 };
 
 const router = Router();
+requireUuidParams(router, 'id', 'userId', 'communityId');
 
 type PostSort = 'hot' | 'new' | 'top' | 'commented' | 'viewed';
 
@@ -345,22 +349,35 @@ async function getPollsByPostId(postIds: string[], userId?: string) {
   return { polls, myPollVotes };
 }
 
-router.post('/', requireAuth, requirePhoneVerified, limitPosts, async (req, res) => {
-  const {
-    title,
-    body,
-    community_id,
-    image_url,
-    image_urls,
-    poll_options,
-    post_as_community,
-    continues_post_id,
-  } = req.body;
-  const author_id = req.user!.id;
+router.post('/', requireAuth, requireNotBanned, requirePhoneVerified, limitPosts, async (req, res) => {
+  // Всё, что пришло от клиента, — через проверку (lib/validate). Отказ летит
+  // исключением и превращается в 400 общим обработчиком.
+  const title = requiredText(req.body?.title, LIMITS.title, 'Заголовок');
+  const body = optionalText(req.body?.body, LIMITS.postBody, 'Текст');
+  const community_id = optionalUuid(req.body?.community_id, 'Клуб');
+  const continues_post_id = optionalUuid(req.body?.continues_post_id, 'Продолжение');
+  const image_url = optionalHttpsUrl(req.body?.image_url, 'Картинка');
+  const post_as_community = req.body?.post_as_community;
 
-  if (!title) {
-    return res.status(400).json({ error: 'title is required' });
+  const rawImages: unknown[] = Array.isArray(req.body?.image_urls) ? req.body.image_urls : [];
+  if (rawImages.length > LIMITS.images) throw new BadInput(`Не больше ${LIMITS.images} снимков`);
+  const image_urls = rawImages
+    .map((url) => optionalHttpsUrl(url, 'Снимок'))
+    .filter((url): url is string => Boolean(url));
+
+  // Опрос проверяем до вставки записи, а не после: иначе отказ из-за длинного
+  // варианта оставил бы в ленте запись без опроса, которого человек не хотел.
+  // Пустые строки отбрасываем; меньше двух вариантов — это уже не опрос.
+  const options: string[] = Array.isArray(req.body?.poll_options)
+    ? req.body.poll_options.map((text: unknown) => String(text ?? '').trim()).filter(Boolean)
+    : [];
+  if (options.length > LIMITS.pollOptions || options.some((text) => text.length > LIMITS.pollOption)) {
+    throw new BadInput(
+      `Опрос: до ${LIMITS.pollOptions} вариантов, каждый не длиннее ${LIMITS.pollOption} знаков`
+    );
   }
+
+  const author_id = req.user!.id;
 
   // community_id теперь необязателен: без него пост личный, от имени автора.
   // Подписать сообществом пост, который в нём не лежит, нельзя.
@@ -402,17 +419,17 @@ router.post('/', requireAuth, requirePhoneVerified, limitPosts, async (req, res)
     // Триггер posts_chain_guard (миграция 010) отвергает попытку продолжить
     // чужую запись или дописать вслед второй раз, и говорит об этом словами.
     // Пересказывать их своими значило бы потерять причину отказа.
+    // Нет такого клуба или записи, которую продолжают. Это промах запроса, а не
+    // сбой сервера, и «попробуйте ещё раз» здесь не поможет.
+    if (error.code === '23503') {
+      return res.status(404).json({ error: 'Клуб или продолжаемая запись не найдены' });
+    }
     if (error.code === 'P0001') {
       return res.status(400).json({ error: error.message });
     }
     return res.status(500).json({ error: 'Не удалось выполнить запрос, попробуйте ещё раз' });
   }
 
-  // Опрос необязателен: пустые строки отбрасываем, меньше двух вариантов —
-  // это уже не опрос, поэтому пост просто остаётся обычным.
-  const options: string[] = Array.isArray(poll_options)
-    ? poll_options.map((text: unknown) => String(text ?? '').trim()).filter(Boolean).slice(0, 6)
-    : [];
 
   if (options.length >= 2) {
     const { error: pollError } = await supabase.from('poll_options').insert(
@@ -433,12 +450,18 @@ router.post('/', requireAuth, requirePhoneVerified, limitPosts, async (req, res)
 // Голос в опросе. Отдельный от апвоутов: там оценка поста, здесь выбор варианта.
 router.post('/:id/poll-vote', requireAuth, async (req, res) => {
   const { id } = req.params;
-  const { option_id } = req.body;
+  const option_id = requiredUuid(req.body?.option_id, 'Вариант');
   const user_id = req.user!.id;
 
-  if (!option_id) {
-    return res.status(400).json({ error: 'option_id is required' });
-  }
+  // Вариант обязан принадлежать этому опросу. Без проверки голос вариантом из
+  // соседней записи ложился в базу и числился за записью, где опроса нет вовсе.
+  const { data: option } = await supabase
+    .from('poll_options')
+    .select('id')
+    .eq('id', option_id)
+    .eq('post_id', id)
+    .maybeSingle();
+  if (!option) return res.status(404).json({ error: 'Такого варианта в опросе нет' });
 
   // upsert по паре (user_id, post_id) — повторный выбор меняет голос,
   // а не добавляет второй.
@@ -478,6 +501,7 @@ router.post('/:id/repost', requireAuth, async (req, res) => {
     .upsert({ post_id: req.params.id, user_id: req.user!.id }, { onConflict: 'user_id,post_id' });
 
   if (error) {
+    if (error.code === '23503') return res.status(404).json({ error: 'Запись не найдена' });
     console.error('posts: repost failed', error);
     return res.status(500).json({ error: 'Не удалось сделать репост' });
   }
@@ -537,6 +561,15 @@ router.get('/reposts/:userId', optionalAuth, async (req, res) => {
  * дело (см. миграцию 021).
  */
 router.post('/:id/view', async (req, res) => {
+  // Хвост токена — его подпись: она уникальна, а целиком токен в памяти занял
+  // бы в тридцать раз больше места (см. lib/views).
+  const auth = req.headers.authorization;
+  const address = req.ip ?? '';
+  const viewer = auth?.startsWith('Bearer ') ? `t:${auth.slice(-32)}` : `ip:${address}`;
+  // Уже засчитан — отвечаем так же, как на засчитанный: клиенту разница ни к
+  // чему, а накрутчику её знать тем более незачем.
+  if (!countView(address, viewer, req.params.id)) return res.status(204).send();
+
   const { error } = await supabase.rpc('bump_post_views', { target: req.params.id });
 
   if (error) {

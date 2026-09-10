@@ -1,8 +1,11 @@
 import { Router } from 'express';
 import { supabase } from '../config/supabase';
 import { optionalAuth, requireAuth } from '../middleware/auth';
+import { requireUuidParams } from '../lib/uuid';
+import { LIMITS, optionalText, requiredText } from '../lib/validate';
 
 const router = Router();
+requireUuidParams(router, 'id');
 
 router.get('/', optionalAuth, async (req, res) => {
   const { data, error } = await supabase
@@ -73,12 +76,9 @@ async function withMembership<T extends { id: string }>(
 }
 
 router.post('/', requireAuth, async (req, res) => {
-  const { name, description } = req.body;
+  const name = requiredText(req.body?.name, LIMITS.clubName, 'Название');
+  const description = optionalText(req.body?.description, LIMITS.clubDescription, 'Описание');
   const created_by = req.user!.id;
-
-  if (!name) {
-    return res.status(400).json({ error: 'name is required' });
-  }
 
   const { data, error } = await supabase
     .from('communities')

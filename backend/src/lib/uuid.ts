@@ -1,3 +1,5 @@
+import type { Router } from 'express';
+
 /**
  * Проверка, что строка — настоящий UUID.
  *
@@ -15,4 +17,24 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 
 export function isUuid(value: unknown): value is string {
   return typeof value === 'string' && UUID_RE.test(value);
+}
+
+/**
+ * Идентификаторы в адресе — только UUID.
+ *
+ * Кривой id доходил до базы, PostgREST отвечал ошибкой разбора, и маршрут
+ * отдавал 500 «попробуйте ещё раз» — на запрос, повторять который бесполезно.
+ * Прогон насчитал двадцать таких мест. А пятисотка ещё и тонет в журнале
+ * среди настоящих сбоев, которые из-за неё потом не найти.
+ *
+ * Ответ — 404, а не 400: для того, кто спрашивает, некорректный идентификатор
+ * и несуществующий означают одно и то же — этого нет.
+ */
+export function requireUuidParams(router: Router, ...names: string[]) {
+  for (const name of names) {
+    router.param(name, (_req, res, next, value) => {
+      if (isUuid(value)) return next();
+      res.status(404).json({ error: 'Не найдено' });
+    });
+  }
 }

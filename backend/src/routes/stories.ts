@@ -1,10 +1,13 @@
 import { Router } from 'express';
 import { supabase } from '../config/supabase';
-import { requireAuth, optionalAuth } from '../middleware/auth';
+import { requireAuth, requireNotBanned, optionalAuth } from '../middleware/auth';
+import { requireUuidParams } from '../lib/uuid';
+import { LIMITS, optionalHttpsUrl, optionalText, optionalUuid } from '../lib/validate';
 import { limitStories } from '../middleware/rateLimit';
 import { userEmbed } from '../config/schema';
 
 const router = Router();
+requireUuidParams(router, 'id');
 
 /**
  * Истории.
@@ -143,8 +146,10 @@ router.get('/', optionalAuth, async (req, res) => {
 });
 
 /** Своя история: из записи или собственным содержимым. */
-router.post('/', requireAuth, limitStories, async (req, res) => {
-  const { post_id, body, image_url } = req.body ?? {};
+router.post('/', requireAuth, requireNotBanned, limitStories, async (req, res) => {
+  const post_id = optionalUuid(req.body?.post_id, 'Запись');
+  const body = optionalText(req.body?.body, LIMITS.story, 'Подпись');
+  const image_url = optionalHttpsUrl(req.body?.image_url, 'Картинка');
 
   /**
    * Сколько история живёт. Приходит от конструктора, но верить ему на слово
@@ -205,6 +210,7 @@ router.post('/:id/seen', requireAuth, async (req, res) => {
       { onConflict: 'story_id,viewer_id', ignoreDuplicates: true }
     );
 
+  if (error?.code === '23503') return res.status(404).json({ error: 'История не найдена' });
   if (error && !isMissingTable(error)) {
     console.error('stories: seen failed', error);
     return res.status(500).json({ error: error.message });
@@ -214,16 +220,20 @@ router.post('/:id/seen', requireAuth, async (req, res) => {
 
 /** Убрать свою историю раньше срока. */
 router.delete('/:id', requireAuth, async (req, res) => {
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('stories')
     .delete()
     .eq('id', req.params.id)
-    .eq('author_id', req.user!.id);
+    .eq('author_id', req.user!.id)
+    .select('id');
 
   if (error) {
     console.error('stories: delete failed', error);
-    return res.status(500).json({ error: error.message });
+    return res.status(500).json({ error: 'Не удалось удалить историю' });
   }
+  // Ни одной строки — чужая или уже истекла. Отвечать «удалено» здесь значило
+  // бы обещать то, чего не случилось.
+  if (!data.length) return res.status(404).json({ error: 'История не найдена' });
   res.status(204).end();
 });
 
@@ -274,6 +284,7 @@ router.post('/:id/reaction', requireAuth, async (req, res) => {
     .insert({ story_id: storyId, user_id: me });
 
   if (error) {
+    if (error.code === '23503') return res.status(404).json({ error: 'История не найдена' });
     console.error('stories: reaction insert failed', error);
     return res.status(500).json({ error: 'Не удалось поставить отметку' });
   }
