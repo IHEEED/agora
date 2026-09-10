@@ -3,6 +3,7 @@ import { supabase } from '../config/supabase';
 import { hiddenUserIds, isBlockedBetween } from '../lib/blocks';
 import { isUuid } from '../lib/uuid';
 import { requireAuth, requirePhoneVerified } from '../middleware/auth';
+import { limitMessages } from '../middleware/rateLimit';
 import { userColumns } from '../config/schema';
 
 const router = Router();
@@ -262,7 +263,7 @@ router.delete('/thread/:peerId', requireAuth, async (req, res) => {
  * спрашивают: заблокированный заводит новый аккаунт по чужому коду и пишет
  * тому же человеку, а стоило это ему одной почты.
  */
-router.post('/', requireAuth, requirePhoneVerified, async (req, res) => {
+router.post('/', requireAuth, requirePhoneVerified, limitMessages, async (req, res) => {
   const me = req.user!.id;
   const recipientId = String(req.body?.recipient_id ?? '');
   const body = String(req.body?.body ?? '').trim();

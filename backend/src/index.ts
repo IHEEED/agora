@@ -6,7 +6,7 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import compression from 'compression';
-import rateLimit from 'express-rate-limit';
+import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import dotenv from 'dotenv';
 import communitiesRouter from './routes/communities';
 import postsRouter from './routes/posts';
@@ -137,42 +137,33 @@ app.use(
 app.use(express.json({ limit: '256kb' }));
 
 /**
- * Ограничение частоты.
+ * Общий потолок частоты.
  *
- * Два счётчика, а не один. Общий держит поток запросов от одного адреса в
- * разумных пределах — он против скриптов, которые обходят ленту по кругу и
- * жгут нашу квоту в Supabase. Строгий стоит на том, что создаёт содержимое:
- * записи, реплики, сообщения, жалобы.
+ * Против скриптов, которые обходят ленту по кругу и жгут квоту в Supabase.
+ * Ограничения на создание содержимого живут отдельно, на самих маршрутах (см.
+ * middleware/rateLimit): там свой счётчик у каждого действия.
  *
- * Числа выбраны так, чтобы живой человек их не заметил. Двести запросов в
- * минуту — это листание ленты с открыванием записей, быстрее человек не
- * читает. Тридцать написанных штук за десять минут — это переписка в темпе
- * спора, и всё равно втрое больше того, что успевает написать один.
+ * Ключ — токен, если он есть, и адрес, только если его нет. Мобильные
+ * операторы сажают за один внешний адрес тысячи абонентов: открытый чат
+ * спрашивает сервер каждые шесть секунд, и двадцати соседям по вышке хватило
+ * бы, чтобы по адресу упереться в потолок всем разом. Токен у каждого свой.
  *
- * Считаем по адресу, а не по учётной записи: до того, кто вошёл, разбор
- * доходит позже, а закрываться надо раньше. Тот, кто заводит учётки пачками,
- * всё равно делает это с одного адреса.
+ * Сам токен здесь не проверяется — это делает requireAuth дальше. Поддельный
+ * токен счётчик не обманет: у каждого поддельного свой ключ, но все они
+ * разобьются о requireAuth, не дойдя до базы.
  */
 const commonLimit = rateLimit({
   windowMs: 60_000,
-  limit: 200,
+  limit: 300,
   standardHeaders: 'draft-7',
   legacyHeaders: false,
+  keyGenerator: (req) => {
+    const auth = req.headers.authorization;
+    return auth?.startsWith('Bearer ') ? `t:${auth.slice(7)}` : `ip:${ipKeyGenerator(req.ip ?? '')}`;
+  },
   // Проверку живости не считаем: её дёргает хостинг, а не человек, и упереться
   // в свой же счётчик означало бы перезапуск здорового сервера.
   skip: (req) => req.path === '/health',
-  message: { error: 'RATE_LIMITED' },
-});
-
-const writeLimit = rateLimit({
-  windowMs: 10 * 60_000,
-  limit: 30,
-  standardHeaders: 'draft-7',
-  legacyHeaders: false,
-  // Только на написание. Читающие запросы к тем же адресам идут мимо: у
-  // /posts и GET, и POST, а ограничивать чтение строгим счётчиком значит
-  // запирать читателя за чужой спам.
-  skip: (req) => req.method === 'GET' || req.method === 'HEAD',
   message: { error: 'RATE_LIMITED' },
 });
 
@@ -198,15 +189,15 @@ app.get('/health', (_req, res) => {
 });
 
 app.use('/communities', communitiesRouter);
-app.use('/posts', writeLimit, postsRouter);
-app.use('/comments', writeLimit, commentsRouter);
+app.use('/posts', postsRouter);
+app.use('/comments', commentsRouter);
 app.use('/votes', votesRouter);
 app.use('/users', usersRouter);
-app.use('/messages', writeLimit, messagesRouter);
-app.use('/stories', writeLimit, storiesRouter);
+app.use('/messages', messagesRouter);
+app.use('/stories', storiesRouter);
 app.use('/notes', notesRouter);
 app.use('/blocks', blocksRouter);
-app.use('/reports', writeLimit, reportsRouter);
+app.use('/reports', reportsRouter);
 app.use('/moderation', moderationRouter);
 app.use('/invites', invitesRouter);
 app.use('/notifications', notificationsRouter);

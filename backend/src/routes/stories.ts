@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { supabase } from '../config/supabase';
 import { requireAuth, optionalAuth } from '../middleware/auth';
+import { limitStories } from '../middleware/rateLimit';
 import { userEmbed } from '../config/schema';
 
 const router = Router();
@@ -142,7 +143,7 @@ router.get('/', optionalAuth, async (req, res) => {
 });
 
 /** Своя история: из записи или собственным содержимым. */
-router.post('/', requireAuth, async (req, res) => {
+router.post('/', requireAuth, limitStories, async (req, res) => {
   const { post_id, body, image_url } = req.body ?? {};
 
   /**

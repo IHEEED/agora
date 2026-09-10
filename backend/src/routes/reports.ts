@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { supabase } from '../config/supabase';
 import { requireAuth, requireNotBanned } from '../middleware/auth';
+import { limitReports } from '../middleware/rateLimit';
 
 const router = Router();
 
@@ -31,7 +32,7 @@ const TARGETS = {
   userId: 'target_user_id',
 } as const;
 
-router.post('/', requireAuth, requireNotBanned, async (req, res) => {
+router.post('/', requireAuth, requireNotBanned, limitReports, async (req, res) => {
   const me = req.user!.id;
   const reason = String(req.body?.reason ?? '') as Reason;
 

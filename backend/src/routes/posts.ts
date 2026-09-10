@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { supabase } from '../config/supabase';
 import { hiddenUserIds } from '../lib/blocks';
 import { requireAuth, requirePhoneVerified, optionalAuth } from '../middleware/auth';
+import { limitPosts } from '../middleware/rateLimit';
 import { cached, forget } from '../config/cache';
 import { userEmbed } from '../config/schema';
 
@@ -344,7 +345,7 @@ async function getPollsByPostId(postIds: string[], userId?: string) {
   return { polls, myPollVotes };
 }
 
-router.post('/', requireAuth, requirePhoneVerified, async (req, res) => {
+router.post('/', requireAuth, requirePhoneVerified, limitPosts, async (req, res) => {
   const {
     title,
     body,

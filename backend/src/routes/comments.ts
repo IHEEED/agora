@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { supabase } from '../config/supabase';
 import { requireAuth, requirePhoneVerified, optionalAuth } from '../middleware/auth';
+import { limitComments } from '../middleware/rateLimit';
 import { userEmbed } from '../config/schema';
 
 /**
@@ -83,7 +84,7 @@ router.get('/user/:userId', optionalAuth, async (req, res) => {
   );
 });
 
-router.post('/', requireAuth, requirePhoneVerified, async (req, res) => {
+router.post('/', requireAuth, requirePhoneVerified, limitComments, async (req, res) => {
   const { post_id, parent_comment_id, body } = req.body;
   const author_id = req.user!.id;
 
