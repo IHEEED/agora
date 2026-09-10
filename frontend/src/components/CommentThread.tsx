@@ -254,8 +254,11 @@ export function CommentThread({
             <p className="text-[12.5px]" style={{ color: 'var(--down)' }}>{actionError}</p>
           )}
 
+          {/* Перенос — страховка, а не раскладка: в глубоком ответе или с
+              развёрнутым «Точно удалить?» ряду может не хватить ширины, и
+              обрезанная кнопка у края хуже кнопки на второй строке. */}
           {!deleted && !editing && (
-          <div className="mt-0.5 flex items-center gap-2">
+          <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1">
             <VoteBlock
               id={comment.id}
               score={comment.score}
@@ -271,6 +274,12 @@ export function CommentThread({
                 {replying ? t('action.cancel') : t('action.reply')}
               </button>
             )}
+            {/* Правка и удаление — значками, а не словами.
+                Словами ряд не помещался: голоса, «Ответить», «Изменить» и
+                «Удалить» на телефоне обрезались у края уже во втором уровне
+                ответов. Карандаш и корзина читаются однозначно, а подпись
+                остаётся у скринридера. Словом становится только вопрос
+                «Точно удалить?» — его нельзя угадывать по картинке. */}
             {mine && (
               <>
                 <button
@@ -279,18 +288,39 @@ export function CommentThread({
                     setReplying(false);
                     setEditing(true);
                   }}
-                  className="rounded-full px-2 py-1 text-[12.5px] font-medium text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-2)]"
+                  aria-label={t('action.edit')}
+                  title={t('action.edit')}
+                  className="flex h-7 w-7 items-center justify-center rounded-full text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-2)]"
                 >
-                  {t('action.edit')}
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <path d="M12 20h9" />
+                    <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                  </svg>
                 </button>
-                <button
-                  onClick={() => void remove()}
-                  disabled={busy}
-                  className="rounded-full px-2 py-1 text-[12.5px] font-medium transition-colors hover:bg-[var(--surface-2)] disabled:opacity-50"
-                  style={{ color: confirmDelete ? 'var(--down)' : 'var(--text-muted)' }}
-                >
-                  {confirmDelete ? t('comments.confirmDelete') : t('action.delete')}
-                </button>
+                {confirmDelete ? (
+                  <button
+                    onClick={() => void remove()}
+                    disabled={busy}
+                    className="rounded-full px-2 py-1 text-[12.5px] font-medium transition-colors hover:bg-[var(--surface-2)] disabled:opacity-50"
+                    style={{ color: 'var(--down)' }}
+                  >
+                    {t('comments.confirmDelete')}
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => void remove()}
+                    disabled={busy}
+                    aria-label={t('action.delete')}
+                    title={t('action.delete')}
+                    className="flex h-7 w-7 items-center justify-center rounded-full text-[var(--text-muted)] transition-colors hover:bg-[var(--surface-2)] disabled:opacity-50"
+                  >
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                      <path d="M3 6h18" />
+                      <path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2" />
+                      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                    </svg>
+                  </button>
+                )}
               </>
             )}
           </div>
