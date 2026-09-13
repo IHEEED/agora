@@ -3,6 +3,7 @@ import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput,
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { supabase } from '../lib/supabase';
+import { apiFetch } from '../lib/api';
 import { useT } from '../lib/i18n';
 import { usePalette } from '../theme';
 import type { RootStackParamList } from '../navigation/types';
@@ -12,16 +13,18 @@ type Props = NativeStackScreenProps<RootStackParamList, 'Login'>;
 /**
  * Вход — под тему «Хроника», как веб-экран авторизации.
  *
- * Наверху фирменный знак :P, ниже карточка с полями и акцентные кнопки. Вход и
- * регистрация переключаются местами: одна кнопка ведущая (акцентом), вторая —
- * контурная. Приглашения-код мобильному пока не завозим — регистрация идёт
- * напрямую через Supabase.
+ * PARAFRAZ по приглашению: регистрация просит код, имя, почту и пароль, создаёт
+ * учётку на сервере (POST /invites/register) и тут же входит обычным
+ * signInWithPassword — отдельной ветки хранения сессии так не появляется, как и
+ * в вебе (AuthScreen). Вход — просто пара почта/пароль.
  */
 export function LoginScreen({ navigation }: Props) {
   const palette = usePalette();
   const { t } = useT();
   const insets = useSafeAreaInsets();
   const [signup, setSignup] = useState(false);
+  const [code, setCode] = useState('');
+  const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -29,17 +32,31 @@ export function LoginScreen({ navigation }: Props) {
 
   async function handleSubmit() {
     setError(null);
-    setLoading(true);
-    const { error: authError } = signup
-      ? await supabase.auth.signUp({ email, password })
-      : await supabase.auth.signInWithPassword({ email, password });
-    setLoading(false);
-    if (authError) {
-      setError(authError.message);
+    if (signup && password.length < 8) {
+      setError(t('Пароль минимум 8 символов'));
       return;
     }
-    navigation.navigate('MainTabs');
+    setLoading(true);
+    try {
+      if (signup) {
+        // Сервер создаёт учётку и помечает код использованным; сессию не
+        // открывает — входим тем же обычным способом сразу следом.
+        await apiFetch('/invites/register', {
+          method: 'POST',
+          body: JSON.stringify({ code: code.trim().toUpperCase(), email: email.trim(), password, username: username.trim() }),
+        });
+      }
+      const { error: signInError } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+      if (signInError) throw new Error(signInError.message);
+      navigation.navigate('MainTabs');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('Не получилось, попробуйте ещё раз'));
+    } finally {
+      setLoading(false);
+    }
   }
+
+  const canSubmit = Boolean(email.trim()) && Boolean(password) && (!signup || (Boolean(code.trim()) && Boolean(username.trim())));
 
   const field = {
     borderWidth: 1,
@@ -66,6 +83,34 @@ export function LoginScreen({ navigation }: Props) {
             {signup ? t('Новый аккаунт') : t('С возвращением')}
           </Text>
 
+          {signup ? (
+            <>
+              <Text style={{ fontSize: 13, color: palette.textMuted }}>{t('Код приглашения')}</Text>
+              <TextInput
+                value={code}
+                onChangeText={(v) => setCode(v.toUpperCase())}
+                autoCapitalize="characters"
+                autoCorrect={false}
+                placeholderTextColor={palette.textMuted}
+                style={{ ...field, letterSpacing: 3 }}
+              />
+
+              <Text style={{ fontSize: 13, color: palette.textMuted }}>{t('Имя')}</Text>
+              <TextInput
+                value={username}
+                onChangeText={(v) => setUsername(v.replace(/[^a-zA-Z0-9._-]/g, ''))}
+                autoCapitalize="none"
+                autoCorrect={false}
+                maxLength={24}
+                placeholderTextColor={palette.textMuted}
+                style={field}
+              />
+              <Text style={{ fontSize: 12, color: palette.textMuted, marginTop: -4 }}>
+                {t('3–24 латинских буквы, цифры, точка, дефис, подчёркивание')}
+              </Text>
+            </>
+          ) : null}
+
           <Text style={{ fontSize: 13, color: palette.textMuted }}>Email</Text>
           <TextInput
             value={email}
@@ -89,14 +134,14 @@ export function LoginScreen({ navigation }: Props) {
 
           <Pressable
             onPress={handleSubmit}
-            disabled={loading || !email.trim() || !password}
+            disabled={loading || !canSubmit}
             style={{
               marginTop: 4,
               borderRadius: 999,
               paddingVertical: 13,
               alignItems: 'center',
               backgroundColor: palette.accent,
-              opacity: loading || !email.trim() || !password ? 0.4 : 1,
+              opacity: loading || !canSubmit ? 0.4 : 1,
             }}
           >
             <Text style={{ color: palette.accentContrast, fontWeight: '600', fontSize: 15 }}>
