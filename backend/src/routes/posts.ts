@@ -603,6 +603,54 @@ router.get('/', optionalAuth, async (req, res) => {
   const sort = parsePostSort(req.query.sort);
 
   /**
+   * Пагинация по курсору — по требованию (?limit), чтобы не сломать тех, кто
+   * ждёт плоский массив (поиск, профиль). Курсор — created_at последней уже
+   * показанной записи: страницы идут строго «старше», и новые записи сверху не
+   * сдвигают их (как было бы со смещением). Осмысленно для «Свежих»
+   * (хронология); прочие сортировки применяются в пределах подтянутого окна.
+   */
+  const rawLimit = Number(req.query.limit);
+  if (Number.isFinite(rawLimit) && rawLimit > 0) {
+    const limit = Math.min(50, Math.max(5, Math.floor(rawLimit)));
+    const cursor = typeof req.query.cursor === 'string' ? req.query.cursor : null;
+
+    let query = supabase
+      .from('posts')
+      .select(`*, ${userEmbed('author', 'posts_author_id_fkey')}, community:communities(id, name)`)
+      .order('created_at', { ascending: false })
+      .limit(limit + 1);
+    if (cursor) query = query.lt('created_at', cursor);
+
+    const { data: page, error: pageError } = await query.returns<PostRow[]>();
+    if (pageError) {
+      console.error('posts: paginated request failed', pageError);
+      return res.status(500).json({ error: 'Не удалось выполнить запрос, попробуйте ещё раз' });
+    }
+
+    const hasMore = page.length > limit;
+    const rawPage = hasMore ? page.slice(0, limit) : page;
+    // Курсор следующей страницы — по created_at самой старой из подтянутых,
+    // до сворачивания цепочек и фильтров: так следующая идёт строго старше.
+    const nextCursor = hasMore ? rawPage[rawPage.length - 1].created_at : null;
+
+    const hiddenIds = await hiddenUserIds(req.user?.id);
+    const visiblePage = hiddenIds.size
+      ? rawPage.filter((post) => !hiddenIds.has(post.author_id as string))
+      : rawPage;
+
+    const pagePosts = foldChains(sortPosts(await enrichPosts(visiblePage, req.user?.id), sort));
+    // Закреп — только на первой странице: на последующих он лишний.
+    const withPins = cursor
+      ? pagePosts.filter((post) => !(post as { pinned_global?: boolean }).pinned_global)
+      : [
+          ...pagePosts.filter((post) => (post as { pinned_global?: boolean }).pinned_global),
+          ...pagePosts.filter((post) => !(post as { pinned_global?: boolean }).pinned_global),
+        ];
+
+    return res.json({ posts: withPins, nextCursor });
+  }
+
+  /**
    * Сама выборка записей кешируется, обогащение — нет.
    *
    * Список и его порядок одинаковы для всех, кто открыл ленту в одну секунду:

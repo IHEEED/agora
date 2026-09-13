@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import { FlatList, Pressable, RefreshControl, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, RefreshControl, Text, View } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -31,6 +31,10 @@ const SORTS = [
   ['viewed', 'Популярные'],
 ] as const satisfies ReadonlyArray<readonly [PostSort, string]>;
 
+/** Ответ ленты с курсором: старше приезжает страницами (см. бэкенд /posts). */
+type FeedPage = { posts: Post[]; nextCursor: string | null };
+const PAGE = 20;
+
 export function FeedScreen() {
   const palette = usePalette();
   const { t } = useT();
@@ -41,19 +45,38 @@ export function FeedScreen() {
 
   const [sort, setSort] = useState<PostSort>('new');
   const [posts, setPosts] = useState<Post[]>([]);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   const load = useCallback(() => {
-    apiFetch<Post[]>(`/posts?sort=${sort}`)
-      .then(setPosts)
+    apiFetch<FeedPage>(`/posts?sort=${sort}&limit=${PAGE}`)
+      .then((res) => { setPosts(res.posts); setNextCursor(res.nextCursor); })
       .catch((err) => setError(err instanceof Error ? err.message : 'Не удалось загрузить'))
       .finally(() => {
         setLoading(false);
         setRefreshing(false);
       });
   }, [sort]);
+
+  // Догрузка более старых записей по курсору: страницы идут строго «старше».
+  const loadMore = useCallback(() => {
+    if (loadingMore || !nextCursor) return;
+    setLoadingMore(true);
+    apiFetch<FeedPage>(`/posts?sort=${sort}&limit=${PAGE}&cursor=${encodeURIComponent(nextCursor)}`)
+      .then((res) => {
+        // Страховка от дублей: курсор строго «<», пересечений быть не должно.
+        setPosts((prev) => {
+          const seen = new Set(prev.map((p) => p.id));
+          return [...prev, ...res.posts.filter((p) => !seen.has(p.id))];
+        });
+        setNextCursor(res.nextCursor);
+      })
+      .catch(() => {})
+      .finally(() => setLoadingMore(false));
+  }, [sort, nextCursor, loadingMore]);
 
   useFocusEffect(useCallback(() => load(), [load]));
 
@@ -108,6 +131,11 @@ export function FeedScreen() {
             <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} tintColor={palette.accent} progressViewOffset={topInset} />
           }
           ListHeaderComponent={header}
+          onEndReached={loadMore}
+          onEndReachedThreshold={0.6}
+          ListFooterComponent={
+            loadingMore ? <ActivityIndicator style={{ paddingVertical: 20 }} color={palette.textMuted} /> : null
+          }
           ListEmptyComponent={
             !error ? (
               <View style={{ alignItems: 'center', gap: 14, paddingVertical: 64 }}>

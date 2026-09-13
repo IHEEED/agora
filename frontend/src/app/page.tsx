@@ -1,7 +1,8 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
+import { apiFetch } from '@/lib/api';
 import { invalidate, load, useApiData } from '@/lib/useApiData';
 import { useSession } from '@/lib/useSession';
 import { Post, PostSort, StoryGroup } from '@/lib/types';
@@ -45,9 +46,68 @@ export default function FeedPage() {
   // Ключ кеша включает сортировку: три порядка — три разных списка, и общий
   // ключ показывал бы прежний, пока не приедет новый ответ.
   const { data, error, loading } = useApiData<Post[]>(`/posts?sort=${sort}`);
+
+  /**
+   * Догрузка более старых записей по курсору (created_at) поверх первой
+   * страницы из кеша. Только для «Свежих»: там порядок хронологический и курсор
+   * точен; у «обсуждаемых»/«популярных» переход между страницами по created_at
+   * ломал бы их порядок, поэтому там оставляем один экран, как было.
+   */
+  const [extra, setExtra] = useState<Post[]>([]);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [ended, setEnded] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const sentinel = useRef<HTMLDivElement>(null);
+
+  // Смена сортировки — своя лента: догруженное сбрасываем.
+  useEffect(() => {
+    setExtra([]);
+    setNextCursor(null);
+    setEnded(false);
+  }, [sort]);
+
   // Через useMemo, а не через ?? прямо в теле: иначе каждый рендер создаёт
   // новый пустой массив и пересчитывает список историй ниже без причины.
-  const posts = useMemo(() => data ?? [], [data]);
+  const page1 = useMemo(() => data ?? [], [data]);
+  const posts = useMemo(() => [...page1, ...extra], [page1, extra]);
+
+  const paginated = sort === 'new';
+
+  const loadMore = useCallback(async () => {
+    if (!paginated || loadingMore || ended) return;
+    // Курсор — created_at самой старой уже показанной записи.
+    const cursor = nextCursor ?? posts[posts.length - 1]?.created_at;
+    if (!cursor) return;
+    setLoadingMore(true);
+    try {
+      const res = await apiFetch<{ posts: Post[]; nextCursor: string | null }>(
+        `/posts?sort=${sort}&limit=20&cursor=${encodeURIComponent(cursor)}`
+      );
+      setExtra((prev) => {
+        const seen = new Set([...page1, ...prev].map((p) => p.id));
+        return [...prev, ...res.posts.filter((p) => !seen.has(p.id))];
+      });
+      setNextCursor(res.nextCursor);
+      if (!res.nextCursor) setEnded(true);
+    } catch {
+      // Тихо: следующий заход в зону наблюдателя попробует снова.
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [paginated, loadingMore, ended, nextCursor, posts, sort, page1]);
+
+  // Наблюдатель за нижним сигнальным элементом: доехал до низа — тянем ещё.
+  useEffect(() => {
+    if (!paginated || ended) return;
+    const node = sentinel.current;
+    if (!node) return;
+    const io = new IntersectionObserver(
+      (entries) => { if (entries[0]?.isIntersecting) void loadMore(); },
+      { rootMargin: '600px' }
+    );
+    io.observe(node);
+    return () => io.disconnect();
+  }, [paginated, ended, loadMore]);
 
   // Записи заблокированных не показываем. Фильтруем здесь, а не на сервере:
   // список живёт на устройстве, сервер о нём не знает (см. blockedUsers).
@@ -84,6 +144,9 @@ export default function FeedPage() {
    * отпустил бы и увидел, что ничего не произошло.
    */
   async function refresh() {
+    setExtra([]);
+    setNextCursor(null);
+    setEnded(false);
     invalidate('/posts');
     invalidate('/stories');
     await load(`/posts?sort=${sort}`);
@@ -155,6 +218,16 @@ export default function FeedPage() {
               >
                 {t('feed.findCommunities')}
               </Link>
+            </div>
+          )}
+
+          {/* Сигнальный элемент догрузки: за 600px до него тянется следующая
+              страница. Виден только у «Свежих» и пока лента не кончилась. */}
+          {paginated && !ended && visiblePosts.length > 0 && (
+            <div ref={sentinel} className="flex justify-center py-6">
+              {loadingMore && (
+                <span className="h-5 w-5 animate-spin rounded-full border-2 border-[var(--border)] border-t-[var(--accent)]" />
+              )}
             </div>
           )}
         </div>
