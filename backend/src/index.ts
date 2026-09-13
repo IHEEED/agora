@@ -1,5 +1,8 @@
-// Первым импортом, до всего остального: он настраивает пул соединений, и
-// клиент Supabase должен создаваться уже с ним (см. config/http).
+// Ещё до пула — мониторинг: init должен успеть обернуть http и отказы до того,
+// как что-либо ими воспользуется (тихий no-op без SENTRY_DSN, см. instrument).
+import { Sentry, sentryEnabled } from './instrument';
+// Первым рабочим импортом: он настраивает пул соединений, и клиент Supabase
+// должен создаваться уже с ним (см. config/http).
 import { HTTP_CONNECTIONS } from './config/http';
 import { supabase } from './config/supabase';
 import express, { NextFunction, Request, Response } from 'express';
@@ -229,6 +232,9 @@ app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
     return;
   }
   console.error('unhandled', err);
+  // Настоящий сбой — в мониторинг (если включён). BadInput и ошибки клиента
+  // выше уже вернулись и сюда не доходят: шлём только то, за что отвечаем сами.
+  if (sentryEnabled) Sentry.captureException(err);
   res.status(500).json({ error: 'Не удалось выполнить запрос, попробуйте ещё раз' });
 });
 
