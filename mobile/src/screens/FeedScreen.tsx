@@ -57,19 +57,27 @@ export function FeedScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
 
+  // Догрузка только для «Свежих»: там порядок хронологический и курсор по
+  // created_at точен. У «Обсуждаемых»/«Популярных» переход между страницами по
+  // created_at ломал бы их порядок — там остаётся один экран (как в вебе).
+  const paginated = sort === 'new';
+
   const load = useCallback(() => {
-    apiFetch<FeedPage | Post[]>(`/posts?sort=${sort}&limit=${PAGE}`)
+    // Для «Свежих» — первая страница с курсором; для остальных полный список
+    // одним экраном (без limit), как на вебе.
+    const url = paginated ? `/posts?sort=${sort}&limit=${PAGE}` : `/posts?sort=${sort}`;
+    apiFetch<FeedPage | Post[]>(url)
       .then((raw) => { const res = asPage(raw); setPosts(res.posts); setNextCursor(res.nextCursor); })
       .catch((err) => setError(err instanceof Error ? err.message : 'Не удалось загрузить'))
       .finally(() => {
         setLoading(false);
         setRefreshing(false);
       });
-  }, [sort]);
+  }, [paginated, sort]);
 
   // Догрузка более старых записей по курсору: страницы идут строго «старше».
   const loadMore = useCallback(() => {
-    if (loadingMore || !nextCursor) return;
+    if (!paginated || loadingMore || !nextCursor) return;
     setLoadingMore(true);
     apiFetch<FeedPage | Post[]>(`/posts?sort=${sort}&limit=${PAGE}&cursor=${encodeURIComponent(nextCursor)}`)
       .then((raw) => {
@@ -83,7 +91,7 @@ export function FeedScreen() {
       })
       .catch(() => {})
       .finally(() => setLoadingMore(false));
-  }, [sort, nextCursor, loadingMore]);
+  }, [paginated, sort, nextCursor, loadingMore]);
 
   useFocusEffect(useCallback(() => load(), [load]));
 

@@ -93,17 +93,20 @@ export function CommunitiesScreen() {
             </View>
 
             {communities.length > 0 ? (
-              // Поиск волосяной строкой, как в вебе (field-line): лупа и
-              // постоянная подпись «Поиск» слева, ввод — за ними.
+              // Поиск волосяной строкой, как в вебе (field-line): лупа слева,
+              // «Поиск» — подсказкой внутри поля, исчезает на первом знаке.
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginHorizontal: 6, marginBottom: 12, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: palette.border }}>
                 <Svg width={17} height={17} viewBox="0 0 24 24" fill="none" stroke={palette.textMuted} strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round">
                   <Path d="M11 4a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13Z" />
                   <Path d="m20 20-4.3-4.3" />
                 </Svg>
-                <Text style={{ fontSize: 15, color: palette.textMuted }}>{t('Поиск')}</Text>
                 <TextInput
                   value={query}
                   onChangeText={setQuery}
+                  placeholder={t('Поиск')}
+                  placeholderTextColor={palette.textMuted}
+                  autoCapitalize="none"
+                  autoCorrect={false}
                   style={{ flex: 1, fontSize: 15, color: palette.text, paddingVertical: 2 }}
                 />
               </View>
