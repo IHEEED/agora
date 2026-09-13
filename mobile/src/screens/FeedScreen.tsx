@@ -35,6 +35,12 @@ const SORTS = [
 type FeedPage = { posts: Post[]; nextCursor: string | null };
 const PAGE = 20;
 
+/** Терпимость к старому бэкенду: пока он не передеплоен, ?limit отдаёт плоский
+ *  массив — считаем это единственной страницей без курсора. */
+function asPage(res: FeedPage | Post[]): FeedPage {
+  return Array.isArray(res) ? { posts: res, nextCursor: null } : res;
+}
+
 export function FeedScreen() {
   const palette = usePalette();
   const { t } = useT();
@@ -52,8 +58,8 @@ export function FeedScreen() {
   const [loadingMore, setLoadingMore] = useState(false);
 
   const load = useCallback(() => {
-    apiFetch<FeedPage>(`/posts?sort=${sort}&limit=${PAGE}`)
-      .then((res) => { setPosts(res.posts); setNextCursor(res.nextCursor); })
+    apiFetch<FeedPage | Post[]>(`/posts?sort=${sort}&limit=${PAGE}`)
+      .then((raw) => { const res = asPage(raw); setPosts(res.posts); setNextCursor(res.nextCursor); })
       .catch((err) => setError(err instanceof Error ? err.message : 'Не удалось загрузить'))
       .finally(() => {
         setLoading(false);
@@ -65,8 +71,9 @@ export function FeedScreen() {
   const loadMore = useCallback(() => {
     if (loadingMore || !nextCursor) return;
     setLoadingMore(true);
-    apiFetch<FeedPage>(`/posts?sort=${sort}&limit=${PAGE}&cursor=${encodeURIComponent(nextCursor)}`)
-      .then((res) => {
+    apiFetch<FeedPage | Post[]>(`/posts?sort=${sort}&limit=${PAGE}&cursor=${encodeURIComponent(nextCursor)}`)
+      .then((raw) => {
+        const res = asPage(raw);
         // Страховка от дублей: курсор строго «<», пересечений быть не должно.
         setPosts((prev) => {
           const seen = new Set(prev.map((p) => p.id));

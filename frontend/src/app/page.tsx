@@ -80,9 +80,12 @@ export default function FeedPage() {
     if (!cursor) return;
     setLoadingMore(true);
     try {
-      const res = await apiFetch<{ posts: Post[]; nextCursor: string | null }>(
+      const raw = await apiFetch<{ posts: Post[]; nextCursor: string | null } | Post[]>(
         `/posts?sort=${sort}&limit=20&cursor=${encodeURIComponent(cursor)}`
       );
+      // Терпимость к старому бэкенду: пока /posts не передеплоен, ?limit отдаёт
+      // плоский массив — считаем его страницей без курсора (дальше не тянем).
+      const res = Array.isArray(raw) ? { posts: raw, nextCursor: null } : raw;
       setExtra((prev) => {
         const seen = new Set([...page1, ...prev].map((p) => p.id));
         return [...prev, ...res.posts.filter((p) => !seen.has(p.id))];
