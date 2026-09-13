@@ -186,10 +186,12 @@ export default function ProfilePage() {
     return <div className="min-h-[100dvh]" />;
   }
 
-  // Юзернейм выводим из почты: отдельного поля под него в профиле ещё нет.
-  // Юзернейм выводим из почты, но сохранённый в настройках имеет приоритет.
+  // Юзернейм — из профиля; почта лишь запасной вариант для тех, у кого ника
+  // ещё нет. Но откатываемся к ней только ПОСЛЕ загрузки профиля: иначе на
+  // жёстком обновлении, пока запрос летит, на миг мелькала часть почты
+  // (fomakirill6) и лишь потом сменялась настоящим ником (@IHEED).
   const emailHandle = (session?.user.email ?? '').split('@')[0];
-  const handle = savedHandle || emailHandle;
+  const handle = savedHandle || (profile ? emailHandle : '');
   const phoneVerified = Boolean(session.user.phone_confirmed_at);
 
   return (
@@ -298,9 +300,13 @@ export default function ProfilePage() {
                     оставить человека гадать, выдали ему её или нет. */}
                 <VerifiedMark verified={profile?.verified_at} size={19} />
               </h1>
-              <span className="text-[13px] font-medium" style={{ color: 'var(--accent)' }}>
-                @{handle}
-              </span>
+              {/* Пока профиль грузится, handle пуст — тег не рисуем вовсе,
+                  чтобы не мелькнуть «@» без имени и не подставить почту. */}
+              {handle && (
+                <span className="text-[13px] font-medium" style={{ color: 'var(--accent)' }}>
+                  @{handle}
+                </span>
+              )}
               {bio && <p className="mt-1 text-[14px] leading-snug text-[var(--text)]">{bio}</p>}
             </div>
 
