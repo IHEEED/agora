@@ -603,6 +603,57 @@ router.get('/', optionalAuth, async (req, res) => {
   const sort = parsePostSort(req.query.sort);
 
   /**
+   * Поиск по записям — на сервере (?q), а не фильтром по последней сотне.
+   *
+   * Раньше экран поиска тянул `/posts?sort=new` (кеш на 100 записей) и искал в
+   * нём подстроку: всё, что старше сотни последних, не находилось вовсе. Теперь
+   * ищет база — по заголовку, тексту и имени автора, — и достаёт что угодно.
+   * Форма ответа прежняя (плоский массив Post), чтобы клиент не различал ветки.
+   */
+  const rawQuery = typeof req.query.q === 'string' ? req.query.q.trim() : '';
+  if (rawQuery) {
+    // Экранируем спецсимволы ilike (%, _, \) и вычищаем то, что ломает разбор
+    // or() у PostgREST (запятые и скобки) — иначе один такой знак рвёт фильтр.
+    const orSafe = rawQuery.replace(/[(),]/g, ' ');
+    const pattern = `%${orSafe.replace(/[%_\\]/g, '\\$&')}%`;
+
+    // Имя автора ищем отдельным запросом: фильтр по встроенной связи в or()
+    // громоздок, а список совпавших id короткий и подставляется в тот же or().
+    const { data: authors } = await supabase
+      .from('users')
+      .select('id')
+      .ilike('username', pattern)
+      .limit(50)
+      .returns<{ id: string }[]>();
+    const authorIds = (authors ?? []).map((a) => a.id);
+
+    const filters = [`title.ilike.${pattern}`, `body.ilike.${pattern}`];
+    if (authorIds.length) filters.push(`author_id.in.(${authorIds.join(',')})`);
+
+    const { data, error } = await supabase
+      .from('posts')
+      .select(`*, ${userEmbed('author', 'posts_author_id_fkey')}, community:communities(id, name)`)
+      .or(filters.join(','))
+      .order('created_at', { ascending: false })
+      .limit(50)
+      .returns<PostRow[]>();
+
+    if (error) {
+      console.error('posts: search failed', error);
+      return res.status(500).json({ error: 'Не удалось выполнить поиск, попробуйте ещё раз' });
+    }
+
+    const hiddenSearch = await hiddenUserIds(req.user?.id);
+    const visibleSearch = hiddenSearch.size
+      ? data.filter((post) => !hiddenSearch.has(post.author_id as string))
+      : data;
+
+    // Без сворачивания цепочек: в поиске показываем именно совпавшую запись,
+    // а не начало цепочки, в которой она стоит.
+    return res.json(await enrichPosts(visibleSearch, req.user?.id));
+  }
+
+  /**
    * Пагинация по курсору — по требованию (?limit), чтобы не сломать тех, кто
    * ждёт плоский массив (поиск, профиль). Курсор — created_at последней уже
    * показанной записи: страницы идут строго «старше», и новые записи сверху не

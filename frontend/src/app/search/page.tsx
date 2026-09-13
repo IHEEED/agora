@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useApiData } from '@/lib/useApiData';
+import { apiFetch } from '@/lib/api';
 import { Community, Post, UserSummary } from '@/lib/types';
 import { formatRelativeDate } from '@/lib/formatDate';
 import { CommunityAvatar } from '@/components/CommunityAvatar';
@@ -124,48 +124,62 @@ export default function SearchPage() {
     }, 240);
   }
 
-  // Через общий кеш: три этих ответа уже есть после ленты и сообществ,
-  // поэтому поиск открывается с готовыми данными, а не с «Загрузка…».
-  const communitiesResult = useApiData<Community[]>('/communities');
-  const postsResult = useApiData<Post[]>('/posts?sort=new');
-  const peopleResult = useApiData<UserSummary[]>('/users');
-
-  const communities = useMemo(() => communitiesResult.data ?? [], [communitiesResult.data]);
-  const posts = useMemo(() => postsResult.data ?? [], [postsResult.data]);
-  const people = useMemo(() => peopleResult.data ?? [], [peopleResult.data]);
-  const loading = communitiesResult.loading || postsResult.loading || peopleResult.loading;
-  const error = communitiesResult.error ?? postsResult.error ?? peopleResult.error;
-
   useEffect(() => {
     // Фокус ставим вручную: на телефоне именно это поднимает клавиатуру.
     inputRef.current?.focus();
   }, []);
 
-  const normalized = query.trim().toLowerCase();
+  const normalized = query.trim();
 
-  const foundPeople = useMemo(() => {
-    if (!normalized) return [];
-    return people.filter((p) => p.username.toLowerCase().includes(normalized));
-  }, [people, normalized]);
+  /**
+   * Поиск на сервере, с задержкой в четверть секунды после набора.
+   *
+   * Прежде экран тянул `/posts?sort=new` (кеш ленты на сотню записей) и искал в
+   * нём подстроку — всё, что старше, не находилось вовсе. Теперь ищет база: по
+   * записям, людям и клубам. Задержка гасит запрос на каждый знак; поздний ответ
+   * на устаревший запрос отбрасываем, чтобы он не затёр свежую выдачу.
+   */
+  const [foundPeople, setFoundPeople] = useState<UserSummary[]>([]);
+  const [foundPosts, setFoundPosts] = useState<Post[]>([]);
+  const [foundCommunities, setFoundCommunities] = useState<Community[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const foundCommunities = useMemo(() => {
-    if (!normalized) return [];
-    return communities.filter(
-      (c) =>
-        c.name.toLowerCase().includes(normalized) ||
-        c.description?.toLowerCase().includes(normalized)
-    );
-  }, [communities, normalized]);
-
-  const foundPosts = useMemo(() => {
-    if (!normalized) return [];
-    return posts.filter(
-      (p) =>
-        p.title.toLowerCase().includes(normalized) ||
-        p.body?.toLowerCase().includes(normalized) ||
-        p.author.username.toLowerCase().includes(normalized)
-    );
-  }, [posts, normalized]);
+  useEffect(() => {
+    if (!normalized) {
+      setFoundPeople([]);
+      setFoundPosts([]);
+      setFoundCommunities([]);
+      setError(null);
+      setLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setLoading(true);
+    const timer = window.setTimeout(async () => {
+      const enc = encodeURIComponent(normalized);
+      try {
+        const [people, posts, communities] = await Promise.all([
+          apiFetch<UserSummary[]>(`/users?q=${enc}`),
+          apiFetch<Post[]>(`/posts?q=${enc}`),
+          apiFetch<Community[]>(`/communities?q=${enc}`),
+        ]);
+        if (cancelled) return;
+        setFoundPeople(people);
+        setFoundPosts(posts);
+        setFoundCommunities(communities);
+        setError(null);
+      } catch (e) {
+        if (!cancelled) setError(e instanceof Error ? e.message : 'Не удалось выполнить поиск');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }, 250);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [normalized]);
 
   const showPeople = (scope === 'all' || scope === 'people') && foundPeople.length > 0;
   const showCommunities = (scope === 'all' || scope === 'communities') && foundCommunities.length > 0;

@@ -8,7 +8,11 @@ const router = Router();
 requireUuidParams(router, 'id');
 
 router.get('/', optionalAuth, async (req, res) => {
-  const { data, error } = await supabase
+  // Поиск по клубам — на сервере (?q): по названию и описанию. Без запроса
+  // отдаём весь список, как раньше (вкладка «Клубы» листается целиком).
+  const rawQuery = typeof req.query.q === 'string' ? req.query.q.trim() : '';
+
+  let request = supabase
     .from('communities')
     .select(
       // Имя связи обязательно.
@@ -22,6 +26,15 @@ router.get('/', optionalAuth, async (req, res) => {
       '*, creator:users!communities_created_by_fkey(username)'
     )
     .order('created_at', { ascending: false });
+
+  if (rawQuery) {
+    // Экранируем спецсимволы ilike и вычищаем то, что рвёт разбор or() PostgREST.
+    const orSafe = rawQuery.replace(/[(),]/g, ' ');
+    const pattern = `%${orSafe.replace(/[%_\\]/g, '\\$&')}%`;
+    request = request.or(`name.ilike.${pattern},description.ilike.${pattern}`).limit(50);
+  }
+
+  const { data, error } = await request;
 
   if (error) {
     console.error('communities: request failed', error);

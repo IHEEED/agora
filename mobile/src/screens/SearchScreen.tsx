@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -53,9 +53,6 @@ export function SearchScreen() {
   const [history, setHistory] = useState<string[]>([]);
 
   useEffect(() => {
-    apiFetch<Person[]>('/users').then(setPeople).catch(() => {});
-    apiFetch<Post[]>('/posts?sort=new').then(setPosts).catch(() => {});
-    apiFetch<Community[]>('/communities').then(setCommunities).catch(() => {});
     AsyncStorage.getItem(HISTORY_KEY)
       .then((raw) => {
         try {
@@ -84,24 +81,36 @@ export function SearchScreen() {
 
   const removeFromHistory = (item: string) => writeHistory(history.filter((x) => x !== item));
 
-  const q = query.trim().toLowerCase();
-  const foundPeople = useMemo(() => (q ? people.filter((p) => p.username.toLowerCase().includes(q)) : []), [people, q]);
-  const foundCommunities = useMemo(
-    () => (q ? communities.filter((c) => c.name.toLowerCase().includes(q) || c.description?.toLowerCase().includes(q)) : []),
-    [communities, q]
-  );
-  const foundPosts = useMemo(
-    () =>
-      q
-        ? posts.filter(
-            (p) =>
-              p.title.toLowerCase().includes(q) ||
-              p.body?.toLowerCase().includes(q) ||
-              p.author.username.toLowerCase().includes(q)
-          )
-        : [],
-    [posts, q]
-  );
+  const q = query.trim();
+
+  /**
+   * Поиск на сервере, с задержкой в четверть секунды после набора.
+   *
+   * База ищет по всем записям, людям и клубам, а не по последней сотне,
+   * загруженной для ленты. Задержка гасит запрос на каждый знак: уходит только
+   * то, на чём человек остановился. Ответ на устаревший запрос отбрасываем —
+   * иначе поздний ответ на короткое слово затрёт выдачу по длинному.
+   */
+  useEffect(() => {
+    if (!q) {
+      setPeople([]);
+      setPosts([]);
+      setCommunities([]);
+      return;
+    }
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      const enc = encodeURIComponent(q);
+      apiFetch<Person[]>(`/users?q=${enc}`).then((r) => { if (!cancelled) setPeople(r); }).catch(() => {});
+      apiFetch<Post[]>(`/posts?q=${enc}`).then((r) => { if (!cancelled) setPosts(r); }).catch(() => {});
+      apiFetch<Community[]>(`/communities?q=${enc}`).then((r) => { if (!cancelled) setCommunities(r); }).catch(() => {});
+    }, 250);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [q]);
+
+  const foundPeople = people;
+  const foundCommunities = communities;
+  const foundPosts = posts;
 
   const showPeople = (scope === 'all' || scope === 'people') && foundPeople.length > 0;
   const showCommunities = (scope === 'all' || scope === 'communities') && foundCommunities.length > 0;
