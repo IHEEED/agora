@@ -11,6 +11,7 @@ import { format } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { apiFetch } from '../lib/api';
 import { uploadImage } from '../lib/uploadImage';
+import { compressForUpload } from '../lib/compressImage';
 import { useSession } from '../lib/useSession';
 import { Message, UserProfile } from '../lib/types';
 import { Avatar } from '../components/Avatar';
@@ -171,12 +172,14 @@ export function ChatScreen() {
   async function sendImage() {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) return;
-    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.7, base64: true });
-    if (result.canceled || !result.assets[0]?.base64) return;
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 1 });
+    if (result.canceled || !result.assets[0]?.uri) return;
     setSending(true);
     try {
       const asset = result.assets[0];
-      const url = await uploadImage(asset.base64!, asset.mimeType ?? 'image/jpeg', 'messages');
+      // Жмём перед отправкой (см. compressForUpload).
+      const c = await compressForUpload(asset.uri, { width: asset.width, height: asset.height });
+      const url = await uploadImage(c.base64, c.mime, 'messages');
       const created = await apiFetch<Message>('/messages', {
         method: 'POST',
         body: JSON.stringify({ recipient_id: userId, image_url: url }),

@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import * as ImagePicker from 'expo-image-picker';
+import { compressForUpload } from '../lib/compressImage';
 import { useFocusEffect } from '@react-navigation/native';
 import { apiFetch } from '../lib/api';
 import { StoryGroup } from '../lib/types';
@@ -42,14 +43,15 @@ export function StoriesBar() {
     if (!perm.granted) return;
     const res = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
-      quality: 0.8,
-      base64: true,
+      quality: 1,
       // Нативный кроп вместо вебового MediaEditor: история — вертикальный кадр.
       allowsEditing: true,
     });
     const asset = res.canceled ? null : res.assets[0];
-    if (asset?.base64) {
-      setEditing({ uri: asset.uri, base64: asset.base64, mime: asset.mimeType ?? 'image/jpeg' });
+    if (asset?.uri) {
+      // Жмём сразу после кадрирования: в редактор и в Storage уедет лёгкий кадр.
+      const c = await compressForUpload(asset.uri, { width: asset.width, height: asset.height });
+      setEditing({ uri: c.uri, base64: c.base64, mime: c.mime });
     }
   }
 

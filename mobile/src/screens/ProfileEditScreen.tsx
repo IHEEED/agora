@@ -6,6 +6,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { apiFetch } from '../lib/api';
 import { uploadImage } from '../lib/uploadImage';
+import { compressForUpload } from '../lib/compressImage';
 import { useSession } from '../lib/useSession';
 import { UserProfile } from '../lib/types';
 import { Avatar } from '../components/Avatar';
@@ -61,16 +62,17 @@ export function ProfileEditScreen({ navigation }: Props) {
       mediaTypes: ['images'],
       allowsEditing: true,
       aspect: kind === 'avatar' ? [1, 1] : [16, 9],
-      quality: 0.7,
-      base64: true,
+      quality: 1,
     });
-    if (result.canceled || !result.assets[0]?.base64) return;
+    if (result.canceled || !result.assets[0]?.uri) return;
 
     setError(null);
     setBusy(kind);
     try {
       const asset = result.assets[0];
-      const url = await uploadImage(asset.base64!, asset.mimeType ?? 'image/jpeg', kind === 'avatar' ? 'avatars' : 'covers');
+      // Жмём после кадрирования, перед отправкой (см. compressForUpload).
+      const c = await compressForUpload(asset.uri, { width: asset.width, height: asset.height });
+      const url = await uploadImage(c.base64, c.mime, kind === 'avatar' ? 'avatars' : 'covers');
       if (kind === 'avatar') setAvatarUrl(url);
       else setCoverUrl(url);
     } catch (err) {

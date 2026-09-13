@@ -5,6 +5,7 @@ import * as ImagePicker from 'expo-image-picker';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { apiFetch } from '../lib/api';
 import { uploadImage } from '../lib/uploadImage';
+import { compressForUpload } from '../lib/compressImage';
 import { useSession } from '../lib/useSession';
 import { Community, Post } from '../lib/types';
 import { Avatar } from '../components/Avatar';
@@ -90,14 +91,19 @@ export function CreatePostScreen({ navigation, route }: Props) {
     const perm = fromCamera ? await ImagePicker.requestCameraPermissionsAsync() : await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) { setError('Нет доступа — разрешите в настройках телефона.'); return; }
     const result = fromCamera
-      ? await ImagePicker.launchCameraAsync({ quality: 0.7, base64: true })
-      : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.7, base64: true, allowsMultipleSelection: true, selectionLimit: 4 });
+      ? await ImagePicker.launchCameraAsync({ quality: 1 })
+      : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 1, allowsMultipleSelection: true, selectionLimit: 4 });
     if (result.canceled) return;
     setUploading(true);
     setError(null);
     try {
+      // Жмём каждый кадр перед отправкой (см. compressForUpload): без этого
+      // снимки уезжали в исходном разрешении на несколько мегабайт.
       const urls = await Promise.all(
-        result.assets.filter((a) => a.base64).map((a) => uploadImage(a.base64!, a.mimeType ?? 'image/jpeg', 'posts'))
+        result.assets.map(async (a) => {
+          const c = await compressForUpload(a.uri, { width: a.width, height: a.height });
+          return uploadImage(c.base64, c.mime, 'posts');
+        })
       );
       setImages((prev) => [...prev, ...urls].slice(0, 4));
     } catch (err) {

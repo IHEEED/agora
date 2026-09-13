@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { apiFetch } from '@/lib/api';
 import { invalidate, useApiData } from '@/lib/useApiData';
 import { MediaEditor } from '@/components/MediaEditor';
+import { compressImage } from '@/lib/compressImage';
 import { BottomSheet } from '@/components/BottomSheet';
 import { useScreenExit } from '@/lib/screenExit';
 import { markGoingBack } from '@/lib/navDirection';
@@ -371,12 +372,15 @@ function CreatePost() {
     await Promise.all(
       files.map(async (file, position) => {
         const shot = added[position];
-        const extension = file.name.split('.').pop() ?? 'bin';
+        // Жмём до отправки: без кадрирования снимок уезжал оригиналом на
+        // несколько мегабайт. Если сжатие не помогло, вернётся тот же файл.
+        const upload = await compressImage(file);
+        const extension = upload.type.split('/')[1]?.split('+')[0] || file.name.split('.').pop() || 'bin';
         const path = `${session?.user.id ?? 'anon'}/${shot.key}.${extension}`;
 
         const { error: uploadError } = await supabase.storage
           .from(MEDIA_BUCKET)
-          .upload(path, file, { cacheControl: '3600', upsert: false });
+          .upload(path, upload, { cacheControl: '3600', upsert: false });
 
         if (uploadError) {
           // Убираем только упавший снимок, остальные продолжают ехать: одна
