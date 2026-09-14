@@ -494,6 +494,53 @@ router.get('/verified', async (_req, res) => {
   res.json(data);
 });
 
+/**
+ * Журнал модерации — все действия подряд, свежие сверху.
+ *
+ * Долговечная память раздела. Жалобы удаляются каскадом вместе с контентом, на
+ * который жаловались (см. reports: post_id/comment_id … on delete cascade), и
+ * потому «Разобранные» теряют разобранное, как только запись удалили. Действия
+ * же остаются: target_user_id и report_id гасятся в null, но кто, что и когда
+ * сделал, видно всегда. Отдельно от истории по человеку — тут вся сеть, а не
+ * один профиль. Курсором по времени, как очередь жалоб.
+ */
+type ActionRow = {
+  id: string;
+  action: string;
+  reason: string | null;
+  banned_until: string | null;
+  created_at: string;
+  moderator: { id: string; username: string } | null;
+  target: { id: string; username: string } | null;
+};
+
+router.get('/actions', async (req, res) => {
+  const before = typeof req.query.before === 'string' ? req.query.before : null;
+
+  let builder = supabase
+    .from('moderation_actions')
+    .select(
+      'id, action, reason, banned_until, created_at,' +
+        ' moderator:users!moderation_actions_moderator_id_fkey (id, username),' +
+        ' target:users!moderation_actions_target_user_id_fkey (id, username)'
+    )
+    .order('created_at', { ascending: false })
+    .limit(PAGE);
+  if (before) builder = builder.lt('created_at', before);
+
+  const { data, error } = await builder.returns<ActionRow[]>();
+
+  if (error) {
+    console.error('moderation: actions log failed', error);
+    return res.status(500).json({ error: 'Не удалось загрузить журнал' });
+  }
+
+  res.json({
+    actions: data,
+    nextCursor: data.length === PAGE ? data[data.length - 1].created_at : null,
+  });
+});
+
 /** История по человеку: за что его уже наказывали. */
 router.get('/users/:id/history', async (req, res) => {
   const { data, error } = await supabase

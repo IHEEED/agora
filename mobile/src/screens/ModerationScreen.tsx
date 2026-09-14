@@ -10,7 +10,7 @@ import { useT } from '../lib/i18n';
 import { usePalette } from '../theme';
 import type { RootStackParamList } from '../navigation/types';
 
-type Status = 'open' | 'resolved' | 'dismissed';
+type Status = 'open' | 'resolved' | 'dismissed' | 'log';
 type Palette = ReturnType<typeof usePalette>;
 
 type Report = {
@@ -23,6 +23,31 @@ type Report = {
   author: { id: string; username: string; verified_at: string | null; banned_until: string | null } | null;
 };
 
+/** Строка журнала: одно действие модератора, каким оно осталось в логе. */
+type ModAction = {
+  id: string;
+  action: string;
+  reason: string | null;
+  banned_until: string | null;
+  created_at: string;
+  moderator: { id: string; username: string } | null;
+  target: { id: string; username: string } | null;
+};
+
+const ACTION_LABEL: Record<string, string> = {
+  ban: 'Бан', unban: 'Бан снят', delete_post: 'Запись удалена', delete_comment: 'Комментарий удалён',
+  dismiss: 'Жалоба отклонена', warn: 'Предупреждение', verify: 'Галочка выдана', unverify: 'Галочка снята',
+};
+
+/** Как показать срок бана: вечный отдельно, прочие — датой окончания. */
+function banTerm(until: string | null): string | null {
+  if (!until) return null;
+  if (until.startsWith('infinity')) return 'навсегда';
+  const date = new Date(until);
+  if (Number.isNaN(date.getTime())) return null;
+  return `до ${date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })}`;
+}
+
 const REASON: Record<string, string> = {
   spam: 'Спам', abuse: 'Оскорбления', false: 'Ложь', violence: 'Насилие',
   impersonation: 'Выдаёт себя за другого', threats: 'Угрозы', other: 'Прочее',
@@ -32,7 +57,7 @@ const DURATIONS = [
   { key: 'day', label: 'Сутки' }, { key: 'week', label: 'Неделя' }, { key: 'month', label: 'Месяц' }, { key: 'forever', label: 'Навсегда' },
 ];
 const TABS: { key: Status; label: string }[] = [
-  { key: 'open', label: 'В очереди' }, { key: 'resolved', label: 'Разобранные' }, { key: 'dismissed', label: 'Отклонённые' },
+  { key: 'open', label: 'В очереди' }, { key: 'resolved', label: 'Разобранные' }, { key: 'dismissed', label: 'Отклонённые' }, { key: 'log', label: 'Журнал' },
 ];
 
 /**
@@ -50,10 +75,21 @@ export function ModerationScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [status, setStatus] = useState<Status>('open');
   const [reports, setReports] = useState<Report[]>([]);
+  const [actions, setActions] = useState<ModAction[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const isLog = status === 'log';
+  const items: (Report | ModAction)[] = isLog ? actions : reports;
 
   const load = useCallback(() => {
     setLoading(true);
+    if (status === 'log') {
+      apiFetch<{ actions: ModAction[] }>('/moderation/actions')
+        .then((data) => setActions(data.actions ?? []))
+        .catch(() => {})
+        .finally(() => setLoading(false));
+      return;
+    }
     apiFetch<{ reports: Report[] }>(`/moderation/reports?status=${status}`)
       .then((data) => setReports(data.reports ?? []))
       .catch(() => {})
@@ -73,8 +109,8 @@ export function ModerationScreen() {
         style={{ flex: 1 }}
         contentContainerStyle={{ paddingTop: topInset, paddingHorizontal: 16, gap: 12, paddingBottom: insets.bottom + 40 }}
         scrollIndicatorInsets={{ top: topInset }}
-        data={reports}
-        keyExtractor={(r) => r.id}
+        data={items}
+        keyExtractor={(item) => item.id}
         ListHeaderComponent={
           <View style={{ gap: 14, marginBottom: 4 }}>
             <Text style={{ fontFamily: palette.displayFamily, fontSize: 30, color: palette.text }}>
@@ -96,13 +132,17 @@ export function ModerationScreen() {
         ListEmptyComponent={
           !loading ? (
             <Text style={{ paddingHorizontal: 4, color: palette.textMuted }}>
-              {tr(status === 'open' ? 'Очередь пуста — разбирать нечего.' : 'Здесь пока пусто.')}
+              {tr(isLog ? 'В журнале пока пусто — действий модерации ещё не было.' : status === 'open' ? 'Очередь пуста — разбирать нечего.' : 'Здесь пока пусто.')}
             </Text>
           ) : null
         }
-        renderItem={({ item }) => (
-          <ReportCard palette={palette} report={item} active={status === 'open'} onDone={() => remove(item.id)} onUser={(id) => navigation.navigate('User', { userId: id })} />
-        )}
+        renderItem={({ item }) =>
+          'action' in item ? (
+            <ActionRow palette={palette} action={item} onUser={(id) => navigation.navigate('User', { userId: id })} />
+          ) : (
+            <ReportCard palette={palette} report={item} active={status === 'open'} onDone={() => remove(item.id)} onUser={(id) => navigation.navigate('User', { userId: id })} />
+          )
+        }
       />
     </View>
   );
@@ -191,6 +231,36 @@ function ReportCard({ palette, report, active, onDone, onUser }: { palette: Pale
           </View>
         )
       ) : null}
+    </View>
+  );
+}
+
+/** Одна строка журнала: что сделали, с кем и когда. */
+function ActionRow({ palette, action, onUser }: { palette: Palette; action: ModAction; onUser: (id: string) => void }) {
+  const { t: tr } = useT();
+  const label = ACTION_LABEL[action.action] ?? action.action;
+  const term = action.action === 'ban' ? banTerm(action.banned_until) : null;
+  return (
+    <View style={{ borderRadius: 16, backgroundColor: palette.surface, padding: 16, gap: 8 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+        <View style={{ borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, backgroundColor: `${palette.accent}22` }}>
+          <Text style={{ fontSize: 12, fontWeight: '600', color: palette.accent }}>{tr(label)}</Text>
+        </View>
+        {term ? <Text style={{ fontSize: 12.5, color: palette.textMuted }}>· {term}</Text> : null}
+        <Text style={{ color: palette.textMuted }}>·</Text>
+        <Text style={{ fontSize: 12.5, color: palette.textMuted }}>{formatRelativeDate(action.created_at)}</Text>
+      </View>
+
+      <Text style={{ fontSize: 13.5, color: palette.text }}>
+        {action.target ? (
+          <Text onPress={() => onUser(action.target!.id)} style={{ color: palette.accent }}>{action.target.username}</Text>
+        ) : (
+          <Text style={{ color: palette.textMuted }}>{tr('цель не сохранилась')}</Text>
+        )}
+        {action.moderator ? <Text style={{ color: palette.textMuted }}> · {tr('модератор')} {action.moderator.username}</Text> : null}
+      </Text>
+
+      {action.reason ? <Text style={{ fontSize: 13, lineHeight: 19, color: palette.textMuted }}>{action.reason}</Text> : null}
     </View>
   );
 }

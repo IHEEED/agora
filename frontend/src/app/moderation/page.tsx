@@ -45,6 +45,29 @@ type Report = {
   author: Author | null;
 };
 
+/** Строка журнала: одно действие модератора, каким оно осталось в логе. */
+type ModAction = {
+  id: string;
+  action: string;
+  reason: string | null;
+  banned_until: string | null;
+  created_at: string;
+  moderator: { id: string; username: string } | null;
+  // Цель могла быть удалена позже — тогда null (on delete set null).
+  target: { id: string; username: string } | null;
+};
+
+const ACTION_LABEL: Record<string, string> = {
+  ban: 'Бан',
+  unban: 'Бан снят',
+  delete_post: 'Запись удалена',
+  delete_comment: 'Комментарий удалён',
+  dismiss: 'Жалоба отклонена',
+  warn: 'Предупреждение',
+  verify: 'Галочка выдана',
+  unverify: 'Галочка снята',
+};
+
 const REASON_LABEL: Record<string, string> = {
   spam: 'Спам',
   abuse: 'Оскорбления',
@@ -75,6 +98,54 @@ function when(iso: string): string {
   if (days === 0) return 'сегодня';
   if (days === 1) return 'вчера';
   return `${days} дн. назад`;
+}
+
+/** Как показать срок бана: вечный отдельно, прочие — датой окончания. */
+function banTerm(until: string | null): string | null {
+  if (!until) return null;
+  if (until === 'infinity' || until.startsWith('infinity')) return 'навсегда';
+  const date = new Date(until);
+  if (Number.isNaN(date.getTime())) return null;
+  return `до ${date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })}`;
+}
+
+/** Одна строка журнала: что сделали, с кем и когда. */
+function ActionRow({ action }: { action: ModAction }) {
+  const label = ACTION_LABEL[action.action] ?? action.action;
+  const term = action.action === 'ban' ? banTerm(action.banned_until) : null;
+  return (
+    <article className="glass flex flex-col gap-1.5 rounded-2xl p-4">
+      <header className="flex flex-wrap items-center gap-2 text-[12.5px] text-[var(--text-muted)]">
+        <span
+          className="rounded-full px-2.5 py-1 text-[12px] font-medium"
+          style={{ background: 'var(--accent-soft)', color: 'var(--accent)' }}
+        >
+          {label}
+        </span>
+        {term && <span>· {term}</span>}
+        <span>·</span>
+        <span>{when(action.created_at)}</span>
+      </header>
+
+      <p className="text-[13.5px] text-[var(--text)]">
+        {/* Цель могла быть удалена позже — тогда её имени в логе уже нет. */}
+        {action.target ? (
+          <Link href={`/u/${action.target.id}`} className="text-[var(--accent)]">
+            {action.target.username}
+          </Link>
+        ) : (
+          <span className="text-[var(--text-muted)]">— цель не сохранилась</span>
+        )}
+        {action.moderator && (
+          <span className="text-[var(--text-muted)]"> · модератор {action.moderator.username}</span>
+        )}
+      </p>
+
+      {action.reason && (
+        <p className="text-[13px] leading-relaxed text-[var(--text-muted)]">{action.reason}</p>
+      )}
+    </article>
+  );
 }
 
 /** Текст того, на что пожаловались. Пустой у жалобы на человека целиком. */
@@ -283,11 +354,17 @@ function ReportCard({ report, onDone }: { report: Report; onDone: () => void }) 
 
 export default function ModerationPage() {
   const { me, loading: meLoading } = useMe();
-  const [status, setStatus] = useState<'open' | 'resolved' | 'dismissed'>('open');
+  const [status, setStatus] = useState<'open' | 'resolved' | 'dismissed' | 'log'>('open');
 
-  const path = me?.isModerator ? `/moderation/reports?status=${status}` : null;
-  const { data, loading } = useApiData<{ reports: Report[] }>(path);
+  const isLog = status === 'log';
+  // Жалобы и журнал — разные источники; тянем тот, что соответствует вкладке.
+  const reportPath = me?.isModerator && !isLog ? `/moderation/reports?status=${status}` : null;
+  const logPath = me?.isModerator && isLog ? '/moderation/actions' : null;
+  const { data, loading: reportsLoading } = useApiData<{ reports: Report[] }>(reportPath);
+  const { data: logData, loading: logLoading } = useApiData<{ actions: ModAction[] }>(logPath);
   const reports = data?.reports ?? [];
+  const actions = logData?.actions ?? [];
+  const loading = isLog ? logLoading : reportsLoading;
 
   if (meLoading) return null;
 
@@ -310,6 +387,7 @@ export default function ModerationPage() {
     { key: 'open', label: 'В очереди' },
     { key: 'resolved', label: 'Разобранные' },
     { key: 'dismissed', label: 'Отклонённые' },
+    { key: 'log', label: 'Журнал' },
   ];
 
   return (
@@ -337,19 +415,25 @@ export default function ModerationPage() {
 
         {loading && <p className="text-[14px] text-[var(--text-muted)]">Загрузка…</p>}
 
-        {!loading && reports.length === 0 && (
+        {!loading && (isLog ? actions.length === 0 : reports.length === 0) && (
           <p className="text-[14px] text-[var(--text-muted)]">
-            {status === 'open' ? 'Очередь пуста — разбирать нечего.' : 'Здесь пока пусто.'}
+            {isLog
+              ? 'В журнале пока пусто — действий модерации ещё не было.'
+              : status === 'open'
+                ? 'Очередь пуста — разбирать нечего.'
+                : 'Здесь пока пусто.'}
           </p>
         )}
 
-        {reports.map((report) => (
-          <ReportCard
-            key={report.id}
-            report={report}
-            onDone={() => invalidate('/moderation')}
-          />
-        ))}
+        {isLog
+          ? actions.map((action) => <ActionRow key={action.id} action={action} />)
+          : reports.map((report) => (
+              <ReportCard
+                key={report.id}
+                report={report}
+                onDone={() => invalidate('/moderation')}
+              />
+            ))}
       </main>
     </div>
   );
