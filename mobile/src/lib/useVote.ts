@@ -37,7 +37,7 @@ export function useVote(
       } catch (err) {
         setMyVote(previousVote);
         setScore(previousScore);
-        setError(err instanceof Error ? err.message : 'Не удалось отменить голос');
+        setError(err instanceof Error ? err.message : 'Голос не отменился — попробуйте ещё раз');
       }
       return;
     }
@@ -54,7 +54,7 @@ export function useVote(
     } catch (err) {
       setMyVote(previousVote);
       setScore(previousScore);
-      setError(err instanceof Error ? err.message : 'Не удалось проголосовать');
+      setError(err instanceof Error ? err.message : 'Голос не засчитался — попробуйте ещё раз');
     }
   }
 

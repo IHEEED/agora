@@ -21,7 +21,7 @@ export function useSubscribe(communityId: string, initialSubscribed: boolean, in
     } catch (err) {
       setIsSubscribed(wasSubscribed);
       setSubscriberCount((c) => c + (nextSubscribed ? -1 : 1));
-      setError(err instanceof Error ? err.message : 'Не удалось обновить подписку');
+      setError(err instanceof Error ? err.message : 'Подписка не обновилась — попробуйте ещё раз');
     }
   }
 

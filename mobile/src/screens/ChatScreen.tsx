@@ -109,7 +109,7 @@ export function ChatScreen() {
   const load = useCallback(() => {
     apiFetch<Message[]>(`/messages/${userId}`)
       .then(setMessages)
-      .catch((err) => setError(err instanceof Error ? err.message : 'Не удалось загрузить'));
+      .catch((err) => setError(err instanceof Error ? err.message : 'Не получилось загрузить — попробуйте ещё раз'));
   }, [userId]);
 
   // Очистка переписки: удаляются только свои сообщения (как в вебе).
@@ -163,7 +163,7 @@ export function ChatScreen() {
       setMessages((prev) => [...prev, created]);
       setBody('');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Не удалось отправить');
+      setError(err instanceof Error ? err.message : 'Не вышло отправить — попробуйте ещё раз');
     } finally {
       setSending(false);
     }
@@ -186,7 +186,7 @@ export function ChatScreen() {
       });
       setMessages((prev) => [...prev, created]);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Не удалось отправить картинку');
+      setError(err instanceof Error ? err.message : 'Картинка не отправилась — попробуйте ещё раз');
     } finally {
       setSending(false);
     }
@@ -228,7 +228,7 @@ export function ChatScreen() {
       });
       setMessages((prev) => [...prev, created]);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Не удалось отправить голосовое');
+      setError(err instanceof Error ? err.message : 'Голосовое не отправилось — попробуйте ещё раз');
     } finally {
       setSending(false);
     }

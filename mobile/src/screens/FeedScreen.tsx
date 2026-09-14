@@ -68,7 +68,7 @@ export function FeedScreen() {
     const url = paginated ? `/posts?sort=${sort}&limit=${PAGE}` : `/posts?sort=${sort}`;
     apiFetch<FeedPage | Post[]>(url)
       .then((raw) => { const res = asPage(raw); setPosts(res.posts); setNextCursor(res.nextCursor); })
-      .catch((err) => setError(err instanceof Error ? err.message : 'Не удалось загрузить'))
+      .catch((err) => setError(err instanceof Error ? err.message : 'Не получилось загрузить — попробуйте ещё раз'))
       .finally(() => {
         setLoading(false);
         setRefreshing(false);

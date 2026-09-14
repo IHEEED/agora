@@ -48,7 +48,7 @@ export function MessagesScreen() {
             .catch(() => {});
         }
       })
-      .catch((err) => setError(err instanceof Error ? err.message : 'Не удалось загрузить'))
+      .catch((err) => setError(err instanceof Error ? err.message : 'Не получилось загрузить — попробуйте ещё раз'))
       .finally(() => setLoading(false));
   }, []);
 

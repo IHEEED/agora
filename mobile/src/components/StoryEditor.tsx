@@ -53,7 +53,7 @@ export function StoryEditor({
       reset();
       onCancel();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Не удалось опубликовать');
+      setError(err instanceof Error ? err.message : 'Не вышло опубликовать — попробуйте ещё раз');
       setBusy(false);
     }
   }

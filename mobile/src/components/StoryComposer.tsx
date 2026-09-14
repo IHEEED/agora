@@ -47,7 +47,7 @@ export function StoryComposer({ draft, onClose, onPublished }: { draft: StoryDra
       onPublished?.();
       setTimeout(onClose, 900);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Не удалось отправить');
+      setError(err instanceof Error ? err.message : 'Не вышло отправить — попробуйте ещё раз');
     } finally {
       setSending(false);
     }

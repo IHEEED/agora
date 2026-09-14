@@ -40,7 +40,7 @@ export async function compressForUpload(
 
   const ref = await context.renderAsync();
   const result = await ref.saveAsync({ compress: QUALITY, format: SaveFormat.JPEG, base64: true });
-  if (!result.base64) throw new Error('Не удалось подготовить изображение');
+  if (!result.base64) throw new Error('Не получилось подготовить изображение');
 
   return { uri: result.uri, base64: result.base64, mime: 'image/jpeg' };
 }

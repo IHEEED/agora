@@ -38,7 +38,7 @@ export function PeopleScreen({ route, navigation }: Props) {
   useEffect(() => {
     apiFetch<Person[]>(endpoint)
       .then(setPeople)
-      .catch((err) => setError(err instanceof Error ? err.message : 'Не удалось загрузить список'));
+      .catch((err) => setError(err instanceof Error ? err.message : 'Список не открылся — попробуйте ещё раз'));
   }, [endpoint]);
 
   return (

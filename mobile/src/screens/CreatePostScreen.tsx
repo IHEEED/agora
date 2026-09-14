@@ -81,7 +81,7 @@ export function CreatePostScreen({ navigation, route }: Props) {
       });
       navigation.goBack();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Не удалось опубликовать');
+      setError(err instanceof Error ? err.message : 'Не вышло опубликовать — попробуйте ещё раз');
     } finally {
       setSubmitting(false);
     }
@@ -107,7 +107,7 @@ export function CreatePostScreen({ navigation, route }: Props) {
       );
       setImages((prev) => [...prev, ...urls].slice(0, 4));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Не удалось загрузить картинку');
+      setError(err instanceof Error ? err.message : 'Картинка не загрузилась — попробуйте ещё раз');
     } finally {
       setUploading(false);
     }

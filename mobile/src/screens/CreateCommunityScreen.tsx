@@ -29,7 +29,7 @@ export function CreateCommunityScreen({ navigation }: Props) {
       });
       navigation.goBack();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Не удалось создать сообщество');
+      setError(err instanceof Error ? err.message : 'Клуб не создался — попробуйте ещё раз');
     } finally {
       setSubmitting(false);
     }

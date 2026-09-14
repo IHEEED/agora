@@ -76,7 +76,7 @@ export function ProfileEditScreen({ navigation }: Props) {
       if (kind === 'avatar') setAvatarUrl(url);
       else setCoverUrl(url);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Не удалось загрузить картинку');
+      setError(err instanceof Error ? err.message : 'Картинка не загрузилась — попробуйте ещё раз');
     } finally {
       setBusy(null);
     }
@@ -99,7 +99,7 @@ export function ProfileEditScreen({ navigation }: Props) {
 
       navigation.goBack();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Не удалось сохранить');
+      setError(err instanceof Error ? err.message : 'Не сохранилось — попробуйте ещё раз');
     } finally {
       setSaving(false);
     }

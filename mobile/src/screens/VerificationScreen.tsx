@@ -41,7 +41,7 @@ export function VerificationScreen() {
       setUsername('');
       load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Не удалось подтвердить');
+      setError(err instanceof Error ? err.message : 'Не вышло подтвердить — попробуйте ещё раз');
     } finally {
       setBusy(false);
     }

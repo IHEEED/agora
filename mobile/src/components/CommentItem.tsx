@@ -67,7 +67,7 @@ export function CommentItem({
       setReplying(false);
       onAdded();
     } catch (err) {
-      setReplyError(err instanceof Error ? err.message : 'Не удалось отправить ответ');
+      setReplyError(err instanceof Error ? err.message : 'Ответ не отправился — попробуйте ещё раз');
     } finally {
       setSubmitting(false);
     }

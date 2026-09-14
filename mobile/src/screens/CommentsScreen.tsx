@@ -41,7 +41,7 @@ export function CommentsScreen({ route }: Props) {
   const load = useCallback(() => {
     apiFetch<Comment[]>(`/comments/post/${postId}`)
       .then(setComments)
-      .catch((err) => setError(err instanceof Error ? err.message : 'Не удалось загрузить комментарии'))
+      .catch((err) => setError(err instanceof Error ? err.message : 'Комментарии не загрузились — попробуйте ещё раз'))
       .finally(() => setLoading(false));
   }, [postId]);
 
@@ -63,7 +63,7 @@ export function CommentsScreen({ route }: Props) {
       setComments((prev) => [{ ...created, replies: created.replies ?? [] }, ...prev]);
       setText('');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Не удалось отправить комментарий');
+      setError(err instanceof Error ? err.message : 'Комментарий не отправился — попробуйте ещё раз');
     } finally {
       setSending(false);
     }

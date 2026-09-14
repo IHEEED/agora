@@ -95,7 +95,7 @@ export async function cropImage(
   canvas.height = outHeight;
 
   const context = canvas.getContext('2d');
-  if (!context) throw new Error('Не удалось подготовить картинку');
+  if (!context) throw new Error('Не получилось подготовить картинку');
 
   // Сглаживание повыше: уменьшение вчетверо без него даёт ступеньки на
   // диагоналях, и снимок выглядит так, будто его пересняли с экрана.
@@ -121,7 +121,7 @@ export async function cropImage(
 
   return new Promise((resolve, reject) => {
     canvas.toBlob(
-      (blob) => (blob ? resolve(blob) : reject(new Error('Не удалось сохранить картинку'))),
+      (blob) => (blob ? resolve(blob) : reject(new Error('Не получилось сохранить картинку'))),
       'image/jpeg',
       QUALITY
     );
@@ -135,7 +135,7 @@ function loadImage(src: string): Promise<HTMLImageElement> {
     // — без этого canvas окажется «испорчен» и toBlob бросит.
     image.crossOrigin = 'anonymous';
     image.onload = () => resolve(image);
-    image.onerror = () => reject(new Error('Не удалось прочитать картинку'));
+    image.onerror = () => reject(new Error('Не получилось прочитать картинку'));
     image.src = src;
   });
 }

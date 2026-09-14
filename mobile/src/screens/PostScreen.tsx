@@ -80,7 +80,7 @@ export function PostScreen({ route }: Props) {
       setBody('');
       loadComments();
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : 'Не удалось отправить комментарий');
+      setFormError(err instanceof Error ? err.message : 'Комментарий не отправился — попробуйте ещё раз');
     } finally {
       setSubmitting(false);
     }
