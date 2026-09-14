@@ -7,7 +7,7 @@ import { BadInput, LIMITS, optionalHttpsUrl, optionalText, optionalUuid, require
 import { countView } from '../lib/views';
 import { limitPosts } from '../middleware/rateLimit';
 import { cached, forget } from '../config/cache';
-import { userEmbed } from '../config/schema';
+import { userEmbed, searchReady } from '../config/schema';
 
 /**
  * Строка записи в выдаче.
@@ -627,7 +627,14 @@ router.get('/', optionalAuth, async (req, res) => {
       .returns<{ id: string }[]>();
     const authorIds = (authors ?? []).map((a) => a.id);
 
-    const filters = [`title.ilike.${pattern}`, `body.ilike.${pattern}`];
+    // По содержимому — полнотекстом (индекс + морфология), когда колонка есть
+    // (миграция 031); иначе по-старому подстрокой. Имя автора в обоих случаях
+    // добавляем тем же or() по списку совпавших id.
+    const fts = orSafe.trim();
+    const filters =
+      searchReady() && fts
+        ? [`search_vector.wfts(russian).${fts}`]
+        : [`title.ilike.${pattern}`, `body.ilike.${pattern}`];
     if (authorIds.length) filters.push(`author_id.in.(${authorIds.join(',')})`);
 
     const { data, error } = await supabase

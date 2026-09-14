@@ -22,6 +22,7 @@ import { supabase } from './supabase';
 let hasAvatarColumn: boolean | null = null;
 let hasProfileColumns: boolean | null = null;
 let hasVerified: boolean | null = null;
+let hasSearchVector: boolean | null = null;
 
 /**
  * Есть ли users.avatar_url (миграция 015).
@@ -59,6 +60,22 @@ export async function probeSchema(): Promise<void> {
   if (!hasVerified) {
     console.warn('users.verified_at не найдена — галочки отключены. Выполните миграцию 024.');
   }
+
+  // Полнотекстовый поиск (031). Обе колонки — posts и communities — заводит
+  // одна миграция; спрашиваем одну как признак обеих.
+  const search = await supabase.from('posts').select('search_vector').limit(0);
+  hasSearchVector = !search.error;
+
+  if (!hasSearchVector) {
+    console.warn(
+      'posts.search_vector не найдена — поиск идёт подстрокой (ilike). Выполните миграцию 031 для полнотекстового поиска.'
+    );
+  }
+}
+
+/** Есть ли tsvector-колонки поиска из 031: тогда ищем по индексу, а не ilike. */
+export function searchReady(): boolean {
+  return hasSearchVector === true;
 }
 
 /** Есть ли колонки профиля из 022. Нужно роуту сохранения, а не только выдаче. */

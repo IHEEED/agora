@@ -3,6 +3,7 @@ import { supabase } from '../config/supabase';
 import { optionalAuth, requireAuth } from '../middleware/auth';
 import { requireUuidParams } from '../lib/uuid';
 import { LIMITS, optionalText, requiredText } from '../lib/validate';
+import { searchReady } from '../config/schema';
 
 const router = Router();
 requireUuidParams(router, 'id');
@@ -30,8 +31,14 @@ router.get('/', optionalAuth, async (req, res) => {
   if (rawQuery) {
     // Экранируем спецсимволы ilike и вычищаем то, что рвёт разбор or() PostgREST.
     const orSafe = rawQuery.replace(/[(),]/g, ' ');
-    const pattern = `%${orSafe.replace(/[%_\\]/g, '\\$&')}%`;
-    request = request.or(`name.ilike.${pattern},description.ilike.${pattern}`).limit(50);
+    const fts = orSafe.trim();
+    // Полнотекстом по индексу, когда колонка есть (миграция 031); иначе подстрокой.
+    if (searchReady() && fts) {
+      request = request.textSearch('search_vector', fts, { type: 'websearch', config: 'russian' }).limit(50);
+    } else {
+      const pattern = `%${orSafe.replace(/[%_\\]/g, '\\$&')}%`;
+      request = request.or(`name.ilike.${pattern},description.ilike.${pattern}`).limit(50);
+    }
   }
 
   const { data, error } = await request;
