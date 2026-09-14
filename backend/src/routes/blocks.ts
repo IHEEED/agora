@@ -27,7 +27,7 @@ router.get('/', requireAuth, async (req, res) => {
 
   if (error) {
     console.error('blocks: list failed', error);
-    return res.status(500).json({ error: 'Не удалось загрузить список' });
+    return res.status(500).json({ error: 'Список не открылся — попробуйте ещё раз' });
   }
 
   res.json(data);
@@ -38,7 +38,7 @@ router.post('/:userId', requireAuth, async (req, res) => {
   const target = req.params.userId;
 
   if (target === me) {
-    return res.status(400).json({ error: 'Нельзя заблокировать себя' });
+    return res.status(400).json({ error: 'Себя заблокировать не выйдет — вы и так с собой' });
   }
 
   const { error } = await supabase
@@ -48,10 +48,10 @@ router.post('/:userId', requireAuth, async (req, res) => {
   if (error) {
     // 23503 — нет такого пользователя. Это не сбой сервера, а промах клиента.
     if (error.code === '23503') {
-      return res.status(404).json({ error: 'Пользователь не найден' });
+      return res.status(404).json({ error: 'Такого человека нет' });
     }
     console.error('blocks: create failed', error);
-    return res.status(500).json({ error: 'Не удалось заблокировать' });
+    return res.status(500).json({ error: 'Не вышло заблокировать — попробуйте ещё раз' });
   }
 
   // Подписки в обе стороны рвёт триггер в базе, а не этот код: забыть его здесь
@@ -70,7 +70,7 @@ router.delete('/:userId', requireAuth, async (req, res) => {
 
   if (error) {
     console.error('blocks: delete failed', error);
-    return res.status(500).json({ error: 'Не удалось разблокировать' });
+    return res.status(500).json({ error: 'Не вышло разблокировать — попробуйте ещё раз' });
   }
 
   // Подписки назад не возвращаются: разблокировать — это перестать прятать, а

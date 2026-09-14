@@ -383,7 +383,7 @@ router.post('/', requireAuth, requireNotBanned, requirePhoneVerified, limitPosts
   // Подписать сообществом пост, который в нём не лежит, нельзя.
   const community = community_id || null;
   if (!community && post_as_community) {
-    return res.status(400).json({ error: 'Личный пост нельзя подписать сообществом' });
+    return res.status(400).json({ error: 'Личную запись нельзя приписать клубу' });
   }
 
   const { data, error } = await supabase
@@ -422,7 +422,7 @@ router.post('/', requireAuth, requireNotBanned, requirePhoneVerified, limitPosts
     // Нет такого клуба или записи, которую продолжают. Это промах запроса, а не
     // сбой сервера, и «попробуйте ещё раз» здесь не поможет.
     if (error.code === '23503') {
-      return res.status(404).json({ error: 'Клуб или продолжаемая запись не найдены' });
+      return res.status(404).json({ error: 'Клуб или запись не нашлись' });
     }
     if (error.code === 'P0001') {
       return res.status(400).json({ error: error.message });
@@ -471,7 +471,7 @@ router.post('/:id/poll-vote', requireAuth, async (req, res) => {
 
   if (error) {
     console.error('posts: poll vote failed', error);
-    return res.status(500).json({ error: 'Не удалось учесть голос' });
+    return res.status(500).json({ error: 'Голос не засчитался — попробуйте ещё раз' });
   }
 
   res.status(204).send();
@@ -489,7 +489,7 @@ router.delete('/:id/poll-vote', requireAuth, async (req, res) => {
 
   if (error) {
     console.error('posts: poll vote removal failed', error);
-    return res.status(500).json({ error: 'Не удалось убрать голос' });
+    return res.status(500).json({ error: 'Голос не убрался, попробуйте снова' });
   }
 
   res.status(204).send();
@@ -501,9 +501,9 @@ router.post('/:id/repost', requireAuth, async (req, res) => {
     .upsert({ post_id: req.params.id, user_id: req.user!.id }, { onConflict: 'user_id,post_id' });
 
   if (error) {
-    if (error.code === '23503') return res.status(404).json({ error: 'Запись не найдена' });
+    if (error.code === '23503') return res.status(404).json({ error: 'Такой записи больше нет' });
     console.error('posts: repost failed', error);
-    return res.status(500).json({ error: 'Не удалось сделать репост' });
+    return res.status(500).json({ error: 'Репост не получился — попробуйте ещё раз' });
   }
 
   res.status(204).send();
@@ -518,7 +518,7 @@ router.delete('/:id/repost', requireAuth, async (req, res) => {
 
   if (error) {
     console.error('posts: repost removal failed', error);
-    return res.status(500).json({ error: 'Не удалось убрать репост' });
+    return res.status(500).json({ error: 'Репост не убрался, попробуйте снова' });
   }
 
   res.status(204).send();
@@ -592,7 +592,7 @@ router.post('/:id/view', async (req, res) => {
     }
 
     console.error('posts: failed to record view', error);
-    return res.status(500).json({ error: 'Не удалось учесть просмотр' });
+    return res.status(500).json({ error: 'Просмотр не засчитался' });
   }
 
   res.status(204).send();
@@ -640,7 +640,7 @@ router.get('/', optionalAuth, async (req, res) => {
 
     if (error) {
       console.error('posts: search failed', error);
-      return res.status(500).json({ error: 'Не удалось выполнить поиск, попробуйте ещё раз' });
+      return res.status(500).json({ error: 'Поиск не сработал — попробуйте ещё раз' });
     }
 
     const hiddenSearch = await hiddenUserIds(req.user?.id);
@@ -816,7 +816,7 @@ router.get('/:id', optionalAuth, async (req, res) => {
     .eq('id', id)
     .single<PostRow>();
 
-  if (error) return res.status(404).json({ error: 'post not found' });
+  if (error) return res.status(404).json({ error: 'Такой записи больше нет' });
 
   // Тем же путём, что и списки: страница поста показывает те же счётчики,
   // и собирать их здесь по-своему — верный способ снова разойтись.
@@ -836,9 +836,9 @@ router.delete('/:id', requireAuth, async (req, res) => {
 
   const { data, error } = await supabase.from('posts').select('author_id').eq('id', id).single();
 
-  if (error || !data) return res.status(404).json({ error: 'Запись не найдена' });
+  if (error || !data) return res.status(404).json({ error: 'Такой записи больше нет' });
   if (data.author_id !== req.user!.id) {
-    return res.status(403).json({ error: 'Удалить можно только свою запись' });
+    return res.status(403).json({ error: 'Удалять можно только свои записи' });
   }
 
   const { error: deleteError } = await supabase.from('posts').delete().eq('id', id);
@@ -848,7 +848,7 @@ router.delete('/:id', requireAuth, async (req, res) => {
 
   if (deleteError) {
     console.error('posts: delete failed', deleteError);
-    return res.status(500).json({ error: 'Не удалось удалить запись' });
+    return res.status(500).json({ error: 'Запись не удалилась — попробуйте ещё раз' });
   }
 
   res.status(204).send();

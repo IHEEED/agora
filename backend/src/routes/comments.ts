@@ -120,7 +120,7 @@ router.post('/', requireAuth, requireNotBanned, requirePhoneVerified, limitComme
   const author_id = req.user!.id;
 
   const { data: post } = await supabase.from('posts').select('author_id').eq('id', post_id).maybeSingle();
-  if (!post) return res.status(404).json({ error: 'Запись не найдена' });
+  if (!post) return res.status(404).json({ error: 'Такой записи больше нет' });
 
   let parentAuthor: string | null = null;
   if (parent_comment_id) {
@@ -236,7 +236,7 @@ router.delete('/:id', requireAuth, async (req, res) => {
     .eq('id', req.params.id)
     .maybeSingle();
   if (!comment || comment.author_id !== me) {
-    return res.status(404).json({ error: 'Комментарий не найден' });
+    return res.status(404).json({ error: 'Такого комментария больше нет' });
   }
 
   const { count, error: countError } = await supabase
@@ -245,14 +245,14 @@ router.delete('/:id', requireAuth, async (req, res) => {
     .eq('parent_comment_id', comment.id);
   if (countError) {
     console.error('comments: reply count failed', countError);
-    return res.status(500).json({ error: 'Не удалось удалить комментарий' });
+    return res.status(500).json({ error: 'Комментарий не удалился — попробуйте ещё раз' });
   }
 
   if (!count) {
     const { error } = await supabase.from('comments').delete().eq('id', comment.id);
     if (error) {
       console.error('comments: delete failed', error);
-      return res.status(500).json({ error: 'Не удалось удалить комментарий' });
+      return res.status(500).json({ error: 'Комментарий не удалился — попробуйте ещё раз' });
     }
     return res.status(204).send();
   }
@@ -263,10 +263,10 @@ router.delete('/:id', requireAuth, async (req, res) => {
     .eq('id', comment.id);
   if (error) {
     if (columnMissing(error)) {
-      return res.status(503).json({ error: 'Комментарий с ответами можно удалить после миграции 030' });
+      return res.status(503).json({ error: 'Комментарий с ответами пока нельзя удалить' });
     }
     console.error('comments: soft delete failed', error);
-    return res.status(500).json({ error: 'Не удалось удалить комментарий' });
+    return res.status(500).json({ error: 'Комментарий не удалился — попробуйте ещё раз' });
   }
 
   res.status(204).send();
@@ -292,12 +292,12 @@ router.patch('/:id', requireAuth, requireNotBanned, limitComments, async (req, r
 
   if (error) {
     if (columnMissing(error)) {
-      return res.status(503).json({ error: 'Правка комментариев включится после миграции 030' });
+      return res.status(503).json({ error: 'Правка комментариев пока недоступна' });
     }
     console.error('comments: edit failed', error);
-    return res.status(500).json({ error: 'Не удалось сохранить правку' });
+    return res.status(500).json({ error: 'Правка не сохранилась — попробуйте ещё раз' });
   }
-  if (!data.length) return res.status(404).json({ error: 'Комментарий не найден' });
+  if (!data.length) return res.status(404).json({ error: 'Такого комментария больше нет' });
 
   res.json(data[0]);
 });

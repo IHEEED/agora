@@ -142,7 +142,7 @@ router.get('/reports', async (req, res) => {
 
   if (error) {
     console.error('moderation: queue failed', error);
-    return res.status(500).json({ error: 'Не удалось загрузить очередь' });
+    return res.status(500).json({ error: 'Очередь не открылась — попробуйте ещё раз' });
   }
 
   res.json({
@@ -160,7 +160,7 @@ router.get('/summary', async (_req, res) => {
 
   if (error) {
     console.error('moderation: summary failed', error);
-    return res.status(500).json({ error: 'Не удалось посчитать жалобы' });
+    return res.status(500).json({ error: 'Не вышло посчитать жалобы' });
   }
 
   res.json({ open: count ?? 0 });
@@ -201,11 +201,11 @@ router.post('/ban', async (req, res) => {
 
   const until = bannedUntil(duration);
   if (!targetId || !until) {
-    return res.status(400).json({ error: 'Нужны пользователь и срок' });
+    return res.status(400).json({ error: 'Нужны и человек, и срок' });
   }
 
   if (targetId === moderator) {
-    return res.status(400).json({ error: 'Нельзя забанить себя' });
+    return res.status(400).json({ error: 'Себя забанить нельзя' });
   }
 
   // Модератора не банит другой модератор: разбирайтесь между собой, а роль
@@ -218,13 +218,13 @@ router.post('/ban', async (req, res) => {
 
   if (lookupError) {
     console.error('moderation: ban lookup failed', lookupError);
-    return res.status(500).json({ error: 'Не удалось забанить' });
+    return res.status(500).json({ error: 'Не вышло забанить — попробуйте ещё раз' });
   }
   if (!target) {
-    return res.status(404).json({ error: 'Пользователь не найден' });
+    return res.status(404).json({ error: 'Такого человека нет' });
   }
   if (target.role !== 'user' && req.user!.role !== 'admin') {
-    return res.status(403).json({ error: 'Модератора банит только админ' });
+    return res.status(403).json({ error: 'Модератора может забанить только админ' });
   }
 
   const { error } = await supabase
@@ -242,7 +242,7 @@ router.post('/ban', async (req, res) => {
 
   if (error) {
     console.error('moderation: ban failed', error);
-    return res.status(500).json({ error: 'Не удалось забанить' });
+    return res.status(500).json({ error: 'Не вышло забанить — попробуйте ещё раз' });
   }
 
   invalidateUserState(targetId);
@@ -262,7 +262,7 @@ router.post('/unban', async (req, res) => {
   const moderator = req.user!.id;
   const targetId = String(req.body?.userId ?? '');
 
-  if (!targetId) return res.status(400).json({ error: 'Нужен пользователь' });
+  if (!targetId) return res.status(400).json({ error: 'Нужно выбрать человека' });
 
   const { error } = await supabase
     .from('users')
@@ -271,7 +271,7 @@ router.post('/unban', async (req, res) => {
 
   if (error) {
     console.error('moderation: unban failed', error);
-    return res.status(500).json({ error: 'Не удалось снять бан' });
+    return res.status(500).json({ error: 'Не вышло снять бан — попробуйте ещё раз' });
   }
 
   invalidateUserState(targetId);
@@ -302,11 +302,11 @@ router.post('/reports/:id/close', async (req, res) => {
 
   if (error) {
     console.error('moderation: close failed', error);
-    return res.status(500).json({ error: 'Не удалось закрыть жалобу' });
+    return res.status(500).json({ error: 'Не вышло закрыть жалобу — попробуйте ещё раз' });
   }
 
   if (!data.length) {
-    return res.status(409).json({ error: 'Жалоба уже разобрана' });
+    return res.status(409).json({ error: 'Эту жалобу уже разобрали' });
   }
 
   if (dismissed) {
@@ -333,9 +333,9 @@ router.post('/reports/:id/delete-target', async (req, res) => {
 
   if (readError) {
     console.error('moderation: target read failed', readError);
-    return res.status(500).json({ error: 'Не удалось прочитать жалобу' });
+    return res.status(500).json({ error: 'Не вышло открыть жалобу' });
   }
-  if (!report) return res.status(404).json({ error: 'Жалоба не найдена' });
+  if (!report) return res.status(404).json({ error: 'Жалоба не нашлась' });
 
   const [table, id, action] = report.post_id
     ? (['posts', report.post_id, 'delete_post'] as const)
@@ -353,7 +353,7 @@ router.post('/reports/:id/delete-target', async (req, res) => {
 
   if (error) {
     console.error('moderation: delete failed', error);
-    return res.status(500).json({ error: 'Не удалось удалить' });
+    return res.status(500).json({ error: 'Не вышло удалить — попробуйте ещё раз' });
   }
 
   await log({ moderator_id: moderator, report_id: report.id, action });
@@ -394,14 +394,14 @@ router.post('/verify', async (req, res) => {
 
     if (error) {
       console.error('moderation: username lookup failed', error);
-      return res.status(500).json({ error: 'Не удалось найти человека' });
+      return res.status(500).json({ error: 'Не получилось найти человека' });
     }
     if (!data) return res.status(404).json({ error: 'Такого ника нет' });
 
     targetId = data.id;
   }
 
-  if (!targetId) return res.status(400).json({ error: 'Нужен ник или пользователь' });
+  if (!targetId) return res.status(400).json({ error: 'Нужен ник или человек' });
 
   const { error } = await supabase
     .from('users')
@@ -414,7 +414,7 @@ router.post('/verify', async (req, res) => {
 
   if (error) {
     console.error('moderation: verify failed', error);
-    return res.status(500).json({ error: 'Не удалось изменить статус' });
+    return res.status(500).json({ error: 'Статус не поменялся — попробуйте ещё раз' });
   }
 
   await log({
@@ -488,7 +488,7 @@ router.get('/verified', async (_req, res) => {
 
   if (error) {
     console.error('moderation: verified list failed', error);
-    return res.status(500).json({ error: 'Не удалось загрузить список' });
+    return res.status(500).json({ error: 'Список не открылся — попробуйте ещё раз' });
   }
 
   res.json(data);
@@ -532,7 +532,7 @@ router.get('/actions', async (req, res) => {
 
   if (error) {
     console.error('moderation: actions log failed', error);
-    return res.status(500).json({ error: 'Не удалось загрузить журнал' });
+    return res.status(500).json({ error: 'Журнал не открылся — попробуйте ещё раз' });
   }
 
   res.json({
@@ -552,7 +552,7 @@ router.get('/users/:id/history', async (req, res) => {
 
   if (error) {
     console.error('moderation: history failed', error);
-    return res.status(500).json({ error: 'Не удалось загрузить историю' });
+    return res.status(500).json({ error: 'История не открылась — попробуйте ещё раз' });
   }
 
   res.json(data);

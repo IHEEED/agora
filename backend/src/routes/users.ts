@@ -53,7 +53,7 @@ router.get('/suggestions', optionalAuth, async (req, res) => {
 
   if (error) {
     console.error('users: suggestions failed', error);
-    return res.status(500).json({ error: 'Не удалось загрузить рекомендации' });
+    return res.status(500).json({ error: 'Рекомендации не подгрузились — попробуйте ещё раз' });
   }
 
   const following = await followingIds(me);
@@ -86,7 +86,7 @@ router.get('/me', requireAuth, async (req, res) => {
 
   if (error || !data) {
     console.error('users: me read failed', error);
-    return res.status(500).json({ error: 'Не удалось прочитать профиль' });
+    return res.status(500).json({ error: 'Профиль не открылся — попробуйте ещё раз' });
   }
 
   const banned = isBanned(data.banned_until);
@@ -115,7 +115,7 @@ router.get('/me', requireAuth, async (req, res) => {
  */
 router.patch('/me/profile', requireAuth, async (req, res) => {
   if (!profileColumnsReady()) {
-    return res.status(503).json({ error: 'Профиль ещё не переехал на сервер (миграция 022)' });
+    return res.status(503).json({ error: 'Профиль пока недоступен, загляните позже' });
   }
 
   const patch: Record<string, unknown> = {};
@@ -149,7 +149,7 @@ router.patch('/me/profile', requireAuth, async (req, res) => {
 
   if (error) {
     console.error('users: profile update failed', error);
-    return res.status(500).json({ error: 'Не удалось сохранить профиль' });
+    return res.status(500).json({ error: 'Профиль не сохранился — попробуйте ещё раз' });
   }
 
   res.status(204).send();
@@ -180,7 +180,7 @@ router.patch('/me/username', requireAuth, async (req, res) => {
 
   if (readError || !me) {
     console.error('users: username read failed', readError);
-    return res.status(500).json({ error: 'Не удалось прочитать профиль' });
+    return res.status(500).json({ error: 'Профиль не открылся — попробуйте ещё раз' });
   }
 
   if (me.username === username) {
@@ -206,10 +206,10 @@ router.patch('/me/username', requireAuth, async (req, res) => {
   if (error) {
     // 23505 — нарушение уникальности: ник уже занят кем-то другим.
     if (error.code === '23505') {
-      return res.status(409).json({ error: 'Это имя уже занято' });
+      return res.status(409).json({ error: 'Имя увели раньше вас — придумайте похитрее' });
     }
     console.error('users: username update failed', error);
-    return res.status(500).json({ error: 'Не удалось изменить имя' });
+    return res.status(500).json({ error: 'Имя не поменялось — попробуйте ещё раз' });
   }
 
   res.status(204).send();
@@ -218,7 +218,7 @@ router.patch('/me/username', requireAuth, async (req, res) => {
 router.post('/:id/follow', requireAuth, async (req, res) => {
   const { id } = req.params;
   if (id === req.user!.id) {
-    return res.status(400).json({ error: 'Нельзя подписаться на себя' });
+    return res.status(400).json({ error: 'На себя подписаться нельзя — вы и так с собой навсегда' });
   }
 
   // Блокировка рвёт подписки в обе стороны (триггер в базе), но только в момент
@@ -233,9 +233,9 @@ router.post('/:id/follow', requireAuth, async (req, res) => {
     .upsert({ follower_id: req.user!.id, following_id: id }, { onConflict: 'follower_id,following_id' });
 
   if (error) {
-    if (error.code === '23503') return res.status(404).json({ error: 'Пользователь не найден' });
+    if (error.code === '23503') return res.status(404).json({ error: 'Такого человека нет' });
     console.error('users: follow failed', error);
-    return res.status(500).json({ error: 'Не удалось подписаться' });
+    return res.status(500).json({ error: 'Не вышло подписаться — попробуйте ещё раз' });
   }
 
   res.status(204).send();
@@ -252,7 +252,7 @@ router.delete('/:id/follow', requireAuth, async (req, res) => {
 
   if (error) {
     console.error('users: unfollow failed', error);
-    return res.status(500).json({ error: 'Не удалось отписаться' });
+    return res.status(500).json({ error: 'Не вышло отписаться — попробуйте ещё раз' });
   }
 
   res.status(204).send();
@@ -323,7 +323,7 @@ router.get('/:id', optionalAuth, async (req, res) => {
   ]);
 
   if (profile.error || !profile.data) {
-    return res.status(404).json({ error: 'Профиль не найден' });
+    return res.status(404).json({ error: 'Профиль не нашёлся' });
   }
 
   res.json({
@@ -351,7 +351,7 @@ async function followList(
 
   if (error) {
     console.error(`users: ${direction} lookup failed`, error);
-    return res.status(500).json({ error: 'Не удалось загрузить список' });
+    return res.status(500).json({ error: 'Список не открылся — попробуйте ещё раз' });
   }
 
   const ids = data.map((row) => (row as Record<string, string>)[take]);
@@ -365,7 +365,7 @@ async function followList(
 
   if (peopleError) {
     console.error(`users: ${direction} profiles failed`, peopleError);
-    return res.status(500).json({ error: 'Не удалось загрузить список' });
+    return res.status(500).json({ error: 'Список не открылся — попробуйте ещё раз' });
   }
 
   const mine = await followingIds(me);

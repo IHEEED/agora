@@ -34,7 +34,7 @@ export function requireUuidParams(router: Router, ...names: string[]) {
   for (const name of names) {
     router.param(name, (_req, res, next, value) => {
       if (isUuid(value)) return next();
-      res.status(404).json({ error: 'Не найдено' });
+      res.status(404).json({ error: 'Не нашлось' });
     });
   }
 }

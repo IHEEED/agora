@@ -134,9 +134,9 @@ router.post('/:id/join', requireAuth, async (req, res) => {
     );
 
   if (error) {
-    if (error.code === '23503') return res.status(404).json({ error: 'Клуб не найден' });
+    if (error.code === '23503') return res.status(404).json({ error: 'Клуб не нашёлся' });
     console.error('communities: join failed', error);
-    return res.status(500).json({ error: 'Не удалось вступить' });
+    return res.status(500).json({ error: 'Не вышло вступить — попробуйте ещё раз' });
   }
 
   res.status(201).json({ ok: true });
@@ -151,7 +151,7 @@ router.delete('/:id/join', requireAuth, async (req, res) => {
 
   if (error) {
     console.error('communities: leave failed', error);
-    return res.status(500).json({ error: 'Не удалось выйти' });
+    return res.status(500).json({ error: 'Не вышло выйти — попробуйте ещё раз' });
   }
 
   res.json({ ok: true });

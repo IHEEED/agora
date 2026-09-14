@@ -122,13 +122,13 @@ export async function requireAuth(req: Request, res: Response, next: NextFunctio
   const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : undefined;
 
   if (!token) {
-    return res.status(401).json({ error: 'Missing bearer token' });
+    return res.status(401).json({ error: 'Войдите, чтобы продолжить' });
   }
 
   const { data, error } = await supabase.auth.getUser(token);
 
   if (error || !data.user) {
-    return res.status(401).json({ error: 'Invalid or expired token' });
+    return res.status(401).json({ error: 'Сессия устарела — войдите заново' });
   }
 
   const state = await userState(data.user.id);
@@ -181,7 +181,7 @@ export function requireModerator(req: Request, res: Response, next: NextFunction
   if (role !== 'moderator' && role !== 'admin') {
     // 404, а не 403: существование раздела модерации — не то, о чём стоит
     // сообщать тому, кто в него постучался наугад.
-    return res.status(404).json({ error: 'Not found' });
+    return res.status(404).json({ error: 'Не нашлось' });
   }
   next();
 }

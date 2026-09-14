@@ -6,7 +6,7 @@ import { optionalUuid } from '../lib/validate';
 
 const router = Router();
 
-const GENERIC_VOTE_ERROR = 'Не удалось сохранить голос, попробуйте ещё раз';
+const GENERIC_VOTE_ERROR = 'Голос не сохранился — попробуйте ещё раз';
 
 async function getTargetAuthor(postId?: string, commentId?: string) {
   const table = postId ? 'posts' : 'comments';
@@ -50,15 +50,15 @@ router.post('/', requireAuth, async (req, res) => {
   const user_id = req.user!.id;
 
   if (value !== 1 && value !== -1) {
-    return res.status(400).json({ error: 'value (1 or -1) is required' });
+    return res.status(400).json({ error: 'Некорректный голос' });
   }
   if ((!post_id && !comment_id) || (post_id && comment_id)) {
-    return res.status(400).json({ error: 'provide exactly one of post_id or comment_id' });
+    return res.status(400).json({ error: 'Нужна ровно одна цель голоса' });
   }
 
   const { data: target, error: targetError } = await getTargetAuthor(post_id, comment_id);
   if (targetError || !target) {
-    return res.status(404).json({ error: `${post_id ? 'post' : 'comment'} not found` });
+    return res.status(404).json({ error: post_id ? 'Такой записи больше нет' : 'Такого комментария больше нет' });
   }
 
   // Минус через блокировку — тот же разговор, от которого человек закрылся.
@@ -113,7 +113,7 @@ router.delete('/', requireAuth, async (req, res) => {
   const user_id = req.user!.id;
 
   if ((!post_id && !comment_id) || (post_id && comment_id)) {
-    return res.status(400).json({ error: 'exactly one of post_id or comment_id is required' });
+    return res.status(400).json({ error: 'Нужна ровно одна цель голоса' });
   }
 
   const { data: existing, error: existingError } = await findExistingVote(user_id, post_id, comment_id);
@@ -121,7 +121,7 @@ router.delete('/', requireAuth, async (req, res) => {
     console.error('votes: failed to look up existing vote', existingError);
     return res.status(500).json({ error: GENERIC_VOTE_ERROR });
   }
-  if (!existing) return res.status(404).json({ error: 'vote not found' });
+  if (!existing) return res.status(404).json({ error: 'Голос не нашёлся' });
 
   const { error: deleteError } = await supabase.from('votes').delete().eq('id', existing.id);
   if (deleteError) {

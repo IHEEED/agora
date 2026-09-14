@@ -50,7 +50,7 @@ router.get('/mine', requireAuth, async (req, res) => {
 
   if (readError) {
     console.error('invites: read failed', readError);
-    return res.status(500).json({ error: 'Не удалось загрузить приглашение' });
+    return res.status(500).json({ error: 'Приглашение не открылось — попробуйте ещё раз' });
   }
 
   if (existing) return res.json({ code: existing.code });
@@ -73,7 +73,7 @@ router.get('/mine', requireAuth, async (req, res) => {
 
   if (makeError) {
     console.error('invites: create failed', makeError);
-    return res.status(500).json({ error: 'Не удалось создать приглашение' });
+    return res.status(500).json({ error: 'Приглашение не создалось — попробуйте ещё раз' });
   }
 
   res.json({ code: made.code });
@@ -97,7 +97,7 @@ router.get('/:code', async (req, res) => {
 
   if (error) {
     console.error('invites: check failed', error);
-    return res.status(500).json({ error: 'Не удалось проверить код' });
+    return res.status(500).json({ error: 'Не вышло проверить код — попробуйте ещё раз' });
   }
 
   if (!data) return res.status(404).json({ valid: false, reason: 'UNKNOWN' });
@@ -136,12 +136,12 @@ router.post('/register', async (req, res) => {
   const password = String(req.body?.password ?? '');
   const username = String(req.body?.username ?? '').trim();
 
-  if (!code) return res.status(400).json({ error: 'Нужен код приглашения' });
+  if (!code) return res.status(400).json({ error: 'Без кода приглашения не пускаем' });
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
     return res.status(400).json({ error: 'Проверьте адрес почты' });
   }
   if (password.length < 8) {
-    return res.status(400).json({ error: 'Пароль от 8 знаков' });
+    return res.status(400).json({ error: 'Пароль — минимум 8 знаков' });
   }
   if (!USERNAME.test(username)) {
     return res.status(400).json({
@@ -157,14 +157,14 @@ router.post('/register', async (req, res) => {
 
   if (inviteError) {
     console.error('invites: register lookup failed', inviteError);
-    return res.status(500).json({ error: 'Не удалось проверить код' });
+    return res.status(500).json({ error: 'Не вышло проверить код — попробуйте ещё раз' });
   }
-  if (!invite) return res.status(404).json({ error: 'Такого кода нет' });
+  if (!invite) return res.status(404).json({ error: 'Такого кода не существует — вдруг опечатка?' });
   // Использованность больше не проверяем: с миграции 026 код многоразовый.
   // Ограничивает его только срок — и он же остаётся единственным способом
   // закрыть код, который разошёлся дальше, чем хотелось.
   if (new Date(invite.expires_at).getTime() < Date.now()) {
-    return res.status(410).json({ error: 'Срок кода истёк' });
+    return res.status(410).json({ error: 'Код уже просрочен — попросите новый' });
   }
 
   // Имя проверяем до создания учётной записи: чаще всего спотыкаются именно
@@ -175,7 +175,7 @@ router.post('/register', async (req, res) => {
     .eq('username', username)
     .maybeSingle();
 
-  if (taken) return res.status(409).json({ error: 'Это имя уже занято' });
+  if (taken) return res.status(409).json({ error: 'Имя увели раньше вас — придумайте похитрее' });
 
   const { data: created, error: createError } = await supabase.auth.admin.createUser({
     email,
@@ -187,10 +187,10 @@ router.post('/register', async (req, res) => {
 
   if (createError || !created.user) {
     if (createError?.message?.toLowerCase().includes('already')) {
-      return res.status(409).json({ error: 'Такая почта уже зарегистрирована' });
+      return res.status(409).json({ error: 'На эту почту уже есть аккаунт — попробуйте войти' });
     }
     console.error('invites: auth user creation failed', createError);
-    return res.status(500).json({ error: 'Не удалось создать аккаунт' });
+    return res.status(500).json({ error: 'Аккаунт не создался — попробуйте ещё раз' });
   }
 
   const userId = created.user.id;
@@ -225,15 +225,15 @@ router.post('/register', async (req, res) => {
       // что человеку надо сказать, что менять.
       const detail = `${profileError.message} ${profileError.details ?? ''}`;
       if (detail.includes('username')) {
-        return res.status(409).json({ error: 'Это имя уже занято' });
+        return res.status(409).json({ error: 'Имя увели раньше вас — придумайте похитрее' });
       }
       if (detail.includes('email')) {
-        return res.status(409).json({ error: 'Такая почта уже зарегистрирована' });
+        return res.status(409).json({ error: 'На эту почту уже есть аккаунт — попробуйте войти' });
       }
-      return res.status(409).json({ error: 'Такой аккаунт уже есть' });
+      return res.status(409).json({ error: 'На эту почту уже есть аккаунт — попробуйте войти' });
     }
     console.error('invites: profile creation failed', profileError);
-    return res.status(500).json({ error: 'Не удалось создать профиль' });
+    return res.status(500).json({ error: 'Профиль не создался — попробуйте ещё раз' });
   }
 
   /**

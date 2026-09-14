@@ -195,7 +195,7 @@ router.patch('/prefs/:peerId', requireAuth, async (req, res) => {
   const peerId = String(req.params.peerId);
 
   if (peerId === me) {
-    return res.status(400).json({ error: 'Переписки с собой не бывает' });
+    return res.status(400).json({ error: 'С собой не переписываются — для этого есть заметки' });
   }
 
   const patch: { pinned_at?: string | null; muted?: boolean } = {};
@@ -207,7 +207,7 @@ router.patch('/prefs/:peerId', requireAuth, async (req, res) => {
   if ('muted' in req.body) patch.muted = Boolean(req.body.muted);
 
   if (Object.keys(patch).length === 0) {
-    return res.status(400).json({ error: 'Нечего менять' });
+    return res.status(400).json({ error: 'Менять нечего' });
   }
 
   const { error } = await supabase
@@ -215,7 +215,7 @@ router.patch('/prefs/:peerId', requireAuth, async (req, res) => {
     .upsert({ owner_id: me, peer_id: peerId, ...patch }, { onConflict: 'owner_id,peer_id' });
 
   if (error) {
-    if (error.code === '23503') return res.status(404).json({ error: 'Собеседник не найден' });
+    if (error.code === '23503') return res.status(404).json({ error: 'Собеседник не нашёлся' });
     console.error('messages: prefs failed', error);
     return res.status(500).json({ error: describeError(error, 'Не удалось сохранить настройку') });
   }
@@ -237,7 +237,7 @@ router.delete('/thread/:peerId', requireAuth, async (req, res) => {
   // peerId уходит в текст фильтра удаления. Не UUID — попытка расширить область
   // удаления на чужие сообщения. Отказ, а не пустое удаление: удалять и молча
   // ничего не удалить — разные истории, и вторая скрывает атаку.
-  if (!isUuid(peerId)) return res.status(400).json({ error: 'Некорректный адрес' });
+  if (!isUuid(peerId)) return res.status(400).json({ error: 'Проверьте адрес' });
 
   const { error } = await supabase
     .from('messages')
@@ -282,12 +282,12 @@ router.post('/', requireAuth, requireNotBanned, requirePhoneVerified, limitMessa
     : null;
 
   if (!recipientId || recipientId === me) {
-    return res.status(400).json({ error: 'Некому отправлять' });
+    return res.status(400).json({ error: 'Отправлять некому' });
   }
   // Реплика может состоять из одного вложения: снимок без подписи — обычное
   // сообщение, а не пустое.
   if (!body && !imageUrl && !audioUrl) {
-    return res.status(400).json({ error: 'Пустое сообщение отправить нельзя' });
+    return res.status(400).json({ error: 'Пустоту не отправить — добавьте хоть словечко' });
   }
 
   /**
@@ -331,7 +331,7 @@ router.post('/', requireAuth, requireNotBanned, requirePhoneVerified, limitMessa
 
   if (error) {
     // Нет такого собеседника или сообщения, на которое отвечают.
-    if (error.code === '23503') return res.status(404).json({ error: 'Собеседник не найден' });
+    if (error.code === '23503') return res.status(404).json({ error: 'Собеседник не нашёлся' });
     console.error('messages: send failed', error);
     return res.status(500).json({ error: describeError(error, 'Не удалось отправить сообщение') });
   }
@@ -357,7 +357,7 @@ router.put('/:id/pin', requireAuth, async (req, res) => {
     .eq('id', id)
     .maybeSingle();
 
-  if (!message) return res.status(404).json({ error: 'Сообщение не найдено' });
+  if (!message) return res.status(404).json({ error: 'Такого сообщения больше нет' });
   if (message.sender_id !== me && message.recipient_id !== me) {
     return res.status(403).json({ error: 'Это не ваша переписка' });
   }
@@ -499,12 +499,12 @@ router.delete('/:id', requireAuth, async (req, res) => {
 
   if (error) {
     console.error('messages: delete failed', error);
-    return res.status(500).json({ error: 'Не удалось удалить сообщение' });
+    return res.status(500).json({ error: 'Сообщение не удалилось — попробуйте ещё раз' });
   }
 
   // Ни одной строки — значит сообщение чужое или его нет. Раньше и тогда
   // отвечали 204, и интерфейс убирал пузырь, который на сервере оставался.
-  if (!data.length) return res.status(404).json({ error: 'Сообщение не найдено' });
+  if (!data.length) return res.status(404).json({ error: 'Такого сообщения больше нет' });
 
   res.status(204).send();
 });
@@ -519,7 +519,7 @@ router.put('/:id/reaction', requireAuth, async (req, res) => {
   const emoji = typeof req.body?.emoji === 'string' ? req.body.emoji : '';
 
   if (!emoji.trim() || emoji.length > LIMITS.emoji) {
-    return res.status(400).json({ error: 'Реакция — это один знак' });
+    return res.status(400).json({ error: 'Реакция — это один значок, не больше' });
   }
 
   // Та же проверка участия, что у закрепа: реагировать может только тот, кто
@@ -531,7 +531,7 @@ router.put('/:id/reaction', requireAuth, async (req, res) => {
     .eq('id', id)
     .maybeSingle();
   if (!message || (message.sender_id !== me && message.recipient_id !== me)) {
-    return res.status(404).json({ error: 'Сообщение не найдено' });
+    return res.status(404).json({ error: 'Такого сообщения больше нет' });
   }
 
   const { data: current } = await supabase
@@ -606,7 +606,7 @@ router.post('/:userId/read', requireAuth, async (req, res) => {
 
   if (error) {
     console.error('messages: read failed', error);
-    return res.status(500).json({ error: 'Не удалось отметить прочитанным' });
+    return res.status(500).json({ error: 'Не вышло отметить прочитанным' });
   }
 
   res.status(204).send();

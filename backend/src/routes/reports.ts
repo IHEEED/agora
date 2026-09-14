@@ -45,14 +45,14 @@ router.post('/', requireAuth, requireNotBanned, limitReports, async (req, res) =
   );
 
   if (given.length !== 1) {
-    return res.status(400).json({ error: 'Нужна ровно одна цель жалобы' });
+    return res.status(400).json({ error: 'Выберите, на что жалуетесь' });
   }
 
   const column = TARGETS[given[0]];
   const targetId = String(req.body[given[0]]);
 
   if (column === 'target_user_id' && targetId === me) {
-    return res.status(400).json({ error: 'Нельзя пожаловаться на себя' });
+    return res.status(400).json({ error: 'Жаловаться на себя — это не к нам' });
   }
 
   // Подробности не обязательны, но если их прислали — обрезаем: поле читает
@@ -71,10 +71,10 @@ router.post('/', requireAuth, requireNotBanned, limitReports, async (req, res) =
       return res.status(200).json({ ok: true, alreadyReported: true });
     }
     if (error.code === '23503') {
-      return res.status(404).json({ error: 'Цель жалобы не найдена' });
+      return res.status(404).json({ error: 'То, на что пожаловались, уже удалено' });
     }
     console.error('reports: create failed', error);
-    return res.status(500).json({ error: 'Не удалось отправить жалобу' });
+    return res.status(500).json({ error: 'Жалоба не отправилась — попробуйте ещё раз' });
   }
 
   res.status(201).json({ ok: true });

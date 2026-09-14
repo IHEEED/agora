@@ -161,7 +161,7 @@ router.post('/', requireAuth, requireNotBanned, limitStories, async (req, res) =
   const author_id = req.user!.id;
 
   if (!post_id && !body && !image_url) {
-    return res.status(400).json({ error: 'Историю не из чего собрать' });
+    return res.status(400).json({ error: 'Историю не из чего собрать — добавьте фото' });
   }
 
   // Репостить в историю можно только свою запись. Чужая в кружке под твоим
@@ -172,7 +172,7 @@ router.post('/', requireAuth, requireNotBanned, limitStories, async (req, res) =
       .select('author_id')
       .eq('id', post_id)
       .single();
-    if (!post) return res.status(404).json({ error: 'Запись не найдена' });
+    if (!post) return res.status(404).json({ error: 'Такой записи больше нет' });
     if (post.author_id !== author_id) {
       return res.status(403).json({ error: 'В историю можно отправить только свою запись' });
     }
@@ -192,7 +192,7 @@ router.post('/', requireAuth, requireNotBanned, limitStories, async (req, res) =
 
   if (error) {
     if (isMissingTable(error)) {
-      return res.status(503).json({ error: 'Истории ещё не включены: нужна миграция 011' });
+      return res.status(503).json({ error: 'Истории пока недоступны' });
     }
     console.error('stories: create failed', error);
     return res.status(500).json({ error: error.message });
@@ -210,7 +210,7 @@ router.post('/:id/seen', requireAuth, async (req, res) => {
       { onConflict: 'story_id,viewer_id', ignoreDuplicates: true }
     );
 
-  if (error?.code === '23503') return res.status(404).json({ error: 'История не найдена' });
+  if (error?.code === '23503') return res.status(404).json({ error: 'Такой истории больше нет' });
   if (error && !isMissingTable(error)) {
     console.error('stories: seen failed', error);
     return res.status(500).json({ error: error.message });
@@ -229,11 +229,11 @@ router.delete('/:id', requireAuth, async (req, res) => {
 
   if (error) {
     console.error('stories: delete failed', error);
-    return res.status(500).json({ error: 'Не удалось удалить историю' });
+    return res.status(500).json({ error: 'История не удалилась — попробуйте ещё раз' });
   }
   // Ни одной строки — чужая или уже истекла. Отвечать «удалено» здесь значило
   // бы обещать то, чего не случилось.
-  if (!data.length) return res.status(404).json({ error: 'История не найдена' });
+  if (!data.length) return res.status(404).json({ error: 'Такой истории больше нет' });
   res.status(204).end();
 });
 
@@ -260,10 +260,10 @@ router.post('/:id/reaction', requireAuth, async (req, res) => {
     // Таблицы может ещё не быть (миграция 027). Стрелка — не тот повод, чтобы
     // ронять просмотр историй.
     if (/story_reactions/i.test(readError.message ?? '')) {
-      return res.status(503).json({ error: 'Реакции ещё не включены — нужна миграция 027' });
+      return res.status(503).json({ error: 'Реакции пока недоступны' });
     }
     console.error('stories: reaction read failed', readError);
-    return res.status(500).json({ error: 'Не удалось поставить отметку' });
+    return res.status(500).json({ error: 'Отметка не поставилась — попробуйте ещё раз' });
   }
 
   if (existing) {
@@ -274,7 +274,7 @@ router.post('/:id/reaction', requireAuth, async (req, res) => {
       .eq('user_id', me);
     if (error) {
       console.error('stories: reaction delete failed', error);
-      return res.status(500).json({ error: 'Не удалось снять отметку' });
+      return res.status(500).json({ error: 'Отметка не снялась — попробуйте ещё раз' });
     }
     return res.json({ reacted: false });
   }
@@ -284,9 +284,9 @@ router.post('/:id/reaction', requireAuth, async (req, res) => {
     .insert({ story_id: storyId, user_id: me });
 
   if (error) {
-    if (error.code === '23503') return res.status(404).json({ error: 'История не найдена' });
+    if (error.code === '23503') return res.status(404).json({ error: 'Такой истории больше нет' });
     console.error('stories: reaction insert failed', error);
-    return res.status(500).json({ error: 'Не удалось поставить отметку' });
+    return res.status(500).json({ error: 'Отметка не поставилась — попробуйте ещё раз' });
   }
 
   res.json({ reacted: true });

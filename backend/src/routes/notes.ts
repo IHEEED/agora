@@ -59,7 +59,7 @@ router.get('/', optionalAuth, async (req, res) => {
   if (error) {
     if (tableMissing(error)) return res.json([]);
     console.error('notes: request failed', error);
-    return res.status(500).json({ error: 'Не удалось загрузить' });
+    return res.status(500).json({ error: 'Не получилось загрузить — попробуйте ещё раз' });
   }
 
   res.json(data);
@@ -74,7 +74,7 @@ router.put('/', requireAuth, async (req, res) => {
     const { error } = await supabase.from('notes').delete().eq('author_id', me);
     if (error && !tableMissing(error)) {
       console.error('notes: clear failed', error);
-      return res.status(500).json({ error: 'Не удалось стереть' });
+      return res.status(500).json({ error: 'Не вышло стереть — попробуйте ещё раз' });
     }
     return res.json({ body: null });
   }
@@ -95,10 +95,10 @@ router.put('/', requireAuth, async (req, res) => {
 
   if (error) {
     if (tableMissing(error)) {
-      return res.status(503).json({ error: 'Облачка ещё не включены — нужна миграция 019' });
+      return res.status(503).json({ error: 'Облачка пока недоступны' });
     }
     console.error('notes: save failed', error);
-    return res.status(500).json({ error: 'Не удалось сохранить' });
+    return res.status(500).json({ error: 'Не сохранилось — попробуйте ещё раз' });
   }
 
   res.json({ body });

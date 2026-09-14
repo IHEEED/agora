@@ -93,7 +93,7 @@ router.get('/', requireAuth, async (req, res) => {
   if (error) {
     if (isMissingTable(error)) return res.json({ notifications: [], nextCursor: null });
     console.error('notifications: list failed', error);
-    return res.status(500).json({ error: 'Не удалось загрузить уведомления' });
+    return res.status(500).json({ error: 'Уведомления не открылись — попробуйте ещё раз' });
   }
 
   res.json({
@@ -126,7 +126,7 @@ router.post('/read', requireAuth, async (req, res) => {
   if (error) {
     if (isMissingTable(error)) return res.json({ ok: true });
     console.error('notifications: mark read failed', error);
-    return res.status(500).json({ error: 'Не удалось отметить прочитанным' });
+    return res.status(500).json({ error: 'Не вышло отметить прочитанным' });
   }
 
   res.json({ ok: true });
