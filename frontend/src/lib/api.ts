@@ -68,7 +68,7 @@ export async function apiFetch<T = unknown>(path: string, options: RequestInit =
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    throw new Error(humanError(body) || `Request failed with status ${res.status}`);
+    throw new Error(humanError(body) || 'Не удалось выполнить запрос, попробуйте ещё раз');
   }
 
   if (res.status === 204) {
