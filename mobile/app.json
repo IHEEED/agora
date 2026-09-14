@@ -36,7 +36,8 @@
           }
         }
       ],
-      "expo-audio"
+      "expo-audio",
+      "@sentry/react-native"
     ],
     "extra": {
       "eas": {
