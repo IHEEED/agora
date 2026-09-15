@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { FlatList, Image, Keyboard, Modal, Pressable, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, FlatList, Image, Keyboard, Modal, Pressable, Text, TextInput, View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
@@ -83,6 +83,10 @@ export function ChatScreen() {
   const [reacting, setReacting] = useState<{ id: string; x: number; y: number; mine: boolean } | null>(null);
   const [peerAvatar, setPeerAvatar] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  // Пересылка: выбранное сообщение и куда его отправить (список людей).
+  const [forwardMsg, setForwardMsg] = useState<Message | null>(null);
+  const [people, setPeople] = useState<{ id: string; username: string; avatar_url?: string | null }[]>([]);
+  const [forwardBusy, setForwardBusy] = useState<string | null>(null);
   const [playingId, setPlayingId] = useState<string | null>(null);
   const topInset = useTopBarInset();
   const insets = useSafeAreaInsets();
@@ -166,6 +170,48 @@ export function ChatScreen() {
       setError(err instanceof Error ? err.message : 'Не вышло отправить — попробуйте ещё раз');
     } finally {
       setSending(false);
+    }
+  }
+
+  // Открыть пересылку выбранного сообщения: закрываем реакции, тянем список людей.
+  function openForward(id: string) {
+    const msg = messages.find((m) => m.id === id) ?? null;
+    setReacting(null);
+    setForwardMsg(msg);
+    if (msg && people.length === 0) {
+      apiFetch<{ id: string; username: string; avatar_url?: string | null }[]>('/users')
+        .then(setPeople)
+        .catch(() => {});
+    }
+  }
+
+  // Переслать сообщение выбранному человеку. forwarded_from — автор оригинала
+  // (сохраняем исходного, даже если пересылаем уже пересланное).
+  async function forwardTo(recipientId: string) {
+    if (!forwardMsg || forwardBusy) return;
+    setForwardBusy(recipientId);
+    try {
+      const original = forwardMsg.forwardedFrom?.id ?? forwardMsg.sender_id;
+      const created = await apiFetch<Message>('/messages', {
+        method: 'POST',
+        body: JSON.stringify({
+          recipient_id: recipientId,
+          forwarded_from: original,
+          ...(forwardMsg.body ? { body: forwardMsg.body } : null),
+          ...(forwardMsg.image_url ? { image_url: forwardMsg.image_url } : null),
+          ...(forwardMsg.audio_url
+            ? { audio_url: forwardMsg.audio_url, audio_seconds: forwardMsg.audio_seconds ?? undefined }
+            : null),
+        }),
+      });
+      // Переслали в этот же чат — показываем сразу.
+      if (recipientId === userId) setMessages((prev) => [...prev, created]);
+      setForwardMsg(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Не вышло переслать — попробуйте ещё раз');
+      setForwardMsg(null);
+    } finally {
+      setForwardBusy(null);
     }
   }
 
@@ -318,8 +364,50 @@ export function ChatScreen() {
                   <ReactionGlyph emoji={emoji} size={24} color={palette.text} />
                 </Pressable>
               ))}
+              {/* Пересылка — тем же жестом, что и реакции. */}
+              <View style={{ width: 1, alignSelf: 'stretch', marginVertical: 6, backgroundColor: palette.border }} />
+              <Pressable onPress={() => reacting && openForward(reacting.id)} hitSlop={2} style={{ width: 38, height: 38, alignItems: 'center', justifyContent: 'center' }}>
+                <Svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke={palette.text} strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round">
+                  <Path d="M15 17l5-5-5-5" />
+                  <Path d="M4 18v-2a4 4 0 0 1 4-4h12" />
+                </Svg>
+              </Pressable>
             </Pressable>
           ) : null}
+        </Pressable>
+      </Modal>
+
+      {/* Кому переслать — лист снизу со списком людей. */}
+      <Modal visible={forwardMsg !== null} transparent animationType="fade" onRequestClose={() => setForwardMsg(null)}>
+        <Pressable onPress={() => setForwardMsg(null)} style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' }}>
+          <Pressable
+            onPress={(e) => e.stopPropagation()}
+            style={{ backgroundColor: palette.bg, borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingTop: 10, paddingBottom: insets.bottom + 16, maxHeight: '70%' }}
+          >
+            <View style={{ alignSelf: 'center', width: 40, height: 4, borderRadius: 2, backgroundColor: palette.border, marginBottom: 10 }} />
+            <Text style={{ textAlign: 'center', fontSize: 15, fontWeight: '600', color: palette.text, paddingBottom: 8 }}>{t('Переслать')}</Text>
+            <FlatList
+              data={people}
+              keyExtractor={(p) => p.id}
+              keyboardShouldPersistTaps="handled"
+              ListEmptyComponent={
+                <Text style={{ textAlign: 'center', color: palette.textMuted, paddingHorizontal: 24, paddingVertical: 20 }}>
+                  {t('Переслать пока некому — сначала найдите людей.')}
+                </Text>
+              }
+              renderItem={({ item }) => (
+                <Pressable
+                  onPress={() => forwardTo(item.id)}
+                  disabled={forwardBusy !== null}
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 20, paddingVertical: 10, opacity: forwardBusy && forwardBusy !== item.id ? 0.4 : 1 }}
+                >
+                  <Avatar name={item.username} uri={item.avatar_url} size={40} />
+                  <Text style={{ flex: 1, fontSize: 15, color: palette.text }}>{item.username}</Text>
+                  {forwardBusy === item.id ? <ActivityIndicator color={palette.textMuted} /> : null}
+                </Pressable>
+              )}
+            />
+          </Pressable>
         </Pressable>
       </Modal>
 
