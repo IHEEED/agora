@@ -182,9 +182,18 @@ const BAN_DURATIONS: Record<string, string> = {
 function bannedUntil(duration: string): string | null {
   if (duration === 'forever') return 'infinity';
   const interval = BAN_DURATIONS[duration];
-  if (!interval) return null;
-  const days = Number(interval.split(' ')[0]);
-  return new Date(Date.now() + days * 86_400_000).toISOString();
+  if (interval) {
+    const days = Number(interval.split(' ')[0]);
+    return new Date(Date.now() + days * 86_400_000).toISOString();
+  }
+  // Произвольный срок — число дней (1..3650, десять лет с запасом). Позволяет
+  // забанить, например, на три дня, а не только по пресетам.
+  const custom = Number(duration);
+  if (Number.isFinite(custom) && custom >= 1) {
+    const days = Math.min(3650, Math.floor(custom));
+    return new Date(Date.now() + days * 86_400_000).toISOString();
+  }
+  return null;
 }
 
 async function log(entry: Record<string, unknown>) {

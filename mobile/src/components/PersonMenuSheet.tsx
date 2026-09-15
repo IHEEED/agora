@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import * as Clipboard from 'expo-clipboard';
 import { apiFetch } from '../lib/api';
@@ -53,6 +53,7 @@ export function PersonMenuSheet({
   const isModerator = useIsModerator();
   const [step, setStep] = useState<Step>('menu');
   const [copied, setCopied] = useState(false);
+  const [banDays, setBanDays] = useState('');
 
   async function ban(duration: string) {
     close();
@@ -69,7 +70,7 @@ export function PersonMenuSheet({
   function close() {
     onClose();
     // Сброс шага после закрытия — со следующим открытием меню начинается заново.
-    setTimeout(() => { setStep('menu'); setCopied(false); }, 200);
+    setTimeout(() => { setStep('menu'); setCopied(false); setBanDays(''); }, 200);
   }
 
   async function copyLink() {
@@ -173,6 +174,24 @@ export function PersonMenuSheet({
                   <Text style={{ fontSize: 16, color: palette.down }}>{t(d.label)}</Text>
                 </Pressable>
               ))}
+              {/* Произвольный срок в днях. */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 20, paddingVertical: 12 }}>
+                <TextInput
+                  value={banDays}
+                  onChangeText={(v) => setBanDays(v.replace(/[^0-9]/g, ''))}
+                  keyboardType="number-pad"
+                  placeholder={t('дней')}
+                  placeholderTextColor={palette.textMuted}
+                  style={{ width: 90, borderWidth: 1, borderColor: palette.border, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 9, fontSize: 15, color: palette.text }}
+                />
+                <Pressable
+                  onPress={() => Number(banDays) >= 1 && ban(String(parseInt(banDays, 10)))}
+                  disabled={!(Number(banDays) >= 1)}
+                  style={{ borderRadius: 999, paddingHorizontal: 16, paddingVertical: 9, backgroundColor: `${palette.down}29`, opacity: Number(banDays) >= 1 ? 1 : 0.4 }}
+                >
+                  <Text style={{ fontSize: 14, fontWeight: '600', color: palette.down }}>{t('Забанить на срок')}</Text>
+                </Pressable>
+              </View>
             </>
           ) : null}
 

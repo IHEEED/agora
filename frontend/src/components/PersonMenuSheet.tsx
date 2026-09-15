@@ -71,6 +71,7 @@ export function PersonMenuSheet({
   const [step, setStep] = useState<Step>('menu');
   const [copied, setCopied] = useState(false);
   const [reportFailed, setReportFailed] = useState(false);
+  const [banDays, setBanDays] = useState('');
   const blocked = useIsBlocked(userId);
 
   const stackRef = useRef<HTMLDivElement>(null);
@@ -104,6 +105,7 @@ export function PersonMenuSheet({
       setStep('menu');
       setCopied(false);
       setReportFailed(false);
+      setBanDays('');
     }
   }
 
@@ -355,6 +357,28 @@ export function PersonMenuSheet({
                 {d.label}
               </button>
             ))}
+            {/* Произвольный срок в днях. */}
+            <div className="mt-1 flex items-center gap-2 px-1">
+              <input
+                type="number"
+                min={1}
+                max={3650}
+                inputMode="numeric"
+                value={banDays}
+                onChange={(e) => setBanDays(e.target.value)}
+                placeholder="дней"
+                className="w-24 rounded-lg border border-[var(--border)] bg-transparent px-3 py-2 text-[15px] text-[var(--text)] outline-none"
+              />
+              <button
+                type="button"
+                disabled={!(Number(banDays) >= 1)}
+                onClick={() => ban(String(Math.floor(Number(banDays))))}
+                className="rounded-full px-4 py-2 text-[14px] font-medium disabled:opacity-40"
+                style={{ background: 'color-mix(in srgb, var(--down) 16%, transparent)', color: 'var(--down)' }}
+              >
+                Забанить на срок
+              </button>
+            </div>
           </div>
         </div>
 
