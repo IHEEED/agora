@@ -1,6 +1,6 @@
 'use client';
 
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { holdBackdrop } from '@/lib/screenBackdrop';
 import { BottomSheet } from '@/components/BottomSheet';
@@ -88,6 +88,18 @@ export function PostMenuSheet({
   const [copied, setCopied] = useState(false);
   const [reportFailed, setReportFailed] = useState(false);
   const [banDays, setBanDays] = useState('');
+  const [targetBanned, setTargetBanned] = useState(false);
+
+  // Забанен ли автор — чтобы показать «Забанить» или «Разбанить». Спрашиваем
+  // только у модератора и только при открытии.
+  useEffect(() => {
+    if (!open || !isModerator || !authorId) return;
+    let cancelled = false;
+    apiFetch<{ banned: boolean }>(`/moderation/users/${authorId}/state`)
+      .then((r) => { if (!cancelled) setTargetBanned(r.banned); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [open, isModerator, authorId]);
 
   const stackRef = useRef<HTMLDivElement>(null);
   const stepRefs = useRef<Record<Step, HTMLDivElement | null>>({
@@ -290,18 +302,32 @@ export function PostMenuSheet({
       onSelect: modDelete,
     });
     if (authorId) {
-      items.push({
-        key: 'mod-ban',
-        label: 'Забанить автора',
-        icon: (
-          <>
-            <circle cx="12" cy="12" r="9" />
-            <path d="M5.6 5.6l12.8 12.8" />
-          </>
-        ),
-        danger: true,
-        onSelect: () => setStep('ban'),
-      });
+      items.push(
+        targetBanned
+          ? {
+              key: 'mod-unban',
+              label: 'Разбанить автора',
+              icon: (
+                <>
+                  <circle cx="12" cy="12" r="9" />
+                  <path d="m8.5 12 2.5 2.5 4.5-5" />
+                </>
+              ),
+              onSelect: unban,
+            }
+          : {
+              key: 'mod-ban',
+              label: 'Забанить автора',
+              icon: (
+                <>
+                  <circle cx="12" cy="12" r="9" />
+                  <path d="M5.6 5.6l12.8 12.8" />
+                </>
+              ),
+              danger: true,
+              onSelect: () => setStep('ban'),
+            }
+      );
     }
   }
 
@@ -391,15 +417,6 @@ export function PostMenuSheet({
           style={stepStyle('ban')}
         >
           <div className="flex flex-col py-1" style={padBottom}>
-            {/* Снять бан — если он был ошибочным. */}
-            <button
-              type="button"
-              onClick={unban}
-              className="rounded-xl px-1 py-3.5 text-left text-[15px] transition-colors hover:bg-[var(--surface-2)]"
-              style={{ color: 'var(--up)' }}
-            >
-              Снять бан
-            </button>
             {BAN_DURATIONS.map((d) => (
               <button
                 key={d.key}

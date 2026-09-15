@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Modal, Pressable, Text, TextInput, View } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import * as Clipboard from 'expo-clipboard';
@@ -61,8 +61,19 @@ export function PostMenuSheet({
   const [reporting, setReporting] = useState(false);
   const [banning, setBanning] = useState(false);
   const [banDays, setBanDays] = useState('');
+  const [targetBanned, setTargetBanned] = useState(false);
   const [done, setDone] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  // Забанен ли автор — «Забанить» или «Разбанить». Только у модератора.
+  useEffect(() => {
+    if (!open || !isModerator || !authorId) return;
+    let cancelled = false;
+    apiFetch<{ banned: boolean }>(`/moderation/users/${authorId}/state`)
+      .then((r) => { if (!cancelled) setTargetBanned(r.banned); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [open, isModerator, authorId]);
 
   function close() {
     setReporting(false);
@@ -148,10 +159,6 @@ export function PostMenuSheet({
               <Text style={{ paddingHorizontal: 20, paddingVertical: 10, fontSize: 13, color: palette.textMuted }}>
                 {t('На какой срок забанить автора?')}
               </Text>
-              {/* Снять бан — если он был ошибочным. */}
-              <Pressable onPress={unban} style={({ pressed }) => ({ paddingHorizontal: 20, paddingVertical: 15, backgroundColor: pressed ? palette.surface2 : 'transparent' })}>
-                <Text style={{ fontSize: 16, color: palette.up }}>{t('Снять бан')}</Text>
-              </Pressable>
               {BAN_DURATIONS.map((d) => (
                 <Item key={d.key} palette={palette} label={d.label} danger onPress={() => ban(d.key)} />
               ))}
@@ -212,10 +219,17 @@ export function PostMenuSheet({
                     <Path d="M10.5 11v5M13.5 11v5" />
                   </Item>
                   {authorId ? (
-                    <Item palette={palette} label="Забанить автора" danger onPress={() => setBanning(true)}>
-                      <Circle cx="12" cy="12" r="9" />
-                      <Path d="M5.6 5.6l12.8 12.8" />
-                    </Item>
+                    targetBanned ? (
+                      <Item palette={palette} label="Разбанить автора" onPress={unban}>
+                        <Circle cx="12" cy="12" r="9" />
+                        <Path d="m8.5 12 2.5 2.5 4.5-5" />
+                      </Item>
+                    ) : (
+                      <Item palette={palette} label="Забанить автора" danger onPress={() => setBanning(true)}>
+                        <Circle cx="12" cy="12" r="9" />
+                        <Path d="M5.6 5.6l12.8 12.8" />
+                      </Item>
+                    )
                   ) : null}
                 </>
               ) : null}

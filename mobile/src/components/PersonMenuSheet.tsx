@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import * as Clipboard from 'expo-clipboard';
@@ -54,6 +54,17 @@ export function PersonMenuSheet({
   const [step, setStep] = useState<Step>('menu');
   const [copied, setCopied] = useState(false);
   const [banDays, setBanDays] = useState('');
+  const [targetBanned, setTargetBanned] = useState(false);
+
+  // Забанен ли человек — «Забанить» или «Разбанить». Только у модератора.
+  useEffect(() => {
+    if (!open || !isModerator) return;
+    let cancelled = false;
+    apiFetch<{ banned: boolean }>(`/moderation/users/${userId}/state`)
+      .then((r) => { if (!cancelled) setTargetBanned(r.banned); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [open, isModerator, userId]);
 
   async function ban(duration: string) {
     close();
@@ -151,12 +162,19 @@ export function PersonMenuSheet({
                 <Path d="M5 4.5h.01" />
               </Item>
 
-              {/* Модератору — бан прямо из профиля/переписки. */}
+              {/* Модератору — бан/разбан прямо из профиля/переписки. */}
               {isModerator ? (
-                <Item palette={palette} label="Забанить" hint="Не сможет писать посты, комментарии и сообщения" danger onPress={() => setStep('ban')}>
-                  <Circle cx="12" cy="12" r="8.5" />
-                  <Path d="M5.6 5.6l12.8 12.8" />
-                </Item>
+                targetBanned ? (
+                  <Item palette={palette} label="Разбанить" hint="Снова сможет писать" onPress={() => { unban(); }}>
+                    <Circle cx="12" cy="12" r="8.5" />
+                    <Path d="m8.5 12 2.5 2.5 4.5-5" />
+                  </Item>
+                ) : (
+                  <Item palette={palette} label="Забанить" hint="Не сможет писать посты, комментарии и сообщения" danger onPress={() => setStep('ban')}>
+                    <Circle cx="12" cy="12" r="8.5" />
+                    <Path d="M5.6 5.6l12.8 12.8" />
+                  </Item>
+                )
               ) : null}
 
               {onClearChat ? (
@@ -178,10 +196,6 @@ export function PersonMenuSheet({
 
           {step === 'ban' ? (
             <>
-              {/* Снять бан — если он был ошибочным. */}
-              <Pressable onPress={unban} style={({ pressed }) => ({ paddingHorizontal: 20, paddingVertical: 15, backgroundColor: pressed ? palette.surface2 : 'transparent' })}>
-                <Text style={{ fontSize: 16, color: palette.up }}>{t('Снять бан')}</Text>
-              </Pressable>
               {BAN_DURATIONS.map((d) => (
                 <Pressable key={d.key} onPress={() => ban(d.key)} style={({ pressed }) => ({ paddingHorizontal: 20, paddingVertical: 15, backgroundColor: pressed ? palette.surface2 : 'transparent' })}>
                   <Text style={{ fontSize: 16, color: palette.down }}>{t(d.label)}</Text>
