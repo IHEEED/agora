@@ -31,6 +31,7 @@ const WEBHOOK_SECRET = TOKEN
 type Pending = {
   userId: string; // наш (Supabase) пользователь, начавший подтверждение
   status: 'pending' | 'done' | 'error';
+  message?: string; // текст ошибки для клиента (например «номер уже занят»)
   createdAt: number;
 };
 const byToken = new Map<string, Pending>();
@@ -68,13 +69,37 @@ router.post('/start', requireAuth, (req, res) => {
 });
 
 /** Опрос состояния заявки — приложение ждёт, пока человек поделится номером. */
-router.get('/status', requireAuth, (req, res) => {
+router.get('/status', requireAuth, async (req, res) => {
   const token = String(req.query.token ?? '');
   const rec = byToken.get(token);
-  // Чужой токен не показываем: заявка принадлежит тому, кто её начал.
-  if (!rec || rec.userId !== req.user!.id) return res.json({ status: 'expired' });
-  res.json({ status: rec.status });
+  // Чужой токен — не показываем: заявка принадлежит тому, кто её начал.
+  if (rec && rec.userId !== req.user!.id) return res.json({ status: 'expired' });
+  if (rec?.status === 'done') return res.json({ status: 'done' });
+  if (rec?.status === 'error') return res.json({ status: 'error', message: rec.message });
+
+  // Источник правды — реальное подтверждение в Supabase. Так статус переживает
+  // потерю in-memory заявки (рестарт/несколько инстансов Railway): даже если
+  // запись в памяти исчезла, подтверждённый номер вернёт 'done'.
+  const { data } = await supabase.auth.admin.getUserById(req.user!.id);
+  if (data.user?.phone_confirmed_at) return res.json({ status: 'done' });
+  return res.json({ status: rec ? 'pending' : 'expired' });
 });
+
+/**
+ * Не привязан ли этот номер уже к другому аккаунту.
+ *
+ * Один номер — один аккаунт: иначе с одного телефона плодят учётки. Малые
+ * объёмы, поэтому сканируем одну страницу списка; для тысяч пользователей
+ * понадобится индекс/RPC. На сбое чтения не блокируем — лучше пропустить, чем
+ * запереть человека из-за случайной ошибки.
+ */
+async function phoneTakenByOther(phone: string, selfId: string): Promise<boolean> {
+  const { data, error } = await supabase.auth.admin.listUsers({ page: 1, perPage: 1000 });
+  if (error) return false;
+  return data.users.some(
+    (u) => u.id !== selfId && String(u.phone ?? '').replace(/\D/g, '') === phone && Boolean(u.phone_confirmed_at)
+  );
+}
 
 /** Вебхук бота: сюда Telegram шлёт /start и присланный контакт. */
 router.post('/webhook', async (req, res) => {
@@ -135,9 +160,23 @@ router.post('/webhook', async (req, res) => {
     }
 
     const phone = String(contact.phone_number ?? '').replace(/\D/g, '');
+
+    // Один номер — один аккаунт.
+    if (await phoneTakenByOther(phone, rec.userId)) {
+      rec.status = 'error';
+      rec.message = 'Этот номер уже привязан к другому аккаунту.';
+      await tg('sendMessage', {
+        chat_id: chatId,
+        text: 'Этот номер уже привязан к другому аккаунту — им нельзя подтвердить второй.',
+        reply_markup: { remove_keyboard: true },
+      });
+      return res.status(200).end();
+    }
+
     const { error } = await supabase.auth.admin.updateUserById(rec.userId, { phone, phone_confirm: true });
     if (error) {
       rec.status = 'error';
+      rec.message = 'Не получилось подтвердить — попробуйте ещё раз.';
       console.error('telegram: updateUserById failed', error);
       await tg('sendMessage', {
         chat_id: chatId,

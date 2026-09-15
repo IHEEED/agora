@@ -55,7 +55,9 @@ export function PhoneVerifyModal({
       stopPoll();
       poll.current = window.setInterval(async () => {
         try {
-          const { status } = await apiFetch<{ status: string }>(`/telegram/status?token=${res.token}`);
+          const { status, message } = await apiFetch<{ status: string; message?: string }>(
+            `/telegram/status?token=${res.token}`
+          );
           if (status === 'done') {
             stopPoll();
             await supabase.auth.refreshSession();
@@ -63,7 +65,7 @@ export function PhoneVerifyModal({
           } else if (status === 'expired' || status === 'error') {
             stopPoll();
             setWaiting(false);
-            setError('Подтверждение не завершилось. Попробуйте ещё раз.');
+            setError(message || 'Подтверждение не завершилось. Попробуйте ещё раз.');
           }
         } catch {
           // Разрыв сети — просто ждём следующего тика.
