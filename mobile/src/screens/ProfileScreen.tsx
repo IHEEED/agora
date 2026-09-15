@@ -307,7 +307,21 @@ export function ProfileScreen() {
         </View>
       );
     }
-    const text = t(tab === 'posts' ? 'Постов пока нет.' : tab === 'comments' ? 'Комментариев пока нет.' : 'Репостов пока нет.');
+    // Свой профиль без записей — не тупик: зовём написать первую.
+    if (tab === 'posts') {
+      return (
+        <View style={{ alignItems: 'center', gap: 14, paddingHorizontal: 32, paddingTop: 32 }}>
+          <Text style={{ textAlign: 'center', fontSize: 14.5, color: palette.textMuted }}>{t('Постов пока нет.')}</Text>
+          <Pressable
+            onPress={() => rootNav()?.navigate('CreatePost', { communityId: '' })}
+            style={{ backgroundColor: palette.accent, borderRadius: 999, paddingHorizontal: 22, paddingVertical: 12 }}
+          >
+            <Text style={{ fontSize: 14, fontWeight: '600', color: palette.accentContrast }}>{t('Написать запись')}</Text>
+          </Pressable>
+        </View>
+      );
+    }
+    const text = t(tab === 'comments' ? 'Комментариев пока нет.' : 'Репостов пока нет.');
     return <Text style={{ paddingHorizontal: 16, color: palette.textMuted }}>{text}</Text>;
   };
 

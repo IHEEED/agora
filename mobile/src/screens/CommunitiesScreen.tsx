@@ -118,10 +118,16 @@ export function CommunitiesScreen() {
         }
         ListEmptyComponent={
           !loading && !error ? (
-            <View style={{ marginHorizontal: 6, borderRadius: 16, backgroundColor: palette.surface, padding: 24 }}>
+            <View style={{ marginHorizontal: 6, borderRadius: 16, backgroundColor: palette.surface, padding: 24, alignItems: 'center', gap: 14 }}>
               <Text style={{ color: palette.textMuted, textAlign: 'center' }}>
                 {query ? t('Ничего не нашлось.') : t('Клубов пока нет.')}
               </Text>
+              {/* Пустой список — не тупик: зовём создать первый клуб. */}
+              {!query && session ? (
+                <Pressable onPress={openCreate} style={{ backgroundColor: palette.accent, borderRadius: 999, paddingHorizontal: 20, paddingVertical: 10 }}>
+                  <Text style={{ fontSize: 14, fontWeight: '600', color: palette.accentContrast }}>{t('Создать первый клуб')}</Text>
+                </Pressable>
+              ) : null}
             </View>
           ) : null
         }

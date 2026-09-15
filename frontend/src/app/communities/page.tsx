@@ -92,7 +92,7 @@ export default function CommunitiesPage() {
       setDescription('');
       setShowForm(false);
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : 'Не удалось создать клуб');
+      setFormError(err instanceof Error ? err.message : 'Клуб не создался — попробуйте ещё раз');
     } finally {
       setSubmitting(false);
     }
@@ -338,9 +338,22 @@ export default function CommunitiesPage() {
         ))}
 
         {!loading && !error && visible.length === 0 && (
-          <p className="glass rounded-2xl p-6 text-center text-[var(--text-muted)]">
-            {normalized ? t('communities.nothing') : t('communities.empty')}
-          </p>
+          normalized ? (
+            <p className="glass rounded-2xl p-6 text-center text-[var(--text-muted)]">
+              {t('communities.nothing')}
+            </p>
+          ) : (
+            // Пустой список — не тупик: тут же зовём создать первый клуб.
+            <div className="glass flex flex-col items-center gap-3 rounded-2xl p-8 text-center">
+              <p className="text-[var(--text-muted)]">{t('communities.empty')}</p>
+              <button
+                onClick={() => setShowForm(true)}
+                className="rounded-full bg-[var(--accent)] px-5 py-2.5 text-[14px] font-medium text-[var(--accent-contrast)] transition-opacity hover:opacity-90"
+              >
+                {t('communities.createFirst')}
+              </button>
+            </div>
+          )
         )}
       </main>
 
