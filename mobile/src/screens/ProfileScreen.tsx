@@ -299,7 +299,7 @@ export function ProfileScreen() {
             {t('Чтобы публиковать посты и комментарии, подтвердите номер телефона.')}
           </Text>
           <Pressable
-            onPress={() => navigation.getParent<NativeStackNavigationProp<RootStackParamList>>()?.navigate('Settings')}
+            onPress={() => rootNav()?.navigate('SettingsSection', { section: 'account', title: t('Аккаунт') })}
             style={{ backgroundColor: palette.accent, borderRadius: 999, paddingHorizontal: 22, paddingVertical: 12 }}
           >
             <Text style={{ fontSize: 14, fontWeight: '600', color: palette.accentContrast }}>{t('Подтвердить телефон')}</Text>

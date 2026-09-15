@@ -11,6 +11,7 @@ import { setStylePreference, setThemePreference, StyleId, ThemePreference, useSt
 import { LocalToggle } from '../components/LocalToggle';
 import { SegmentedControl } from '../components/SegmentedControl';
 import { InvitesPanel } from '../components/InvitesPanel';
+import { PhoneVerifyModal } from '../components/PhoneVerifyModal';
 import { TopBar, useTopBarInset } from '../components/TopBar';
 import { ChevronIcon } from '../components/icons';
 import { SettingsSectionId } from '../lib/settingsSections';
@@ -77,6 +78,7 @@ export function SettingsSectionScreen({ route }: Props) {
   const glamUnlocked = bumps >= 3;
   const glamOn = stylePref === 'glam';
   const phoneVerified = Boolean((session?.user as { phone_confirmed_at?: string } | undefined)?.phone_confirmed_at);
+  const [verifyOpen, setVerifyOpen] = useState(false);
 
   if (section === 'appearance') {
     return (
@@ -142,11 +144,13 @@ export function SettingsSectionScreen({ route }: Props) {
             {phoneVerified ? (
               <Text style={{ fontSize: 13, fontWeight: '600', color: palette.up }}>{t('Готово')}</Text>
             ) : (
-              <Pill palette={palette} label="Подтвердить" onPress={() => {}} />
+              <Pill palette={palette} label="Подтвердить" onPress={() => setVerifyOpen(true)} />
             )}
           </Line>
           <InvitesPanel />
         </Card>
+
+        <PhoneVerifyModal open={verifyOpen} onClose={() => setVerifyOpen(false)} onVerified={() => setVerifyOpen(false)} />
 
         <Pressable
           onPress={() => supabase.auth.signOut()}
