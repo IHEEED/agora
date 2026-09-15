@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { ScreenTitle } from '@/components/ScreenTitle';
+import { ModeratorsPanel } from '@/components/ModeratorsPanel';
 import { BackTitle } from '@/components/BackTitle';
 import { apiFetch } from '@/lib/api';
 import { invalidate, useApiData } from '@/lib/useApiData';
@@ -354,11 +355,13 @@ function ReportCard({ report, onDone }: { report: Report; onDone: () => void }) 
 
 export default function ModerationPage() {
   const { me, loading: meLoading } = useMe();
-  const [status, setStatus] = useState<'open' | 'resolved' | 'dismissed' | 'log'>('open');
+  const [status, setStatus] = useState<'open' | 'resolved' | 'dismissed' | 'log' | 'mods'>('open');
 
   const isLog = status === 'log';
+  const isMods = status === 'mods';
+  const isReportTab = status === 'open' || status === 'resolved' || status === 'dismissed';
   // Жалобы и журнал — разные источники; тянем тот, что соответствует вкладке.
-  const reportPath = me?.isModerator && !isLog ? `/moderation/reports?status=${status}` : null;
+  const reportPath = me?.isModerator && isReportTab ? `/moderation/reports?status=${status}` : null;
   const logPath = me?.isModerator && isLog ? '/moderation/actions' : null;
   const { data, loading: reportsLoading } = useApiData<{ reports: Report[] }>(reportPath);
   const { data: logData, loading: logLoading } = useApiData<{ actions: ModAction[] }>(logPath);
@@ -388,6 +391,8 @@ export default function ModerationPage() {
     { key: 'resolved', label: 'Разобранные' },
     { key: 'dismissed', label: 'Отклонённые' },
     { key: 'log', label: 'Журнал' },
+    // Управление модераторами — только админам.
+    ...(me?.role === 'admin' ? [{ key: 'mods' as const, label: 'Модераторы' }] : []),
   ];
 
   return (
@@ -413,27 +418,33 @@ export default function ModerationPage() {
           ))}
         </div>
 
-        {loading && <p className="text-[14px] text-[var(--text-muted)]">Загрузка…</p>}
+        {isMods ? (
+          <ModeratorsPanel meId={me?.id} />
+        ) : (
+          <>
+            {loading && <p className="text-[14px] text-[var(--text-muted)]">Загрузка…</p>}
 
-        {!loading && (isLog ? actions.length === 0 : reports.length === 0) && (
-          <p className="text-[14px] text-[var(--text-muted)]">
+            {!loading && (isLog ? actions.length === 0 : reports.length === 0) && (
+              <p className="text-[14px] text-[var(--text-muted)]">
+                {isLog
+                  ? 'В журнале пока пусто — действий модерации ещё не было.'
+                  : status === 'open'
+                    ? 'Очередь пуста — разбирать нечего.'
+                    : 'Здесь пока пусто.'}
+              </p>
+            )}
+
             {isLog
-              ? 'В журнале пока пусто — действий модерации ещё не было.'
-              : status === 'open'
-                ? 'Очередь пуста — разбирать нечего.'
-                : 'Здесь пока пусто.'}
-          </p>
+              ? actions.map((action) => <ActionRow key={action.id} action={action} />)
+              : reports.map((report) => (
+                  <ReportCard
+                    key={report.id}
+                    report={report}
+                    onDone={() => invalidate('/moderation')}
+                  />
+                ))}
+          </>
         )}
-
-        {isLog
-          ? actions.map((action) => <ActionRow key={action.id} action={action} />)
-          : reports.map((report) => (
-              <ReportCard
-                key={report.id}
-                report={report}
-                onDone={() => invalidate('/moderation')}
-              />
-            ))}
       </main>
     </div>
   );

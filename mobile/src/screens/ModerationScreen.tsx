@@ -6,11 +6,13 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { apiFetch } from '../lib/api';
 import { formatRelativeDate } from '../lib/formatDate';
 import { TopBar, useTopBarInset } from '../components/TopBar';
+import { ModeratorsPanel } from '../components/ModeratorsPanel';
+import { useMe } from '../lib/useMe';
 import { useT } from '../lib/i18n';
 import { usePalette } from '../theme';
 import type { RootStackParamList } from '../navigation/types';
 
-type Status = 'open' | 'resolved' | 'dismissed' | 'log';
+type Status = 'open' | 'resolved' | 'dismissed' | 'log' | 'mods';
 type Palette = ReturnType<typeof usePalette>;
 
 type Report = {
@@ -73,15 +75,19 @@ export function ModerationScreen() {
   const insets = useSafeAreaInsets();
   const topInset = useTopBarInset();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const me = useMe();
   const [status, setStatus] = useState<Status>('open');
   const [reports, setReports] = useState<Report[]>([]);
   const [actions, setActions] = useState<ModAction[]>([]);
   const [loading, setLoading] = useState(true);
 
   const isLog = status === 'log';
-  const items: (Report | ModAction)[] = isLog ? actions : reports;
+  const isMods = status === 'mods';
+  const items: (Report | ModAction)[] = isMods ? [] : isLog ? actions : reports;
+  const tabs = me?.role === 'admin' ? [...TABS, { key: 'mods' as Status, label: 'Модераторы' }] : TABS;
 
   const load = useCallback(() => {
+    if (status === 'mods') { setLoading(false); return; }
     setLoading(true);
     if (status === 'log') {
       apiFetch<{ actions: ModAction[] }>('/moderation/actions')
@@ -116,8 +122,8 @@ export function ModerationScreen() {
             <Text style={{ fontFamily: palette.displayFamily, fontSize: 30, color: palette.text }}>
               {tr('Модерация')}<Text style={{ color: palette.accent }}>.</Text>
             </Text>
-            <View style={{ flexDirection: 'row', gap: 8 }}>
-              {TABS.map((t) => {
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+              {tabs.map((t) => {
                 const on = status === t.key;
                 return (
                   <Pressable key={t.key} onPress={() => setStatus(t.key)} style={{ paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999, backgroundColor: on ? palette.accent : palette.surface2 }}>
@@ -126,11 +132,12 @@ export function ModerationScreen() {
                 );
               })}
             </View>
-            {loading ? <Text style={{ color: palette.textMuted }}>{tr('Загрузка…')}</Text> : null}
+            {loading && !isMods ? <Text style={{ color: palette.textMuted }}>{tr('Загрузка…')}</Text> : null}
+            {isMods ? <ModeratorsPanel meId={me?.id} /> : null}
           </View>
         }
         ListEmptyComponent={
-          !loading ? (
+          !loading && !isMods ? (
             <Text style={{ paddingHorizontal: 4, color: palette.textMuted }}>
               {tr(isLog ? 'В журнале пока пусто — действий модерации ещё не было.' : status === 'open' ? 'Очередь пуста — разбирать нечего.' : 'Здесь пока пусто.')}
             </Text>
