@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { supabase } from '../config/supabase';
 import { requireAuth, requireNotBanned, optionalAuth } from '../middleware/auth';
+import { bannedUserIds } from '../lib/bans';
 import { requireUuidParams } from '../lib/uuid';
 import { LIMITS, optionalHttpsUrl, optionalText, optionalUuid } from '../lib/validate';
 import { limitStories } from '../middleware/rateLimit';
@@ -93,7 +94,31 @@ router.get('/', optionalAuth, async (req, res) => {
     return res.status(500).json({ error: error.message });
   }
 
-  const rows = (data ?? []) as unknown as StoryRow[];
+  const allRows = (data ?? []) as unknown as StoryRow[];
+
+  /**
+   * В ленте — истории только тех, на кого зритель подписан (и свои), а не всех
+   * подряд. Плюс прячем забаненных: их истории пропадают вместе с записями.
+   * Аноним фильтра подписок не имеет — ему показываем всё непросроченное (кроме
+   * забаненных).
+   */
+  let following: Set<string> | null = null;
+  if (viewer) {
+    const { data: follows } = await supabase
+      .from('follows')
+      .select('following_id')
+      .eq('follower_id', viewer);
+    following = new Set((follows ?? []).map((f) => f.following_id as string));
+    following.add(viewer); // свои истории тоже видно
+  }
+  const banned = await bannedUserIds();
+
+  const rows = allRows.filter((row) => {
+    const authorId = row.author?.id ?? row.author_id;
+    if (banned.has(authorId)) return false;
+    if (following && !following.has(authorId)) return false;
+    return true;
+  });
 
   // Что из этого зритель уже видел. Одним запросом на все истории разом:
   // спрашивать по одной значило бы столько запросов, сколько кружков.
