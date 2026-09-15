@@ -6,6 +6,7 @@ import { holdBackdrop } from '@/lib/screenBackdrop';
 import { BottomSheet } from '@/components/BottomSheet';
 import { apiFetch } from '@/lib/api';
 import { invalidate } from '@/lib/useApiData';
+import { useIsModerator } from '@/lib/useMe';
 import { TranslationKey, useT } from '@/lib/i18n';
 import { copyText } from '@/lib/clipboard';
 
@@ -18,9 +19,17 @@ const REPORT_REASONS: TranslationKey[] = [
   'reason.other',
 ];
 
-type Step = 'menu' | 'report' | 'done';
+type Step = 'menu' | 'report' | 'done' | 'ban';
 
-const STEPS: readonly Step[] = ['menu', 'report', 'done'];
+const STEPS: readonly Step[] = ['menu', 'report', 'done', 'ban'];
+
+/** Сроки бана — те же, что в разделе модерации. */
+const BAN_DURATIONS: { key: string; label: string }[] = [
+  { key: 'day', label: 'Сутки' },
+  { key: 'week', label: 'Неделя' },
+  { key: 'month', label: 'Месяц' },
+  { key: 'forever', label: 'Навсегда' },
+];
 
 type Item = {
   key: string;
@@ -51,6 +60,7 @@ export function PostMenuSheet({
   onDelete,
   continueHref,
   postId,
+  authorId,
   onStory,
 }: {
   open: boolean;
@@ -58,6 +68,8 @@ export function PostMenuSheet({
   url: string;
   /** Нужен для отправки записи в историю. */
   postId: string;
+  /** Автор записи — нужен модератору для бана прямо из меню. */
+  authorId?: string;
   /** Открыть редактор истории. Без него пункт «в историю» не показываем. */
   onStory?: () => void;
   isMine: boolean;
@@ -71,6 +83,7 @@ export function PostMenuSheet({
 }) {
   const router = useRouter();
   const { t } = useT();
+  const isModerator = useIsModerator();
   const [step, setStep] = useState<Step>('menu');
   const [copied, setCopied] = useState(false);
   const [reportFailed, setReportFailed] = useState(false);
@@ -80,7 +93,33 @@ export function PostMenuSheet({
     menu: null,
     report: null,
     done: null,
+    ban: null,
   });
+
+  /** Модератор удаляет чужую запись прямо из ленты. */
+  async function modDelete() {
+    onClose();
+    try {
+      await apiFetch(`/posts/${postId}`, { method: 'DELETE' });
+      invalidate('/posts');
+    } catch {
+      // Из закрытого меню показать ошибку негде.
+    }
+  }
+
+  /** Модератор банит автора на срок. */
+  async function ban(duration: string) {
+    onClose();
+    if (!authorId) return;
+    try {
+      await apiFetch('/moderation/ban', {
+        method: 'POST',
+        body: JSON.stringify({ userId: authorId, duration, reason: 'Из ленты' }),
+      });
+    } catch {
+      // тихо
+    }
+  }
 
   // Шаг сбрасываем на открытии, а не в эффекте: состояние выводится из пропса,
   // и лишнего кадра со старым шагом так не будет.
@@ -102,7 +141,7 @@ export function PostMenuSheet({
     stack.style.height = `${active.offsetHeight}px`;
     // reportFailed в зависимостях не для красоты: текст подтверждения на
     // неудаче другой длины, и без пересчёта шторка осталась бы прежней высоты.
-  }, [step, open, copied, isMine, reportFailed]);
+  }, [step, open, copied, isMine, isModerator, reportFailed]);
 
   /**
    * Причина уходит на сервер коротким словом, а не ключом перевода: в базе
@@ -223,12 +262,44 @@ export function PostMenuSheet({
     });
   }
 
+  // Модератору — управа прямо из ленты: удалить чужую запись и забанить автора.
+  if (isModerator && !isMine) {
+    items.push({
+      key: 'mod-delete',
+      label: 'Удалить запись (модерация)',
+      icon: (
+        <>
+          <path d="M5 7h14M10 7V5h4v2M6.5 7l.8 12.2h9.4L17.5 7" />
+          <path d="M10.5 11v5M13.5 11v5" />
+        </>
+      ),
+      danger: true,
+      onSelect: modDelete,
+    });
+    if (authorId) {
+      items.push({
+        key: 'mod-ban',
+        label: 'Забанить автора',
+        icon: (
+          <>
+            <circle cx="12" cy="12" r="9" />
+            <path d="M5.6 5.6l12.8 12.8" />
+          </>
+        ),
+        danger: true,
+        onSelect: () => setStep('ban'),
+      });
+    }
+  }
+
   const title =
     step === 'menu'
       ? t('post.menuTitle')
       : step === 'report'
         ? t('post.reportTitle')
-        : t('post.reportDone');
+        : step === 'ban'
+          ? 'На какой срок забанить автора?'
+          : t('post.reportDone');
 
   /** Оформление одного шага: активный в кадре, соседние разъехались по краям. */
   function stepStyle(name: Step): React.CSSProperties {
@@ -295,6 +366,27 @@ export function PostMenuSheet({
                 className="rounded-xl px-1 py-3.5 text-left text-[15px] text-[var(--text)] transition-colors hover:bg-[var(--surface-2)]"
               >
                 {t(reason)}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div
+          ref={(node) => {
+            stepRefs.current.ban = node;
+          }}
+          style={stepStyle('ban')}
+        >
+          <div className="flex flex-col py-1" style={padBottom}>
+            {BAN_DURATIONS.map((d) => (
+              <button
+                key={d.key}
+                type="button"
+                onClick={() => ban(d.key)}
+                className="rounded-xl px-1 py-3.5 text-left text-[15px] transition-colors hover:bg-[var(--surface-2)]"
+                style={{ color: 'var(--down)' }}
+              >
+                {d.label}
               </button>
             ))}
           </div>

@@ -456,6 +456,7 @@ export function PostCard({
         onClose={() => setMenuOpen(false)}
         url={typeof window === 'undefined' ? '' : `${window.location.origin}/posts/${post.id}`}
         postId={post.id}
+        authorId={post.author.id}
         // Репост в историю идёт через редактор: между решением и публикацией
         // должен быть шаг, на котором видно, что именно уйдёт.
         onStory={() =>

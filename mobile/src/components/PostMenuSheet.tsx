@@ -3,6 +3,7 @@ import { Modal, Pressable, Text, View } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import * as Clipboard from 'expo-clipboard';
 import { apiFetch } from '../lib/api';
+import { useIsModerator } from '../lib/useMe';
 import { useT } from '../lib/i18n';
 import { usePalette } from '../theme';
 
@@ -25,11 +26,19 @@ const REASONS: { key: string; label: string }[] = [
   { key: 'other', label: 'Другое' },
 ];
 
+const BAN_DURATIONS: { key: string; label: string }[] = [
+  { key: 'day', label: 'Сутки' },
+  { key: 'week', label: 'Неделя' },
+  { key: 'month', label: 'Месяц' },
+  { key: 'forever', label: 'Навсегда' },
+];
+
 export function PostMenuSheet({
   open,
   onClose,
   postId,
   isMine,
+  authorId,
   onDeleted,
   onStory,
   onContinue,
@@ -38,6 +47,8 @@ export function PostMenuSheet({
   onClose: () => void;
   postId: string;
   isMine: boolean;
+  /** Автор записи — нужен модератору для бана прямо из меню. */
+  authorId?: string;
   onDeleted?: () => void;
   /** Открыть репост записи в историю. Без него пункт «В историю» не показываем. */
   onStory?: () => void;
@@ -46,15 +57,31 @@ export function PostMenuSheet({
 }) {
   const palette = usePalette();
   const { t } = useT();
+  const isModerator = useIsModerator();
   const [reporting, setReporting] = useState(false);
+  const [banning, setBanning] = useState(false);
   const [done, setDone] = useState(false);
   const [copied, setCopied] = useState(false);
 
   function close() {
     setReporting(false);
+    setBanning(false);
     setDone(false);
     setCopied(false);
     onClose();
+  }
+
+  async function ban(duration: string) {
+    if (!authorId) return;
+    close();
+    try {
+      await apiFetch('/moderation/ban', {
+        method: 'POST',
+        body: JSON.stringify({ userId: authorId, duration, reason: 'Из ленты' }),
+      });
+    } catch {
+      // из закрытой шторки ошибку показать негде
+    }
   }
 
   async function copyLink() {
@@ -104,6 +131,15 @@ export function PostMenuSheet({
                 <Item key={r.key} palette={palette} label={r.label} onPress={() => report(r.key)} />
               ))}
             </>
+          ) : banning ? (
+            <>
+              <Text style={{ paddingHorizontal: 20, paddingVertical: 10, fontSize: 13, color: palette.textMuted }}>
+                {t('На какой срок забанить автора?')}
+              </Text>
+              {BAN_DURATIONS.map((d) => (
+                <Item key={d.key} palette={palette} label={d.label} danger onPress={() => ban(d.key)} />
+              ))}
+            </>
           ) : (
             <>
               {onContinue ? (
@@ -131,6 +167,23 @@ export function PostMenuSheet({
                   <Path d="M5 7h14M10 7V5h4v2M6.5 7l.8 12.2h9.4L17.5 7" />
                   <Path d="M10.5 11v5M13.5 11v5" />
                 </Item>
+              ) : null}
+
+              {/* Модератору — управа прямо из ленты: удалить чужую запись и
+                  забанить автора, не заходя в раздел модерации. */}
+              {isModerator && !isMine ? (
+                <>
+                  <Item palette={palette} label="Удалить запись (модерация)" danger onPress={remove}>
+                    <Path d="M5 7h14M10 7V5h4v2M6.5 7l.8 12.2h9.4L17.5 7" />
+                    <Path d="M10.5 11v5M13.5 11v5" />
+                  </Item>
+                  {authorId ? (
+                    <Item palette={palette} label="Забанить автора" danger onPress={() => setBanning(true)}>
+                      <Circle cx="12" cy="12" r="9" />
+                      <Path d="M5.6 5.6l12.8 12.8" />
+                    </Item>
+                  ) : null}
+                </>
               ) : null}
             </>
           )}

@@ -4,6 +4,7 @@ import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import * as Clipboard from 'expo-clipboard';
 import { apiFetch } from '../lib/api';
 import { setBlocked, useIsBlocked } from '../lib/blockedUsers';
+import { useIsModerator } from '../lib/useMe';
 import { useT } from '../lib/i18n';
 import { usePalette } from '../theme';
 
@@ -17,7 +18,14 @@ const REASONS: { key: string; label: string }[] = [
   { key: 'other', label: 'Другое' },
 ];
 
-type Step = 'menu' | 'report' | 'done' | 'clear';
+const BAN_DURATIONS: { key: string; label: string }[] = [
+  { key: 'day', label: 'Сутки' },
+  { key: 'week', label: 'Неделя' },
+  { key: 'month', label: 'Месяц' },
+  { key: 'forever', label: 'Навсегда' },
+];
+
+type Step = 'menu' | 'report' | 'done' | 'clear' | 'ban';
 
 /**
  * Меню человека — то, что под тремя точками в чужом профиле и в переписке, как
@@ -42,8 +50,21 @@ export function PersonMenuSheet({
   const palette = usePalette();
   const { t } = useT();
   const blocked = useIsBlocked(userId);
+  const isModerator = useIsModerator();
   const [step, setStep] = useState<Step>('menu');
   const [copied, setCopied] = useState(false);
+
+  async function ban(duration: string) {
+    close();
+    try {
+      await apiFetch('/moderation/ban', {
+        method: 'POST',
+        body: JSON.stringify({ userId, duration, reason: 'Из профиля' }),
+      });
+    } catch {
+      // из закрытой шторки ошибку показать негде
+    }
+  }
 
   function close() {
     onClose();
@@ -66,7 +87,17 @@ export function PersonMenuSheet({
   }
 
   const title =
-    step === 'menu' ? username : t(step === 'report' ? 'Что не так?' : step === 'clear' ? 'Очистить переписку?' : 'Жалоба принята');
+    step === 'menu'
+      ? username
+      : t(
+          step === 'report'
+            ? 'Что не так?'
+            : step === 'clear'
+              ? 'Очистить переписку?'
+              : step === 'ban'
+                ? 'На какой срок забанить?'
+                : 'Жалоба принята'
+        );
 
   return (
     <Modal visible={open} transparent animationType="fade" onRequestClose={close}>
@@ -110,6 +141,14 @@ export function PersonMenuSheet({
                 <Path d="M5 4.5h.01" />
               </Item>
 
+              {/* Модератору — бан прямо из профиля/переписки. */}
+              {isModerator ? (
+                <Item palette={palette} label="Забанить" hint="Не сможет писать посты, комментарии и сообщения" danger onPress={() => setStep('ban')}>
+                  <Circle cx="12" cy="12" r="8.5" />
+                  <Path d="M5.6 5.6l12.8 12.8" />
+                </Item>
+              ) : null}
+
               {onClearChat ? (
                 <Item palette={palette} label="Очистить переписку" hint="Удалятся только ваши сообщения" danger onPress={() => setStep('clear')}>
                   <Path d="M5 7h14M10 7V5h4v2M6.5 7l.8 12.2h9.4L17.5 7" />
@@ -125,6 +164,16 @@ export function PersonMenuSheet({
                 <Text style={{ fontSize: 16, color: palette.text }}>{t(r.label)}</Text>
               </Pressable>
             ))
+          ) : null}
+
+          {step === 'ban' ? (
+            <>
+              {BAN_DURATIONS.map((d) => (
+                <Pressable key={d.key} onPress={() => ban(d.key)} style={({ pressed }) => ({ paddingHorizontal: 20, paddingVertical: 15, backgroundColor: pressed ? palette.surface2 : 'transparent' })}>
+                  <Text style={{ fontSize: 16, color: palette.down }}>{t(d.label)}</Text>
+                </Pressable>
+              ))}
+            </>
           ) : null}
 
           {step === 'done' ? (

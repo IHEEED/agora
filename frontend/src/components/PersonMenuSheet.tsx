@@ -4,6 +4,7 @@ import { useLayoutEffect, useRef, useState } from 'react';
 import { BottomSheet } from '@/components/BottomSheet';
 import { apiFetch } from '@/lib/api';
 import { setBlocked, useIsBlocked } from '@/lib/blockedUsers';
+import { useIsModerator } from '@/lib/useMe';
 import { TranslationKey, useT } from '@/lib/i18n';
 import { copyText } from '@/lib/clipboard';
 
@@ -16,9 +17,17 @@ const REPORT_REASONS: TranslationKey[] = [
   'reason.other',
 ];
 
-type Step = 'menu' | 'report' | 'done' | 'clear';
+type Step = 'menu' | 'report' | 'done' | 'clear' | 'ban';
 
-const STEPS: readonly Step[] = ['menu', 'report', 'done', 'clear'];
+const STEPS: readonly Step[] = ['menu', 'report', 'done', 'clear', 'ban'];
+
+/** Сроки бана — те же, что в разделе модерации. */
+const BAN_DURATIONS: { key: string; label: string }[] = [
+  { key: 'day', label: 'Сутки' },
+  { key: 'week', label: 'Неделя' },
+  { key: 'month', label: 'Месяц' },
+  { key: 'forever', label: 'Навсегда' },
+];
 
 type Item = {
   key: string;
@@ -58,6 +67,7 @@ export function PersonMenuSheet({
   onClearChat?: () => Promise<void> | void;
 }) {
   const { t } = useT();
+  const isModerator = useIsModerator();
   const [step, setStep] = useState<Step>('menu');
   const [copied, setCopied] = useState(false);
   const [reportFailed, setReportFailed] = useState(false);
@@ -69,7 +79,21 @@ export function PersonMenuSheet({
     report: null,
     done: null,
     clear: null,
+    ban: null,
   });
+
+  /** Модератор банит человека прямо из профиля/переписки. */
+  async function ban(duration: string) {
+    onClose();
+    try {
+      await apiFetch('/moderation/ban', {
+        method: 'POST',
+        body: JSON.stringify({ userId, duration, reason: 'Из профиля' }),
+      });
+    } catch {
+      // тихо
+    }
+  }
 
   // Шаг сбрасываем на открытии, а не в эффекте: состояние выводится из пропса,
   // и лишнего кадра со старым шагом так не будет.
@@ -88,7 +112,7 @@ export function PersonMenuSheet({
     const active = stepRefs.current[step];
     if (!stack || !active) return;
     stack.style.height = `${active.offsetHeight}px`;
-  }, [step, open, copied, blocked, reportFailed]);
+  }, [step, open, copied, blocked, isModerator, reportFailed]);
 
   async function report(reasonKey: TranslationKey) {
     setStep('done');
@@ -165,6 +189,23 @@ export function PersonMenuSheet({
     },
   ];
 
+  // Модератору — бан прямо из профиля/переписки.
+  if (isModerator) {
+    items.push({
+      key: 'mod-ban',
+      label: 'Забанить',
+      hint: 'Не сможет писать посты, комментарии и сообщения',
+      icon: (
+        <>
+          <circle cx="12" cy="12" r="8.5" />
+          <path d="M5.9 5.9l12.2 12.2" />
+        </>
+      ),
+      danger: true,
+      onSelect: () => setStep('ban'),
+    });
+  }
+
   if (onClearChat) {
     items.push({
       key: 'clear',
@@ -188,7 +229,9 @@ export function PersonMenuSheet({
         ? 'Что не так?'
         : step === 'clear'
           ? 'Очистить переписку?'
-          : 'Жалоба принята';
+          : step === 'ban'
+            ? 'На какой срок забанить?'
+            : 'Жалоба принята';
 
   /** Оформление одного шага: активный в кадре, соседние разъехались по краям. */
   function stepStyle(name: Step): React.CSSProperties {
@@ -290,6 +333,28 @@ export function PersonMenuSheet({
             >
               Понятно
             </button>
+          </div>
+        </div>
+
+        {/* Сроки бана — отдельным шагом, как причины жалобы. */}
+        <div
+          ref={(node) => {
+            stepRefs.current.ban = node;
+          }}
+          style={stepStyle('ban')}
+        >
+          <div className="flex flex-col py-1" style={padBottom}>
+            {BAN_DURATIONS.map((d) => (
+              <button
+                key={d.key}
+                type="button"
+                onClick={() => ban(d.key)}
+                className="rounded-xl px-1 py-3.5 text-left text-[15px] transition-colors hover:bg-[var(--surface-2)]"
+                style={{ color: 'var(--down)' }}
+              >
+                {d.label}
+              </button>
+            ))}
           </div>
         </div>
 

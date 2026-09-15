@@ -180,6 +180,7 @@ export function PostCard({
         onClose={() => setMenuOpen(false)}
         postId={post.id}
         isMine={isMine}
+        authorId={post.author.id}
         onDeleted={() => setRemoved(true)}
         onStory={() => setStoryOpen(true)}
         // Продолжить можно только своё и только без цепочки — как в вебе.

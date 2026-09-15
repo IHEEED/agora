@@ -844,7 +844,12 @@ router.delete('/:id', requireAuth, async (req, res) => {
   const { data, error } = await supabase.from('posts').select('author_id').eq('id', id).single();
 
   if (error || !data) return res.status(404).json({ error: 'Такой записи больше нет' });
-  if (data.author_id !== req.user!.id) {
+
+  // Свою запись удаляет автор; чужую — модератор (прямо из ленты/профиля, а не
+  // только через разбор жалобы). Чужое удаление модератором идёт в журнал.
+  const isModerator = req.user!.role === 'moderator' || req.user!.role === 'admin';
+  const own = data.author_id === req.user!.id;
+  if (!own && !isModerator) {
     return res.status(403).json({ error: 'Удалять можно только свои записи' });
   }
 
@@ -856,6 +861,15 @@ router.delete('/:id', requireAuth, async (req, res) => {
   if (deleteError) {
     console.error('posts: delete failed', deleteError);
     return res.status(500).json({ error: 'Запись не удалилась — попробуйте ещё раз' });
+  }
+
+  if (isModerator && !own) {
+    const { error: logError } = await supabase.from('moderation_actions').insert({
+      moderator_id: req.user!.id,
+      target_user_id: data.author_id,
+      action: 'delete_post',
+    });
+    if (logError) console.error('posts: mod delete log failed', logError);
   }
 
   res.status(204).send();
