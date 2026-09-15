@@ -26,6 +26,7 @@ import reportsRouter from './routes/reports';
 import moderationRouter from './routes/moderation';
 import invitesRouter from './routes/invites';
 import notificationsRouter from './routes/notifications';
+import telegramRouter, { setupTelegramWebhook } from './routes/telegram';
 
 dotenv.config();
 
@@ -205,6 +206,7 @@ app.use('/reports', reportsRouter);
 app.use('/moderation', moderationRouter);
 app.use('/invites', invitesRouter);
 app.use('/notifications', notificationsRouter);
+app.use('/telegram', telegramRouter);
 
 /**
  * Последний рубеж: то, что обработчики бросили, а не вернули.
@@ -258,6 +260,9 @@ app.listen(Number(port), '0.0.0.0', () => {
    * строим выборки по факту (см. config/schema).
    */
   void probeSchema();
+
+  // Вешаем вебхук Telegram-бота (подтверждение телефона). Без токена — no-op.
+  void setupTelegramWebhook();
 
   /**
    * Греем соединение до Supabase сразу, не дожидаясь первого посетителя.
