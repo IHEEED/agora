@@ -15,9 +15,7 @@ import { PhoneVerifyModal } from '../components/PhoneVerifyModal';
 import { TopBar, useTopBarInset } from '../components/TopBar';
 import { ChevronIcon } from '../components/icons';
 import { SettingsSectionId } from '../lib/settingsSections';
-
-// Аккаунт поддержки (@parafraz). Забаненному разрешено писать только ему.
-const SUPPORT_USER_ID = process.env.EXPO_PUBLIC_SUPPORT_USER_ID ?? '1cb443d2-0ba4-410f-9675-d802b20cc7eb';
+import { SUPPORT_USER_ID } from '../lib/support';
 import { LOCALES, useT } from '../lib/i18n';
 import { useIsDark, usePalette } from '../theme';
 import type { RootStackParamList } from '../navigation/types';

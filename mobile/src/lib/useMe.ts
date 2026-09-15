@@ -1,12 +1,15 @@
 import { useEffect, useState } from 'react';
 import { apiFetch } from './api';
 
-/** Кто я: роль и признак модератора. Хватает для меню «...» и разделов. */
+/** Кто я: роль, модератор и состояние бана (для плашки забанённому). */
 export type Me = {
   id: string;
   username: string;
   role: 'user' | 'moderator' | 'admin';
   isModerator: boolean;
+  banned?: boolean;
+  banned_until?: string | null;
+  ban_reason?: string | null;
 };
 
 // Кэш на модуль: /users/me одинаков для всех экранов, тянем один раз.

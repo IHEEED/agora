@@ -18,6 +18,7 @@ import { SkeletonList, SkeletonPost } from '@/components/Skeleton';
 import { OverlayLink } from '@/components/OverlayLink';
 import { useT } from '@/lib/i18n';
 import { PullToRefresh } from '@/components/PullToRefresh';
+import { BannedBanner } from '@/components/BannedBanner';
 
 /**
  * Чем лента отсортирована.
@@ -159,6 +160,7 @@ export default function FeedPage() {
     <PullToRefresh onRefresh={refresh}>
     <div className="flex flex-1 flex-col items-center">
       <main className="below-header flex w-full max-w-2xl flex-col gap-4 px-4 pb-8">
+        <BannedBanner />
         <StoriesBar
           stories={stories}
           currentUserLetter={session?.user.email?.[0]?.toUpperCase()}

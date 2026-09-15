@@ -8,6 +8,7 @@ import { Post, PostSort } from '../lib/types';
 import { PostCard } from '../components/PostCard';
 import { Avatar } from '../components/Avatar';
 import { StoriesBar } from '../components/StoriesBar';
+import { BannedBanner } from '../components/BannedBanner';
 import { SuggestedPeople } from '../components/SuggestedPeople';
 import { SegmentedControl } from '../components/SegmentedControl';
 import { SkeletonPost } from '../components/SkeletonPost';
@@ -100,6 +101,7 @@ export function FeedScreen() {
 
   const header = (
     <View style={{ gap: 16, paddingTop: 4 }}>
+      <BannedBanner />
       <StoriesBar />
 
       {/* Вход в создание записи — строкой с волосяной чертой во всю ширину

@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { supabase } from '../config/supabase';
 import { hiddenUserIds } from '../lib/blocks';
+import { bannedUserIds } from '../lib/bans';
 import { requireAuth, requireNotBanned, requirePhoneVerified, optionalAuth } from '../middleware/auth';
 import { requireUuidParams } from '../lib/uuid';
 import { BadInput, LIMITS, optionalHttpsUrl, optionalText, optionalUuid, requiredText, requiredUuid } from '../lib/validate';
@@ -650,9 +651,10 @@ router.get('/', optionalAuth, async (req, res) => {
       return res.status(500).json({ error: 'Поиск не сработал — попробуйте ещё раз' });
     }
 
-    const hiddenSearch = await hiddenUserIds(req.user?.id);
-    const visibleSearch = hiddenSearch.size
-      ? data.filter((post) => !hiddenSearch.has(post.author_id as string))
+    const [hiddenSearch, bannedSearch] = await Promise.all([hiddenUserIds(req.user?.id), bannedUserIds()]);
+    const excludedSearch = bannedSearch.size ? new Set([...hiddenSearch, ...bannedSearch]) : hiddenSearch;
+    const visibleSearch = excludedSearch.size
+      ? data.filter((post) => !excludedSearch.has(post.author_id as string))
       : data;
 
     // Без сворачивания цепочек: в поиске показываем именно совпавшую запись,
@@ -691,9 +693,10 @@ router.get('/', optionalAuth, async (req, res) => {
     // до сворачивания цепочек и фильтров: так следующая идёт строго старше.
     const nextCursor = hasMore ? rawPage[rawPage.length - 1].created_at : null;
 
-    const hiddenIds = await hiddenUserIds(req.user?.id);
-    const visiblePage = hiddenIds.size
-      ? rawPage.filter((post) => !hiddenIds.has(post.author_id as string))
+    const [hiddenIds, bannedIds] = await Promise.all([hiddenUserIds(req.user?.id), bannedUserIds()]);
+    const excludedIds = bannedIds.size ? new Set([...hiddenIds, ...bannedIds]) : hiddenIds;
+    const visiblePage = excludedIds.size
+      ? rawPage.filter((post) => !excludedIds.has(post.author_id as string))
       : rawPage;
 
     const pagePosts = foldChains(sortPosts(await enrichPosts(visiblePage, req.user?.id), sort));
@@ -746,9 +749,10 @@ router.get('/', optionalAuth, async (req, res) => {
    * список у каждого свой. Уйди фильтр в запрос — кеш пришлось бы держать
    * персональный, и он перестал бы быть кешем ради десятка скрытых авторов.
    */
-  const hidden = await hiddenUserIds(req.user?.id);
-  const visible = hidden.size
-    ? data.filter((post) => !hidden.has(post.author_id as string))
+  const [hidden, banned] = await Promise.all([hiddenUserIds(req.user?.id), bannedUserIds()]);
+  const excluded = banned.size ? new Set([...hidden, ...banned]) : hidden;
+  const visible = excluded.size
+    ? data.filter((post) => !excluded.has(post.author_id as string))
     : data;
 
   /**
@@ -785,9 +789,10 @@ router.get('/community/:communityId', optionalAuth, async (req, res) => {
     return res.status(500).json({ error: 'Не удалось выполнить запрос, попробуйте ещё раз' });
   }
 
-  const hidden = await hiddenUserIds(req.user?.id);
-  const visible = hidden.size
-    ? data.filter((post) => !hidden.has(post.author_id as string))
+  const [hidden, banned] = await Promise.all([hiddenUserIds(req.user?.id), bannedUserIds()]);
+  const excluded = banned.size ? new Set([...hidden, ...banned]) : hidden;
+  const visible = excluded.size
+    ? data.filter((post) => !excluded.has(post.author_id as string))
     : data;
 
   res.json(foldChains(sortPosts(await enrichPosts(visible, req.user?.id), sort)));

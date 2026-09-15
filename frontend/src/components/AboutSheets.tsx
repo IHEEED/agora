@@ -2,18 +2,8 @@
 
 import Link from 'next/link';
 import { BottomSheet } from '@/components/BottomSheet';
+import { SUPPORT_USER_ID as SUPPORT_ACCOUNT } from '@/lib/support';
 import { useT } from '@/lib/i18n';
-
-/**
- * Куда писать в поддержку.
- *
- * Идентификатор общего аккаунта. Вынесен константой, потому что меняться он
- * может (аккаунт заведут заново, передадут другому), а искать его по разметке
- * в этот момент — лишняя работа.
- */
-// Аккаунт поддержки — id пользователя @parafraz. Переписка адресуется по id
-// (username в маршрут /messages не годится). Забаненному писать сюда разрешено.
-const SUPPORT_ACCOUNT = process.env.NEXT_PUBLIC_SUPPORT_USER_ID ?? '1cb443d2-0ba4-410f-9675-d802b20cc7eb';
 
 /**
  * Правила и поддержка.
