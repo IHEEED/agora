@@ -10,6 +10,7 @@ import { Avatar } from './Avatar';
 import { AvatarFollow } from './AvatarFollow';
 import { VerifiedMark } from './VerifiedMark';
 import { VoteBlock } from './VoteBlock';
+import { PollBlock } from './PollBlock';
 import { PostMenuSheet } from './PostMenuSheet';
 import { ImageViewer } from './ImageViewer';
 import { StoryComposer } from './StoryComposer';
@@ -209,6 +210,10 @@ export function PostCard({
       {hasChain ? <ChainTail chain={post.chain!} total={post.chain!.length + 1} /> : null}
 
       {images.length > 0 ? <ImageStrip images={images} /> : null}
+
+      {post.pollOptions && post.pollOptions.length > 0 ? (
+        <PollBlock postId={post.id} options={post.pollOptions} myVote={post.myPollVote ?? null} />
+      ) : null}
 
       {/* Строка действий: слева голоса и комментарии, справа просмотры, репост,
           поделиться. */}

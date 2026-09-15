@@ -52,6 +52,16 @@ export interface Post {
   /** Репосты: сколько всего и репостнул ли я. */
   repostCount?: number;
   myRepost?: boolean;
+  /** Опрос под записью: варианты со счётчиком и мой выбор (id варианта). */
+  pollOptions?: PollOption[];
+  myPollVote?: string | null;
+}
+
+/** Вариант опроса: текст и сколько за него отдано голосов. */
+export interface PollOption {
+  id: string;
+  text: string;
+  votes: number;
 }
 
 /** Картинки записи из двух источников: image_urls (после 011) или обложка image_url. */
