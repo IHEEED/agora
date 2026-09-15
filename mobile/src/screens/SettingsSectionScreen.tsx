@@ -15,6 +15,9 @@ import { PhoneVerifyModal } from '../components/PhoneVerifyModal';
 import { TopBar, useTopBarInset } from '../components/TopBar';
 import { ChevronIcon } from '../components/icons';
 import { SettingsSectionId } from '../lib/settingsSections';
+
+// Аккаунт поддержки (@parafraz). Забаненному разрешено писать только ему.
+const SUPPORT_USER_ID = process.env.EXPO_PUBLIC_SUPPORT_USER_ID ?? '1cb443d2-0ba4-410f-9675-d802b20cc7eb';
 import { LOCALES, useT } from '../lib/i18n';
 import { useIsDark, usePalette } from '../theme';
 import type { RootStackParamList } from '../navigation/types';
@@ -261,6 +264,14 @@ export function SettingsSectionScreen({ route }: Props) {
             <Text style={{ fontSize: 14, lineHeight: 21, color: palette.text }}>
               Напишите в <Text style={{ fontWeight: '700', color: palette.accent }}>@parafraz</Text> — это общий аккаунт поддержки. Отвечает тот из модераторов, кто сейчас свободен, в той же переписке.
             </Text>
+            {/* Кнопкой — прямо в переписку с поддержкой. Забаненному писать сюда
+                тоже можно: это единственный способ подать апелляцию. */}
+            <Pressable
+              onPress={() => { setSheet(null); navigation.navigate('Chat', { userId: SUPPORT_USER_ID, username: 'parafraz' }); }}
+              style={{ borderRadius: 999, paddingVertical: 12, alignItems: 'center', backgroundColor: palette.accent }}
+            >
+              <Text style={{ fontSize: 14, fontWeight: '700', color: palette.accentContrast }}>{t('Написать в поддержку')}</Text>
+            </Pressable>
             <Text style={{ fontSize: 13.5, lineHeight: 20, color: palette.textMuted }}>
               Если что-то сломалось, приложите снимок экрана и скажите, что делали за секунду до поломки: почти всегда именно это её и объясняет.
             </Text>

@@ -2,7 +2,14 @@ import { Router } from 'express';
 import { supabase } from '../config/supabase';
 import { hiddenUserIds, isBlockedBetween } from '../lib/blocks';
 import { isUuid, requireUuidParams } from '../lib/uuid';
-import { requireAuth, requireNotBanned, requirePhoneVerified } from '../middleware/auth';
+import { isBanned, requireAuth, requireNotBanned, requirePhoneVerified } from '../middleware/auth';
+
+/**
+ * Аккаунт поддержки. Забаненному разрешено писать только ему — иначе апелляцию
+ * подать некуда (поддержка живёт в личке). Всем остальным бан по-прежнему
+ * закрывает переписку. Настраивается SUPPORT_USER_ID; по умолчанию — @parafraz.
+ */
+const SUPPORT_USER_ID = process.env.SUPPORT_USER_ID ?? '1cb443d2-0ba4-410f-9675-d802b20cc7eb';
 import { LIMITS, optionalHttpsUrl, optionalText, optionalUuid, requiredText, requiredUuid } from '../lib/validate';
 import { limitMessages } from '../middleware/rateLimit';
 import { userColumns } from '../config/schema';
@@ -266,7 +273,7 @@ router.delete('/thread/:peerId', requireAuth, async (req, res) => {
  * спрашивают: заблокированный заводит новый аккаунт по чужому коду и пишет
  * тому же человеку, а стоило это ему одной почты.
  */
-router.post('/', requireAuth, requireNotBanned, requirePhoneVerified, limitMessages, async (req, res) => {
+router.post('/', requireAuth, requirePhoneVerified, limitMessages, async (req, res) => {
   const me = req.user!.id;
   const recipientId = requiredUuid(req.body?.recipient_id, 'Получатель');
   const body = optionalText(req.body?.body, LIMITS.message, 'Сообщение') ?? '';
@@ -283,6 +290,11 @@ router.post('/', requireAuth, requireNotBanned, requirePhoneVerified, limitMessa
 
   if (!recipientId || recipientId === me) {
     return res.status(400).json({ error: 'Отправлять некому' });
+  }
+
+  // Бан закрывает переписку всем, кроме поддержки: апелляцию подать можно.
+  if (isBanned(req.user!.bannedUntil) && recipientId !== SUPPORT_USER_ID) {
+    return res.status(403).json({ error: 'USER_BANNED', bannedUntil: req.user!.bannedUntil });
   }
   // Реплика может состоять из одного вложения: снимок без подписи — обычное
   // сообщение, а не пустое.
