@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { supabase } from '../config/supabase';
-import { invalidateUserState, requireAuth, requireModerator } from '../middleware/auth';
+import { invalidateUserState, isBanned, requireAuth, requireModerator } from '../middleware/auth';
+import type { NextFunction, Request, Response } from 'express';
 
 const router = Router();
 
@@ -565,6 +566,96 @@ router.get('/users/:id/history', async (req, res) => {
   }
 
   res.json(data);
+});
+
+/** Только админ управляет модераторами (не модератор — модератором). */
+function requireAdmin(req: Request, res: Response, next: NextFunction) {
+  if (req.user?.role !== 'admin') {
+    return res.status(403).json({ error: 'Управлять модераторами может только админ' });
+  }
+  next();
+}
+
+/** Состояние бана человека — меню «...» решает, показать «Забанить» или «Разбанить». */
+router.get('/users/:id/state', async (req, res) => {
+  const { data, error } = await supabase
+    .from('users')
+    .select('banned_until')
+    .eq('id', req.params.id)
+    .maybeSingle();
+
+  if (error) {
+    console.error('moderation: state failed', error);
+    return res.status(500).json({ error: 'Не вышло прочитать состояние' });
+  }
+  const bannedUntil = (data?.banned_until as string | null) ?? null;
+  res.json({ banned: isBanned(bannedUntil), banned_until: bannedUntil });
+});
+
+/** Список модераторов и админов — для раздела управления. */
+router.get('/moderators', async (_req, res) => {
+  const { data, error } = await supabase
+    .from('users')
+    .select('id, username, role, verified_at')
+    .in('role', ['moderator', 'admin'])
+    .order('role', { ascending: true })
+    .order('username', { ascending: true });
+
+  if (error) {
+    console.error('moderation: moderators list failed', error);
+    return res.status(500).json({ error: 'Не вышло загрузить список' });
+  }
+  res.json(data);
+});
+
+/** Выдать модерацию по нику. Админов через этот раздел не трогаем. */
+router.post('/moderators', requireAdmin, async (req, res) => {
+  const username = String(req.body?.username ?? '').trim().replace(/^@/, '');
+  if (!username) return res.status(400).json({ error: 'Нужен ник' });
+
+  const { data: user, error } = await supabase
+    .from('users')
+    .select('id, role')
+    .ilike('username', username)
+    .maybeSingle();
+
+  if (error) {
+    console.error('moderation: grant lookup failed', error);
+    return res.status(500).json({ error: 'Не вышло найти человека' });
+  }
+  if (!user) return res.status(404).json({ error: 'Такого ника нет' });
+  if (user.role === 'admin') return res.status(400).json({ error: 'Это админ — роль здесь не меняем' });
+  if (user.role === 'moderator') return res.status(400).json({ error: 'Уже модератор' });
+
+  const { error: updateError } = await supabase.from('users').update({ role: 'moderator' }).eq('id', user.id);
+  if (updateError) {
+    console.error('moderation: grant failed', updateError);
+    return res.status(500).json({ error: 'Не вышло выдать модерацию' });
+  }
+  invalidateUserState(user.id);
+  res.json({ ok: true });
+});
+
+/** Забрать модерацию (только у модератора; админа — нельзя). */
+router.delete('/moderators/:id', requireAdmin, async (req, res) => {
+  const id = String(req.params.id);
+  if (id === req.user!.id) return res.status(400).json({ error: 'Себя снять нельзя' });
+
+  const { data: user, error } = await supabase.from('users').select('id, role').eq('id', id).maybeSingle();
+  if (error) {
+    console.error('moderation: revoke lookup failed', error);
+    return res.status(500).json({ error: 'Не вышло прочитать роль' });
+  }
+  if (!user) return res.status(404).json({ error: 'Такого человека нет' });
+  if (user.role !== 'moderator') return res.status(400).json({ error: 'Это не модератор' });
+
+  const { error: updateError } = await supabase.from('users').update({ role: 'user' }).eq('id', id);
+  if (updateError) {
+    console.error('moderation: revoke failed', updateError);
+    return res.status(500).json({ error: 'Не вышло забрать модерацию' });
+  }
+  invalidateUserState(id);
+  res.json({ ok: true });
 });
 
 export default router;
