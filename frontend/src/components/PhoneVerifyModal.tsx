@@ -1,34 +1,17 @@
 'use client';
 
-import { useState, SubmitEvent } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { apiFetch } from '@/lib/api';
 import { CenterDialog } from '@/components/CenterDialog';
 
-type Step = 'phone' | 'code';
-
 /**
- * supabase-js не всегда кладёт вменяемый текст в error.message (для 500-х
- * от GoTrue это может быть пустая строка или служебный объект) — normalizeAuthError
- * достаёт понятное сообщение из известных случаев и не даёт отрисовать «{}».
- */
-function normalizeAuthError(error: { message?: string; code?: string } | null): string {
-  if (!error) return 'Не удалось выполнить запрос, попробуйте ещё раз';
-
-  const raw = error.message?.trim();
-
-  if (raw?.toLowerCase().includes('sms provider')) {
-    return 'В проекте не настроен SMS-провайдер (Authentication → Providers → Phone в Supabase) — без него коды не отправляются.';
-  }
-
-  return raw && raw !== '{}' ? raw : 'Не удалось выполнить запрос, попробуйте ещё раз';
-}
-
-/**
- * Подтверждение номера телефона через встроенный SMS OTP Supabase Auth
- * (auth.updateUser({ phone }) → auth.verifyOtp({ type: 'phone_change' })).
- * Требует включённого SMS-провайдера в Supabase (Authentication → Providers →
- * Phone) — своего провайдера (Twilio/Vonage/MessageBird) с его собственным
- * платным аккаунтом. Без него запрос кода вернёт ошибку от Supabase.
+ * Подтверждение телефона через Telegram-бота (вместо SMS).
+ *
+ * Открываем бота по одноразовой ссылке, человек жмёт в нём «Поделиться
+ * номером» — Telegram отдаёт боту номер, привязанный к его аккаунту. Мы
+ * опрашиваем /telegram/status и, как только бэкенд пометил телефон
+ * подтверждённым, обновляем сессию, чтобы phone_confirmed_at появился у клиента.
  */
 export function PhoneVerifyModal({
   open,
@@ -39,118 +22,91 @@ export function PhoneVerifyModal({
   onClose: () => void;
   onVerified: () => void;
 }) {
-  const [step, setStep] = useState<Step>('phone');
-  const [phone, setPhone] = useState('');
-  const [code, setCode] = useState('');
+  const [waiting, setWaiting] = useState(false);
+  const [url, setUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const poll = useRef<number | null>(null);
 
-  function reset() {
-    setStep('phone');
-    setPhone('');
-    setCode('');
-    setError(null);
-  }
-
-  function handleClose() {
-    reset();
-    onClose();
-  }
-
-  async function sendCode(e: SubmitEvent) {
-    e.preventDefault();
-    setError(null);
-    setLoading(true);
-
-    const { error } = await supabase.auth.updateUser({ phone });
-
-    setLoading(false);
-    if (error) {
-      setError(normalizeAuthError(error));
-      return;
+  function stopPoll() {
+    if (poll.current) {
+      window.clearInterval(poll.current);
+      poll.current = null;
     }
-    setStep('code');
   }
 
-  async function confirmCode(e: SubmitEvent) {
-    e.preventDefault();
-    setError(null);
-    setLoading(true);
-
-    const { error } = await supabase.auth.verifyOtp({ phone, token: code, type: 'phone_change' });
-
-    setLoading(false);
-    if (error) {
-      setError(normalizeAuthError(error));
-      return;
+  // Сброс при закрытии и уборка таймера при размонтировании.
+  useEffect(() => {
+    if (!open) {
+      stopPoll();
+      setWaiting(false);
+      setUrl(null);
+      setError(null);
     }
-    reset();
-    onVerified();
+  }, [open]);
+  useEffect(() => () => stopPoll(), []);
+
+  async function begin() {
+    setError(null);
+    try {
+      const res = await apiFetch<{ token: string; url: string }>('/telegram/start', { method: 'POST' });
+      setUrl(res.url);
+      setWaiting(true);
+      window.open(res.url, '_blank', 'noopener');
+      stopPoll();
+      poll.current = window.setInterval(async () => {
+        try {
+          const { status } = await apiFetch<{ status: string }>(`/telegram/status?token=${res.token}`);
+          if (status === 'done') {
+            stopPoll();
+            await supabase.auth.refreshSession();
+            onVerified();
+          } else if (status === 'expired' || status === 'error') {
+            stopPoll();
+            setWaiting(false);
+            setError('Подтверждение не завершилось. Попробуйте ещё раз.');
+          }
+        } catch {
+          // Разрыв сети — просто ждём следующего тика.
+        }
+      }, 2500);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Не удалось начать подтверждение');
+    }
   }
 
-  // Окном по центру, а не шторкой. Шторка — «продолжение экрана», её тянут и
-  // смахивают; здесь же прерывание, которое требует ответа, и его не должно
-  // быть видно как очередную панель снизу.
   return (
-    <CenterDialog open={open} onClose={handleClose} title="Подтвердите телефон">
+    <CenterDialog open={open} onClose={onClose} title="Подтвердите телефон">
       <div>
         <p className="mb-4 text-[14px] leading-relaxed text-[var(--text-muted)]">
-          Публикация постов и комментариев доступна только после подтверждения номера —
-          это защита от спама и накрутки голосов.
+          Публикация постов и комментариев доступна после подтверждения номера — это защита от спама и
+          накрутки. Подтвердить можно через Telegram, без SMS.
         </p>
 
-        {step === 'phone' ? (
-          <form onSubmit={sendCode} className="flex flex-col gap-3">
-            <input
-              type="tel"
-              required
-              autoFocus
-              placeholder="+7 900 000-00-00"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              className="rounded-md border border-[var(--border)] bg-[var(--bg)] px-3 py-2 text-sm text-[var(--text)]"
-            />
-            {error && <p className="text-sm" style={{ color: 'var(--down)' }}>{error}</p>}
-            <button
-              type="submit"
-              disabled={loading}
-              className="rounded-full bg-[var(--accent)] px-4 py-2 text-sm font-medium text-[var(--accent-contrast)] disabled:opacity-50"
-            >
-              {loading ? 'Отправляем код…' : 'Получить код'}
-            </button>
-          </form>
+        {waiting ? (
+          <div className="flex flex-col items-center gap-3 py-2 text-center">
+            <span className="h-6 w-6 animate-spin rounded-full border-2 border-[var(--border)] border-t-[var(--accent)]" />
+            <p className="text-[13.5px] text-[var(--text-muted)]">
+              Откройте бота и нажмите «Поделиться номером». Как подтвердите — экран закроется сам.
+            </p>
+            {url && (
+              <button
+                onClick={() => window.open(url, '_blank', 'noopener')}
+                className="rounded-full border border-[var(--border)] px-4 py-2 text-[13px] font-medium text-[var(--text)]"
+              >
+                Открыть Telegram ещё раз
+              </button>
+            )}
+          </div>
         ) : (
-          <form onSubmit={confirmCode} className="flex flex-col gap-3">
-            <p className="text-[13px] text-[var(--text-muted)]">Код отправлен на {phone}</p>
-            <input
-              type="text"
-              inputMode="numeric"
-              required
-              autoFocus
-              placeholder="123456"
-              value={code}
-              onChange={(e) => setCode(e.target.value)}
-              className="rounded-md border border-[var(--border)] bg-[var(--bg)] px-3 py-2 text-sm text-[var(--text)] font-num tracking-widest"
-            />
-            {error && <p className="text-sm" style={{ color: 'var(--down)' }}>{error}</p>}
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setStep('phone')}
-                className="rounded-full border border-[var(--border)] px-4 py-2 text-sm font-medium text-[var(--text)]"
-              >
-                Назад
-              </button>
-              <button
-                type="submit"
-                disabled={loading}
-                className="flex-1 rounded-full bg-[var(--accent)] px-4 py-2 text-sm font-medium text-[var(--accent-contrast)] disabled:opacity-50"
-              >
-                {loading ? 'Проверяем…' : 'Подтвердить'}
-              </button>
-            </div>
-          </form>
+          <button
+            onClick={begin}
+            className="flex w-full items-center justify-center gap-2 rounded-full bg-[var(--accent)] px-4 py-2.5 text-sm font-medium text-[var(--accent-contrast)]"
+          >
+            Подтвердить через Telegram
+          </button>
         )}
+
+        {error && <p className="mt-3 text-sm" style={{ color: 'var(--down)' }}>{error}</p>}
       </div>
     </CenterDialog>
   );
