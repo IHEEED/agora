@@ -447,10 +447,11 @@ function CreatePost() {
       const post = await apiFetch<Post>('/posts', {
         method: 'POST',
         body: JSON.stringify({
-          // Первая строка — заголовок, остальное — текст. Поле теперь одно,
-          // а модель на бэкенде по-прежнему из двух частей.
-          title: title.split('\n')[0].slice(0, 300),
-          body: title.split('\n').slice(1).join('\n').trim() || null,
+          // Два поля: заголовок и описание. Если заголовок пуст (пост «одним
+          // текстом»), заголовком становится первая строка описания, остальное —
+          // тело. Раньше отправлялся только title, а описание молча терялось.
+          title: title.trim() || body.trim().split('\n')[0].slice(0, 300),
+          body: (title.trim() ? body : body.split('\n').slice(1).join('\n')).trim() || null,
           // Пустая строка означает личный пост — на бэкенд уходит null.
           community_id: communityId || null,
           // Обложка и полный список. Обложку шлём отдельно, потому что на неё
