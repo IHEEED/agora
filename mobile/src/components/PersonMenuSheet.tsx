@@ -67,6 +67,15 @@ export function PersonMenuSheet({
     }
   }
 
+  async function unban() {
+    close();
+    try {
+      await apiFetch('/moderation/unban', { method: 'POST', body: JSON.stringify({ userId }) });
+    } catch {
+      // тихо
+    }
+  }
+
   function close() {
     onClose();
     // Сброс шага после закрытия — со следующим открытием меню начинается заново.
@@ -169,6 +178,10 @@ export function PersonMenuSheet({
 
           {step === 'ban' ? (
             <>
+              {/* Снять бан — если он был ошибочным. */}
+              <Pressable onPress={unban} style={({ pressed }) => ({ paddingHorizontal: 20, paddingVertical: 15, backgroundColor: pressed ? palette.surface2 : 'transparent' })}>
+                <Text style={{ fontSize: 16, color: palette.up }}>{t('Снять бан')}</Text>
+              </Pressable>
               {BAN_DURATIONS.map((d) => (
                 <Pressable key={d.key} onPress={() => ban(d.key)} style={({ pressed }) => ({ paddingHorizontal: 20, paddingVertical: 15, backgroundColor: pressed ? palette.surface2 : 'transparent' })}>
                   <Text style={{ fontSize: 16, color: palette.down }}>{t(d.label)}</Text>

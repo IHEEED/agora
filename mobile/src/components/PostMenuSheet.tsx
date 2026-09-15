@@ -86,6 +86,16 @@ export function PostMenuSheet({
     }
   }
 
+  async function unban() {
+    if (!authorId) return;
+    close();
+    try {
+      await apiFetch('/moderation/unban', { method: 'POST', body: JSON.stringify({ userId: authorId }) });
+    } catch {
+      // тихо
+    }
+  }
+
   async function copyLink() {
     await Clipboard.setStringAsync(`${WEB_URL}/posts/${postId}`);
     setCopied(true);
@@ -138,6 +148,10 @@ export function PostMenuSheet({
               <Text style={{ paddingHorizontal: 20, paddingVertical: 10, fontSize: 13, color: palette.textMuted }}>
                 {t('На какой срок забанить автора?')}
               </Text>
+              {/* Снять бан — если он был ошибочным. */}
+              <Pressable onPress={unban} style={({ pressed }) => ({ paddingHorizontal: 20, paddingVertical: 15, backgroundColor: pressed ? palette.surface2 : 'transparent' })}>
+                <Text style={{ fontSize: 16, color: palette.up }}>{t('Снять бан')}</Text>
+              </Pressable>
               {BAN_DURATIONS.map((d) => (
                 <Item key={d.key} palette={palette} label={d.label} danger onPress={() => ban(d.key)} />
               ))}

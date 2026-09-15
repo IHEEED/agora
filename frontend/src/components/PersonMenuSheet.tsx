@@ -96,6 +96,16 @@ export function PersonMenuSheet({
     }
   }
 
+  /** Снять бан — на случай ошибочного. Разбан не забанённого безвреден. */
+  async function unban() {
+    onClose();
+    try {
+      await apiFetch('/moderation/unban', { method: 'POST', body: JSON.stringify({ userId }) });
+    } catch {
+      // тихо
+    }
+  }
+
   // Шаг сбрасываем на открытии, а не в эффекте: состояние выводится из пропса,
   // и лишнего кадра со старым шагом так не будет.
   const [wasOpen, setWasOpen] = useState(open);
@@ -346,6 +356,15 @@ export function PersonMenuSheet({
           style={stepStyle('ban')}
         >
           <div className="flex flex-col py-1" style={padBottom}>
+            {/* Снять бан — если он был ошибочным. */}
+            <button
+              type="button"
+              onClick={unban}
+              className="rounded-xl px-1 py-3.5 text-left text-[15px] transition-colors hover:bg-[var(--surface-2)]"
+              style={{ color: 'var(--up)' }}
+            >
+              Снять бан
+            </button>
             {BAN_DURATIONS.map((d) => (
               <button
                 key={d.key}
